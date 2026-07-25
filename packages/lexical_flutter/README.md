@@ -1,3 +1,5 @@
+![lexical_flutter](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_flutter.png)
+
 # lexical_flutter
 
 Flutter rendering for [`lexical_core`](https://pub.dev/packages/lexical_core).

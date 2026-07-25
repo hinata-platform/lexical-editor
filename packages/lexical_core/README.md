@@ -1,3 +1,5 @@
+![lexical_core](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_core.png)
+
 # lexical_core
 
 Pure-Dart editor state model, wire-compatible with

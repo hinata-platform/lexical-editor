@@ -1,3 +1,5 @@
+![lexical_mention](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_mention.png)
+
 # lexical_mention
 
 Typed `@mention` nodes for

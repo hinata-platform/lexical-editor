@@ -1,3 +1,5 @@
+![lexical_list](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_list.png)
+
 # lexical_list
 
 Bullet, ordered and check-list nodes for

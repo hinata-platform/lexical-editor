@@ -1,3 +1,5 @@
+![lexical_html](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_html.png)
+
 # lexical_html
 
 HTML import and export for

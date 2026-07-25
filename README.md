@@ -1,3 +1,5 @@
+![lexical-editor](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/banner.png)
+
 # lexical-editor for Dart & Flutter
 
 A native Dart/Flutter reimplementation of [Lexical](https://lexical.dev),
@@ -25,17 +27,18 @@ native scrolling and native performance to keep code no user ever sees.
 |---|---|
 | [`lexical_core`](packages/lexical_core) | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, selection and every editing operation. No Flutter import. |
 | [`lexical_history`](packages/lexical_history) | Undo/redo over state snapshots, deterministic tag-driven coalescing |
+| [`lexical_collab`](packages/lexical_collab) | Real-time collaboration: a transport-agnostic CRDT, an editor binding, presence |
 | [`lexical_rich_text`](packages/lexical_rich_text) | Heading, quote |
 | [`lexical_list`](packages/lexical_list) | Bullet, ordered and check lists; nesting, numbering, Enter and Tab behaviour |
 | [`lexical_link`](packages/lexical_link) | Link and auto-link, with URL scheme validation at the point of use |
 | [`lexical_code`](packages/lexical_code) | Code blocks, syntax-highlight runs, and code-shaped Enter and Tab |
-| [`lexical_table`](packages/lexical_table) | Table, row, cell with bitmask header state |
+| [`lexical_table`](packages/lexical_table) | Table, row, cell; the grid, spans, cell-range selection and the structural commands |
 | [`lexical_mark`](packages/lexical_mark) | Annotation and comment ranges |
 | [`lexical_hashtag`](packages/lexical_hashtag) | Hashtags |
 | [`lexical_mention`](packages/lexical_mention) | Typed `@mentions`: atomic nodes, bounded trigger matching, debounced search |
 | [`lexical_markdown`](packages/lexical_markdown) | Markdown in and out, from transformers that describe both directions at once |
 | [`lexical_html`](packages/lexical_html) | HTML in and out, for text that has to leave the editor |
-| [`lexical_flutter`](packages/lexical_flutter) | Dirty-set reconciler, one render object per block, spans, offset map, theme, IME, selection, caret, keyboard |
+| [`lexical_flutter`](packages/lexical_flutter) | Dirty-set reconciler, one render object per block, spans, offset map, theme, IME, selection, caret, keyboard, drag handles, context menu |
 | [`lexical_mention_flutter`](packages/lexical_mention_flutter) | Caret-anchored typeahead popover with keyboard navigation |
 | [`lexical_editor_flutter`](packages/lexical_editor_flutter) | Batteries included: every node type, a theme presenting all of them, undo, one widget |
 
@@ -97,13 +100,15 @@ web.
 | **M2** | Read-only Flutter renderer — shippable on its own as a viewer for web-authored documents | done |
 | **M3** | Editable: selection operations, `DeltaTextInputClient`, caret, gestures, keyboard | done |
 | **M5** | Markdown and HTML conversion, mention typeahead, the batteries-included bundle | done |
-| — | Collaboration (CRDT), selection handles and toolbars, table editing commands | open |
+| **M6** | Table editing, selection handles and the context menu, collaboration | done |
 
-Versioning stays pre-1.0 while the API settles. Selection handles and a
-context toolbar are deliberately absent: Material and Cupertino disagree about
-what they look like, so the package exposes the geometry
-(`LexicalEditableState.caretRect`, `.selectionRects`) and leaves the design to
-the application.
+Versioning stays pre-1.0 while the API settles.
+
+Handles and the context menu come from Flutter's own `TextSelectionControls`
+and `AdaptiveTextSelectionToolbar`, so they look native everywhere without
+this package having an opinion about how a handle should look. The raw
+geometry stays exposed — `LexicalEditableState.caretRect`, `.selectionRects`,
+`.selectionEndpoints` — for a design system that wants to draw its own.
 
 ## Development
 

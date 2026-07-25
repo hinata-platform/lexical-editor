@@ -1,3 +1,5 @@
+![lexical_rich_text](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_rich_text.png)
+
 # lexical_rich_text
 
 Heading and quote nodes for [`lexical_core`](https://pub.dev/packages/lexical_core).

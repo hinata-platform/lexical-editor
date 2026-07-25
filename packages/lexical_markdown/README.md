@@ -1,3 +1,5 @@
+![lexical_markdown](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_markdown.png)
+
 # lexical_markdown
 
 Markdown import and export for

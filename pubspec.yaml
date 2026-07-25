@@ -9,6 +9,7 @@ environment:
 
 workspace:
   - packages/lexical_code
+  - packages/lexical_collab
   - packages/lexical_conformance
   - packages/lexical_core
   - packages/lexical_editor_flutter

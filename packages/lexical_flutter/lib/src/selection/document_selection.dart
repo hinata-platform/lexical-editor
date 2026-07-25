@@ -106,6 +106,15 @@ final class DocumentSelection {
 DocumentSelection? $resolveDocumentSelection() {
   final selection = $getSelection();
   if (selection is! RangeSelection) return null;
+  return $resolveSelectionSpans(selection);
+}
+
+/// Resolves any pair of points into per-block spans.
+///
+/// The same walk [$resolveDocumentSelection] does, for a selection that is
+/// not the local one — a collaborator's caret, a search hit, a review marker.
+/// Must be called inside a read or update context.
+DocumentSelection? $resolveSelectionSpans(RangeSelection selection) {
   final focusNode = selection.focus.getNode();
   if (focusNode == null) return null;
 

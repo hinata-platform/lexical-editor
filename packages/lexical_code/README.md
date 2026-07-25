@@ -1,3 +1,5 @@
+![lexical_code](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_code.png)
+
 # lexical_code
 
 Code block and syntax-highlight nodes for

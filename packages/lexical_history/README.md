@@ -1,3 +1,5 @@
+![lexical_history](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_history.png)
+
 # lexical_history
 
 Undo and redo for [`lexical_core`](https://pub.dev/packages/lexical_core).

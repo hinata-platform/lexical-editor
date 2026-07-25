@@ -41,6 +41,45 @@ class BlockCaret {
   int get hashCode => Object.hash(offset, color, width, opacity);
 }
 
+/// Someone else's range and caret, painted in their own colour.
+///
+/// Generic on purpose: this layer knows how to paint a second cursor, and
+/// nothing about where it came from. A collaborative session, a "reviewer is
+/// here" marker and a test fixture all supply the same value.
+@immutable
+class ForeignSelection {
+  /// Paints [range] filled with [color], with a caret at [caretOffset].
+  const ForeignSelection({
+    required this.color,
+    this.range,
+    this.caretOffset,
+    this.caretWidth = 2,
+  });
+
+  /// The highlighted range in flat offsets, or `null` for a bare caret.
+  final TextRange? range;
+
+  /// Where to draw the caret, in flat offsets, or `null` for none.
+  final int? caretOffset;
+
+  /// The colour of both.
+  final Color color;
+
+  /// Caret width in logical pixels.
+  final double caretWidth;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ForeignSelection &&
+      other.range == range &&
+      other.caretOffset == caretOffset &&
+      other.color == color &&
+      other.caretWidth == caretWidth;
+
+  @override
+  int get hashCode => Object.hash(range, caretOffset, color, caretWidth);
+}
+
 /// Lays out and paints the inline content of a single block.
 ///
 /// One render object **per block**, not per document. A `TextPainter`
@@ -166,6 +205,19 @@ class RenderLexicalBlock extends RenderBox
     markNeedsPaint();
   }
 
+  List<ForeignSelection> _foreignSelections = const [];
+
+  /// Other people's carets and ranges in this block.
+  ///
+  /// Painted **under** the local selection, so the local user's own selection
+  /// is never obscured by someone else's.
+  List<ForeignSelection> get foreignSelections => _foreignSelections;
+  set foreignSelections(List<ForeignSelection> value) {
+    if (listEquals(_foreignSelections, value)) return;
+    _foreignSelections = value;
+    markNeedsPaint();
+  }
+
   BlockCaret? _caret;
 
   /// The caret to paint, or `null` when this block has no caret.
@@ -270,11 +322,47 @@ class RenderLexicalBlock extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    _paintForeign(context.canvas, offset, carets: false);
     _paintSelection(context.canvas, offset);
     _textPainter.paint(context.canvas, offset);
     paintInlineChildren(context, offset);
     _paintComposing(context.canvas, offset);
+    _paintForeign(context.canvas, offset, carets: true);
     _paintCaret(context.canvas, offset);
+  }
+
+  /// Paints other people's ranges under the text and their carets over it.
+  ///
+  /// Split in two passes for the same reason the local selection is: a fill
+  /// drawn over the glyphs hides them, and a caret drawn under them
+  /// disappears inside a dense line.
+  void _paintForeign(Canvas canvas, Offset offset, {required bool carets}) {
+    if (_foreignSelections.isEmpty) return;
+    for (final foreign in _foreignSelections) {
+      if (carets) {
+        final caretOffset = foreign.caretOffset;
+        if (caretOffset == null) continue;
+        canvas.drawRect(
+          caretRect(caretOffset, width: foreign.caretWidth).shift(offset),
+          Paint()..color = foreign.color,
+        );
+        continue;
+      }
+      final range = foreign.range;
+      if (range == null || !range.isValid || range.isCollapsed) continue;
+      final selection = TextSelection(
+        baseOffset: range.start.clamp(0, _flatLength),
+        extentOffset: range.end.clamp(0, _flatLength),
+      );
+      if (selection.isCollapsed) continue;
+      // Translucent: two people selecting the same words must both be
+      // visible, and the text under them has to stay readable.
+      final paint = Paint()
+        ..color = foreign.color.withValues(alpha: foreign.color.a * 0.3);
+      for (final box in _textPainter.getBoxesForSelection(selection)) {
+        canvas.drawRect(box.toRect().shift(offset), paint);
+      }
+    }
   }
 
   void _paintComposing(Canvas canvas, Offset offset) {

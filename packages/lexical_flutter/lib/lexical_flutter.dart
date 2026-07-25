@@ -35,7 +35,7 @@ export 'src/input/lexical_input.dart'
 export 'src/render/block_offset_map.dart'
     show BlockOffsetMap, OffsetSegment, ResolvedPoint, buildModelOffsets;
 export 'src/render/render_lexical_block.dart'
-    show BlockCaret, RenderLexicalBlock;
+    show BlockCaret, ForeignSelection, RenderLexicalBlock;
 export 'src/render/span_builder.dart'
     show BuiltBlockSpan, SpanBuilder, isInlineContent;
 export 'src/selection/document_selection.dart'
@@ -44,7 +44,14 @@ export 'src/selection/document_selection.dart'
         BlockSelectionSpan,
         DocumentSelection,
         flatSelectionFor,
-        $resolveDocumentSelection;
+        $resolveDocumentSelection,
+        $resolveSelectionSpans;
+export 'src/selection/selection_overlay.dart'
+    show
+        LexicalContextMenuBuilder,
+        LexicalSelectionOverlay,
+        SelectionEndpoints,
+        defaultLexicalContextMenu;
 export 'src/theme/css_style.dart'
     show
         CssStyleResolver,
@@ -71,6 +78,7 @@ export 'src/widgets/lexical_editable.dart'
     show
         LexicalEditable,
         LexicalEditableState,
+        RemoteSelection,
         TabBehaviour,
         copyCommand,
         cutCommand,

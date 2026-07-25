@@ -1,3 +1,5 @@
+![lexical_link](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_link.png)
+
 # lexical_link
 
 Link and auto-link nodes for

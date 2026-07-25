@@ -1,3 +1,5 @@
+![lexical_table](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_table.png)
+
 # lexical_table
 
 Table, row and cell nodes for

@@ -1,3 +1,5 @@
+![lexical_mention_flutter](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_mention_flutter.png)
+
 # lexical_mention_flutter
 
 The typeahead UI for [`lexical_mention`](https://pub.dev/packages/lexical_mention):

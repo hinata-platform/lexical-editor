@@ -1,3 +1,5 @@
+![lexical_hashtag](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_hashtag.png)
+
 # lexical_hashtag
 
 Hashtag nodes for [`lexical_core`](https://pub.dev/packages/lexical_core).

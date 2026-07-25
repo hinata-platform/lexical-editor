@@ -1,3 +1,5 @@
+![lexical_editor_flutter](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_editor_flutter.png)
+
 # lexical_editor_flutter
 
 A [Lexical](https://lexical.dev)-compatible editor for Flutter with everything

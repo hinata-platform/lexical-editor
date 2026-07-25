@@ -3,16 +3,18 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:lexical_core/lexical_core.dart';
 
 import '../input/lexical_input.dart';
 import '../render/block_offset_map.dart';
 import '../render/render_lexical_block.dart';
 import '../selection/document_selection.dart';
+import '../selection/selection_overlay.dart';
 import '../theme/lexical_theme.dart';
 import 'block_registry.dart';
 import 'lexical_document.dart';
@@ -48,20 +50,75 @@ enum TabBehaviour {
   moveFocus,
 }
 
+/// Someone else's selection, to paint alongside the local one.
+///
+/// Deliberately free of any notion of where it came from: a collaborative
+/// session, a "reviewer is reading this" marker and a test all hand over the
+/// same two points and a colour. Resolve a peer's selection into [Point]s with
+/// `LexicalCollab.remoteSelections` from `lexical_collab`, or build them by
+/// hand.
+@immutable
+class RemoteSelection {
+  /// Records a selection from [anchor] to [focus], painted in [color].
+  const RemoteSelection({
+    required this.anchor,
+    required this.focus,
+    required this.color,
+    this.label,
+  });
+
+  /// Where the peer's selection started.
+  final Point anchor;
+
+  /// Where the peer's caret sits.
+  final Point focus;
+
+  /// The colour identifying them.
+  final Color color;
+
+  /// A name to show beside the caret, drawn by the application.
+  final String? label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RemoteSelection &&
+      other.anchor.key == anchor.key &&
+      other.anchor.offset == anchor.offset &&
+      other.anchor.type == anchor.type &&
+      other.focus.key == focus.key &&
+      other.focus.offset == focus.offset &&
+      other.focus.type == focus.type &&
+      other.color == color &&
+      other.label == label;
+
+  @override
+  int get hashCode => Object.hash(
+    anchor.key,
+    anchor.offset,
+    focus.key,
+    focus.offset,
+    color,
+    label,
+  );
+}
+
 /// An editable Lexical document.
 ///
 /// Wraps [LexicalDocument] with everything an edit needs: a platform input
-/// connection, selection, a caret, pointer and keyboard handling.
+/// connection, selection, a caret, pointer and keyboard handling, drag
+/// handles and a context menu.
 ///
 /// Caret and selection are pushed **straight onto the render objects** rather
 /// than through the widget tree. A blinking caret that rebuilt widgets would
 /// rebuild a block twice a second forever; this way a blink is one
 /// `markNeedsPaint` on one block.
 ///
-/// Selection handles and a context toolbar are deliberately not included.
-/// They are design-system decisions — Material and Cupertino disagree, and so
-/// will your app — and this package would have to pick one. The geometry they
-/// need is exposed instead: see [LexicalEditableState.caretRect] and
+/// The handles and the menu come from Flutter's own [TextSelectionControls]
+/// and [AdaptiveTextSelectionToolbar], so they look native on every platform
+/// without this package having an opinion about how a handle should look.
+/// Replace either through [selectionControls] and [contextMenuBuilder]; the
+/// raw geometry is still exposed for a design system that wants to draw its
+/// own — see [LexicalEditableState.caretRect] and
 /// [LexicalEditableState.selectionRects].
 class LexicalEditable extends StatefulWidget {
   /// Creates an editable view of [editor].
@@ -91,6 +148,12 @@ class LexicalEditable extends StatefulWidget {
     this.keyboardAppearance = Brightness.light,
     this.tabBehaviour = TabBehaviour.indent,
     this.windowRadius = 4096,
+    this.remoteSelections = const <RemoteSelection>[],
+    this.selectionControls,
+    this.contextMenuBuilder = defaultLexicalContextMenu,
+    this.magnifierConfiguration,
+    this.showSelectionHandles,
+    this.enableInteractiveSelection = true,
   });
 
   /// The editor being edited.
@@ -165,6 +228,30 @@ class LexicalEditable extends StatefulWidget {
   /// How much text either side of the caret the platform is told about.
   final int windowRadius;
 
+  /// Other people's selections, painted under the local one.
+  final List<RemoteSelection> remoteSelections;
+
+  /// The handle shapes. Defaults to the running platform's own.
+  final TextSelectionControls? selectionControls;
+
+  /// Builds the menu shown over a selection.
+  final LexicalContextMenuBuilder contextMenuBuilder;
+
+  /// How to magnify under a dragging finger. Defaults to the platform's.
+  final TextMagnifierConfiguration? magnifierConfiguration;
+
+  /// Whether to show drag handles. Defaults to touch platforms only.
+  ///
+  /// Handles on a desktop are wrong twice over: the platform does not draw
+  /// them, and a mouse does not need them.
+  final bool? showSelectionHandles;
+
+  /// Whether the selection may be changed by pointer at all.
+  ///
+  /// `false` still allows programmatic selection, which is what a document
+  /// that must not be selectable — a preview, a drag proxy — needs.
+  final bool enableInteractiveSelection;
+
   @override
   State<LexicalEditable> createState() => LexicalEditableState();
 }
@@ -178,9 +265,17 @@ class LexicalEditableState extends State<LexicalEditable> {
   Timer? _blinkTimer;
   bool _caretVisible = true;
   DocumentSelection? _selection;
+  List<(DocumentSelection, Color)> _remote = const [];
+  LexicalSelectionOverlay? _overlay;
 
   FocusNode get _focusNode =>
       widget.focusNode ?? (_ownedFocusNode ??= FocusNode());
+
+  /// Whether this platform draws drag handles.
+  bool get _wantsHandles =>
+      widget.showSelectionHandles ??
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android);
 
   /// The blocks currently on screen.
   BlockRegistry get registry => _registry;
@@ -221,11 +316,16 @@ class LexicalEditableState extends State<LexicalEditable> {
       if (_focusNode.hasFocus) _input.attach();
     }
     _refreshSelection();
+    // Presentation is imperative, so a changed `remoteSelections` reaches the
+    // render objects only if it is pushed — nothing rebuilds them.
+    _applyPresentation();
   }
 
   @override
   void dispose() {
     _blinkTimer?.cancel();
+    _overlay?.dispose();
+    _overlay = null;
     _unsubscribeEditor?.call();
     _registry.removeListener(_applyPresentation);
     _registry.dispose();
@@ -281,10 +381,34 @@ class LexicalEditableState extends State<LexicalEditable> {
     _restartBlink();
     _applyPresentation();
     _revealCaret();
+    _overlay?.update();
   }
 
   void _refreshSelection() {
-    _selection = widget.editor.read($resolveDocumentSelection);
+    widget.editor.read(() {
+      _selection = $resolveDocumentSelection();
+      _remote = <(DocumentSelection, Color)>[
+        for (final remote in widget.remoteSelections)
+          // Copied rather than passed through: a RangeSelection claims the
+          // points it is built from, and these belong to the caller.
+          if ($resolveSelectionSpans(
+                RangeSelection(
+                  Point(
+                    remote.anchor.key,
+                    remote.anchor.offset,
+                    remote.anchor.type,
+                  ),
+                  Point(
+                    remote.focus.key,
+                    remote.focus.offset,
+                    remote.focus.type,
+                  ),
+                ),
+              )
+              case final resolved?)
+            (resolved, remote.color),
+      ];
+    });
   }
 
   /// Writes caret, selection and composing state onto the mounted blocks.
@@ -306,9 +430,42 @@ class LexicalEditableState extends State<LexicalEditable> {
         ..selectionColor = widget.selectionColor
         ..composingColor = widget.composingColor
         ..selections = _selectionsFor(block, selection)
+        ..foreignSelections = _foreignFor(block)
         ..composing = block.key == composingBlock ? composingRange : null
         ..caret = _caretFor(block, caret, focused: focused);
     }
+  }
+
+  List<ForeignSelection> _foreignFor(MountedBlock block) {
+    if (_remote.isEmpty) return const [];
+    final result = <ForeignSelection>[];
+    for (final (selection, color) in _remote) {
+      TextRange? range;
+      for (final span in selection.spans) {
+        if (span.blockKey != block.key) continue;
+        range = flatSelectionFor(span, block.offsets);
+        break;
+      }
+      final caret = selection.caret;
+      int? caretOffset;
+      if (caret != null && caret.blockKey == block.key) {
+        caretOffset = block.offsets.flatOffsetFor(
+          caret.point.key,
+          caret.point.offset,
+          caret.point.type,
+        );
+      }
+      if (range == null && caretOffset == null) continue;
+      result.add(
+        ForeignSelection(
+          color: color,
+          range: range,
+          caretOffset: caretOffset,
+          caretWidth: widget.cursorWidth,
+        ),
+      );
+    }
+    return result;
   }
 
   List<TextSelection> _selectionsFor(
@@ -394,6 +551,131 @@ class LexicalEditableState extends State<LexicalEditable> {
     return rects;
   }
 
+  /// The editable's own rectangle in global coordinates, or `null`.
+  Rect? get editableBounds {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    return MatrixUtils.transformRect(
+      box.getTransformTo(null),
+      Offset.zero & box.size,
+    );
+  }
+
+  /// Where the two ends of the selection sit, in global coordinates.
+  ///
+  /// This is what a handle, a toolbar anchor and a magnifier all need, and
+  /// the only thing they need — which is why it is exposed rather than kept
+  /// behind the overlay that happens to use it.
+  SelectionEndpoints? get selectionEndpoints {
+    final selection = _selection;
+    if (selection == null) return null;
+    if (!selection.hasRange) {
+      final caret = caretRect;
+      if (caret == null) return null;
+      final point = Offset(caret.left, caret.bottom);
+      return SelectionEndpoints(
+        start: point,
+        end: point,
+        startHeight: caret.height,
+        endHeight: caret.height,
+      );
+    }
+    final rects = selectionRects;
+    if (rects.isEmpty) return null;
+    final first = rects.first;
+    final last = rects.last;
+    return SelectionEndpoints(
+      start: Offset(first.left, first.bottom),
+      end: Offset(last.right, last.bottom),
+      startHeight: first.height,
+      endHeight: last.height,
+    );
+  }
+
+  /// Where the platform's context menu should be anchored, or `null`.
+  TextSelectionToolbarAnchors? get contextMenuAnchors {
+    final endpoints = selectionEndpoints;
+    final box = context.findRenderObject() as RenderBox?;
+    if (endpoints == null || box == null || !box.hasSize) return null;
+    return TextSelectionToolbarAnchors.fromSelection(
+      renderBox: box,
+      startGlyphHeight: endpoints.startHeight,
+      endGlyphHeight: endpoints.endHeight,
+      selectionEndpoints: <TextSelectionPoint>[
+        TextSelectionPoint(box.globalToLocal(endpoints.start), null),
+        TextSelectionPoint(box.globalToLocal(endpoints.end), null),
+      ],
+    );
+  }
+
+  /// The entries the default context menu offers.
+  ///
+  /// An entry that cannot do anything is left out rather than disabled: a
+  /// greyed-out Cut over an empty selection is noise, and every platform's
+  /// own menu omits it.
+  List<ContextMenuButtonItem> get contextMenuButtonItems {
+    final hasRange = _selection?.hasRange ?? false;
+    return <ContextMenuButtonItem>[
+      if (hasRange && !widget.readOnly)
+        ContextMenuButtonItem(
+          onPressed: () {
+            cut();
+            hideToolbar();
+          },
+          type: ContextMenuButtonType.cut,
+        ),
+      if (hasRange)
+        ContextMenuButtonItem(
+          onPressed: () {
+            copy();
+            hideToolbar();
+          },
+          type: ContextMenuButtonType.copy,
+        ),
+      if (!widget.readOnly)
+        ContextMenuButtonItem(
+          onPressed: () {
+            paste();
+            hideToolbar();
+          },
+          type: ContextMenuButtonType.paste,
+        ),
+      if (!hasRange)
+        ContextMenuButtonItem(
+          onPressed: () {
+            selectAll();
+            showToolbar();
+          },
+          type: ContextMenuButtonType.selectAll,
+        ),
+    ];
+  }
+
+  /// The caret rectangles of [LexicalEditable.remoteSelections], by index.
+  ///
+  /// For drawing a collaborator's name beside their caret, which is an
+  /// application's job — it knows the typography and the avatar.
+  Map<int, Rect> get remoteCaretRects {
+    final result = <int, Rect>{};
+    for (var i = 0; i < _remote.length; i++) {
+      final caret = _remote[i].$1.caret;
+      if (caret == null) continue;
+      final block = _registry[caret.blockKey];
+      if (block == null || !block.render.hasSize) continue;
+      final flat = block.offsets.flatOffsetFor(
+        caret.point.key,
+        caret.point.offset,
+        caret.point.type,
+      );
+      if (flat == null) continue;
+      result[i] = MatrixUtils.transformRect(
+        block.render.getTransformTo(null),
+        block.render.caretRect(flat, width: widget.cursorWidth),
+      );
+    }
+    return result;
+  }
+
   void _revealCaret() {
     final caret = _selection?.caret;
     if (caret == null || !_focusNode.hasFocus) return;
@@ -448,12 +730,41 @@ class LexicalEditableState extends State<LexicalEditable> {
     });
   }
 
+  /// Moves one end of the selection to [globalPosition].
+  ///
+  /// [movingStart] names the end being dragged in *document* order, not
+  /// whether it is the anchor: a user dragging the left handle is pointing at
+  /// a glyph, and does not know which end the model calls the anchor.
+  void extendSelectionTo(Offset globalPosition, {required bool movingStart}) {
+    final hit = pointAt(globalPosition);
+    if (hit == null) return;
+    widget.editor.update(() {
+      final selection = $getSelection();
+      if (selection is! RangeSelection) return;
+      final (start, end) = selection.orderedPoints;
+      final fixed = movingStart ? end : start;
+      selection.anchor.set(fixed.key, fixed.offset, fixed.type);
+      selection.focus.set(hit.point.key, hit.point.offset, hit.point.type);
+    });
+  }
+
   void _onTapDown(TapDownDetails details) {
     requestFocus();
+    hideToolbar();
+    if (!widget.enableInteractiveSelection) return;
     _placeCaret(
       details.globalPosition,
       extend: HardwareKeyboard.instance.isShiftPressed,
     );
+    if (_wantsHandles) showHandles();
+  }
+
+  void _onSecondaryTapDown(TapDownDetails details) {
+    requestFocus();
+    if (!(_selection?.hasRange ?? false)) {
+      _placeCaret(details.globalPosition, extend: false);
+    }
+    showToolbar();
   }
 
   void _selectWordAt(Offset globalPosition) {
@@ -466,12 +777,71 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   void _onDragStart(DragStartDetails details) {
     requestFocus();
+    hideToolbar();
+    if (!widget.enableInteractiveSelection) return;
     _placeCaret(details.globalPosition, extend: false);
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
+    if (!widget.enableInteractiveSelection) return;
     _placeCaret(details.globalPosition, extend: true);
   }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_selection?.hasRange ?? false) showToolbar();
+  }
+
+  // -------------------------------------------------------------------
+  // Handles, toolbar, actions
+  // -------------------------------------------------------------------
+
+  LexicalSelectionOverlay _ensureOverlay() =>
+      _overlay ??= LexicalSelectionOverlay(
+        context: context,
+        editable: this,
+        selectionControls:
+            widget.selectionControls ?? _platformSelectionControls,
+        contextMenuBuilder: widget.contextMenuBuilder,
+        magnifierConfiguration:
+            widget.magnifierConfiguration ??
+            TextMagnifier.adaptiveMagnifierConfiguration,
+      );
+
+  static TextSelectionControls get _platformSelectionControls =>
+      switch (defaultTargetPlatform) {
+        TargetPlatform.iOS => cupertinoTextSelectionHandleControls,
+        TargetPlatform.macOS => cupertinoDesktopTextSelectionHandleControls,
+        TargetPlatform.android ||
+        TargetPlatform.fuchsia => materialTextSelectionHandleControls,
+        TargetPlatform.linux ||
+        TargetPlatform.windows => desktopTextSelectionHandleControls,
+      };
+
+  /// Shows the drag handles, if this platform uses them.
+  void showHandles() {
+    if (!widget.enableInteractiveSelection) return;
+    _ensureOverlay().showHandles();
+  }
+
+  /// Hides the drag handles.
+  void hideHandles() => _overlay?.hideHandles();
+
+  /// Shows the context menu over the selection.
+  void showToolbar() {
+    if (!widget.enableInteractiveSelection) return;
+    _ensureOverlay()
+      ..hideToolbar()
+      ..showToolbar();
+  }
+
+  /// Hides the context menu.
+  void hideToolbar() => _overlay?.hideToolbar();
+
+  /// Whether the context menu is on screen.
+  bool get toolbarVisible => _overlay?.toolbarVisible ?? false;
+
+  /// Selects the whole document.
+  void selectAll() => widget.editor.dispatchCommand(selectAllCommand, null);
 
   // -------------------------------------------------------------------
   // Keyboard
@@ -529,7 +899,7 @@ class LexicalEditableState extends State<LexicalEditable> {
       return KeyEventResult.handled;
     }
     if (primary && key == LogicalKeyboardKey.keyC) {
-      _copy();
+      copy();
       return KeyEventResult.handled;
     }
 
@@ -538,10 +908,10 @@ class LexicalEditableState extends State<LexicalEditable> {
     if (primary) {
       switch (key) {
         case LogicalKeyboardKey.keyX:
-          _cut();
+          cut();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyV:
-          _paste();
+          paste();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyB:
           editor.dispatchCommand(formatTextCommand, TextFormat.bold);
@@ -707,14 +1077,16 @@ class LexicalEditableState extends State<LexicalEditable> {
     return selection is RangeSelection ? selection.getTextContent() : '';
   });
 
-  void _copy() {
+  /// Copies the selection to the clipboard.
+  void copy() {
     if (widget.editor.dispatchCommand(copyCommand, null)) return;
     final text = _selectedText();
     if (text.isEmpty) return;
     unawaited(Clipboard.setData(ClipboardData(text: text)));
   }
 
-  void _cut() {
+  /// Cuts the selection to the clipboard.
+  void cut() {
     if (widget.editor.dispatchCommand(cutCommand, null)) return;
     final text = _selectedText();
     if (text.isEmpty) return;
@@ -722,7 +1094,8 @@ class LexicalEditableState extends State<LexicalEditable> {
     widget.editor.dispatchCommand(removeTextCommand, null);
   }
 
-  void _paste() {
+  /// Pastes the clipboard at the selection.
+  void paste() {
     if (widget.editor.dispatchCommand(pasteCommand, null)) return;
     unawaited(_pastePlainText());
   }
@@ -766,55 +1139,72 @@ class LexicalEditableState extends State<LexicalEditable> {
       onKeyEvent: _onKeyEvent,
       child: MouseRegion(
         cursor: SystemMouseCursors.text,
-        child: RawGestureDetector(
-          behavior: HitTestBehavior.opaque,
-          gestures: <Type, GestureRecognizerFactory>{
-            TapGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                  TapGestureRecognizer.new,
-                  (instance) => instance.onTapDown = _onTapDown,
-                ),
-            DoubleTapGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<
-                  DoubleTapGestureRecognizer
-                >(
-                  DoubleTapGestureRecognizer.new,
-                  (instance) =>
-                      instance.onDoubleTapDown = (details) =>
-                          _selectWordAt(details.globalPosition),
-                ),
-            LongPressGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<
-                  LongPressGestureRecognizer
-                >(
-                  LongPressGestureRecognizer.new,
-                  (instance) => instance
-                    ..onLongPressStart = (details) {
-                      requestFocus();
-                      _selectWordAt(details.globalPosition);
-                    }
-                    ..onLongPressMoveUpdate = (details) =>
-                        _placeCaret(details.globalPosition, extend: true),
-                ),
-            // Mouse and trackpad only: a touch drag has to reach the
-            // scrollable, or the document cannot be scrolled at all. Touch
-            // selection goes through long-press-and-drag instead, which is
-            // what every platform does.
-            PanGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
-                  () => PanGestureRecognizer(
-                    supportedDevices: const {
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.stylus,
-                      PointerDeviceKind.invertedStylus,
-                    },
-                  ),
-                  (instance) => instance
-                    ..onStart = _onDragStart
-                    ..onUpdate = _onDragUpdate,
-                ),
+        child: NotificationListener<ScrollNotification>(
+          // Handles that stay behind while the text scrolls away are worse
+          // than no handles at all.
+          onNotification: (_) {
+            _overlay?.update();
+            return false;
           },
-          child: document,
+          child: RawGestureDetector(
+            behavior: HitTestBehavior.opaque,
+            gestures: <Type, GestureRecognizerFactory>{
+              TapGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                    TapGestureRecognizer.new,
+                    (instance) => instance
+                      ..onTapDown = _onTapDown
+                      ..onSecondaryTapDown = _onSecondaryTapDown,
+                  ),
+              DoubleTapGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<
+                    DoubleTapGestureRecognizer
+                  >(
+                    DoubleTapGestureRecognizer.new,
+                    (instance) =>
+                        instance.onDoubleTapDown = (details) =>
+                            _selectWordAt(details.globalPosition),
+                  ),
+              LongPressGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<
+                    LongPressGestureRecognizer
+                  >(
+                    LongPressGestureRecognizer.new,
+                    (instance) => instance
+                      ..onLongPressStart = (details) {
+                        requestFocus();
+                        hideToolbar();
+                        _selectWordAt(details.globalPosition);
+                        if (_wantsHandles) showHandles();
+                      }
+                      ..onLongPressMoveUpdate = (details) {
+                        _placeCaret(details.globalPosition, extend: true);
+                      }
+                      ..onLongPressEnd = (_) {
+                        if (_selection?.hasRange ?? false) showToolbar();
+                      },
+                  ),
+              // Mouse and trackpad only: a touch drag has to reach the
+              // scrollable, or the document cannot be scrolled at all. Touch
+              // selection goes through long-press-and-drag instead, which is
+              // what every platform does.
+              PanGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+                    () => PanGestureRecognizer(
+                      supportedDevices: const {
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.stylus,
+                        PointerDeviceKind.invertedStylus,
+                      },
+                    ),
+                    (instance) => instance
+                      ..onStart = _onDragStart
+                      ..onUpdate = _onDragUpdate
+                      ..onEnd = _onDragEnd,
+                  ),
+            },
+            child: document,
+          ),
         ),
       ),
     );

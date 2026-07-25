@@ -1,3 +1,5 @@
+![lexical_mark](https://raw.githubusercontent.com/hinata-platform/lexical-editor/main/doc/preview/lexical_mark.png)
+
 # lexical_mark
 
 Mark nodes — annotations and comment ranges — for
