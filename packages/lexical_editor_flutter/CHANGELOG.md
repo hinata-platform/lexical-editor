@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-dev.2
+
+Seeding an empty document waits for the end of the frame, so a listener that
+rebuilds is not asked to rebuild during a build.
+
 ## 0.1.0-dev.1
 
 First development release.

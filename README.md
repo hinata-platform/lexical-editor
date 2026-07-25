@@ -110,6 +110,26 @@ this package having an opinion about how a handle should look. The raw
 geometry stays exposed — `LexicalEditableState.caretRect`, `.selectionRects`,
 `.selectionEndpoints` — for a design system that wants to draw its own.
 
+## Try it
+
+Every package has a runnable example. The pure-Dart ones are console
+programs that narrate what they do:
+
+```sh
+cd packages/lexical_collab && dart run example/main.dart
+cd packages/lexical_table  && dart run example/main.dart
+```
+
+The three Flutter packages ship an app, with the web target checked in so it
+runs without any setup:
+
+```sh
+cd packages/lexical_editor_flutter/example && flutter run -d chrome
+```
+
+VS Code users get the same thing from the Run panel — `.vscode/launch.json`
+has a web configuration for each of them.
+
 ## Development
 
 ```sh

@@ -1,0 +1,62 @@
+name: lexical_flutter_example
+description: A runnable example of the Lexical rendering and input layer.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  lexical_core:
+    path: ../../lexical_core
+  lexical_flutter:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+# Every package in this repository, pinned to its checkout.
+#
+# A path dependency does not make its *own* dependencies local, so without
+# this the example would resolve the siblings from pub.dev — which is exactly
+# what a change not yet published is missing.
+dependency_overrides:
+  lexical_code:
+    path: ../../lexical_code
+  lexical_collab:
+    path: ../../lexical_collab
+  lexical_core:
+    path: ../../lexical_core
+  lexical_editor_flutter:
+    path: ../../lexical_editor_flutter
+  lexical_flutter:
+    path: ../../lexical_flutter
+  lexical_hashtag:
+    path: ../../lexical_hashtag
+  lexical_history:
+    path: ../../lexical_history
+  lexical_html:
+    path: ../../lexical_html
+  lexical_link:
+    path: ../../lexical_link
+  lexical_list:
+    path: ../../lexical_list
+  lexical_mark:
+    path: ../../lexical_mark
+  lexical_markdown:
+    path: ../../lexical_markdown
+  lexical_mention:
+    path: ../../lexical_mention
+  lexical_mention_flutter:
+    path: ../../lexical_mention_flutter
+  lexical_rich_text:
+    path: ../../lexical_rich_text
+  lexical_table:
+    path: ../../lexical_table

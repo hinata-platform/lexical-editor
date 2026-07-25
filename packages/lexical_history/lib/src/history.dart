@@ -13,6 +13,13 @@ const String historyMergeTag = 'history-merge';
 /// Update tag marking a change *produced by* history, so it is not recorded.
 const String historicTag = 'historic';
 
+/// The tag a collaborative change carries.
+///
+/// Declared here rather than imported: this package must not depend on
+/// `lexical_collab` to know that someone else's typing is not this user's to
+/// undo. The string is upstream's, so anything else using it agrees.
+const String collaborationTag = 'collaboration';
+
 /// How one commit relates to the previous undo entry.
 enum HistoryMergeAction {
   /// Start a new undo entry.
@@ -99,8 +106,12 @@ Unsubscribe registerHistory(
 }) {
   final history = state ?? HistoryState();
   history._current = editor.editorState;
-  bool? reportedCanUndo;
-  bool? reportedCanRedo;
+  // Seeded from the state rather than left null, so registering announces
+  // nothing. Dispatching a command opens an update, and every Flutter
+  // integration registers from `initState` — which is inside a build, where a
+  // commit would notify listeners that are not allowed to rebuild yet.
+  var reportedCanUndo = history.canUndo;
+  var reportedCanRedo = history.canRedo;
 
   // Only dispatch on an actual change. A dispatch opens an update, and an
   // update fires this listener again — cheap to make idempotent, expensive
@@ -190,6 +201,18 @@ bool _redo(LexicalEditor editor, HistoryState history, void Function() notify) {
 
 HistoryMergeAction _decide(HistoryState history, EditorUpdate update) {
   if (update.hasTag(historicTag)) return HistoryMergeAction.discard;
+  // A collaborator's change is not a step this user took, so it must not
+  // become one: pressing undo would otherwise step back over someone else's
+  // typing instead of over your own. Merging it into the current step is the
+  // most this can do — a snapshot history cannot undo *only* the local
+  // changes, which is why collaborative sessions want an undo manager scoped
+  // to the replicated document instead of this one.
+  if (update.hasTag(collaborationTag)) {
+    history
+      .._lastChangeType = HistoryChangeType.other
+      .._lastChangeKey = null;
+    return HistoryMergeAction.merge;
+  }
   if (update.hasTag(historyPushTag)) {
     history
       .._lastChangeType = HistoryChangeType.other

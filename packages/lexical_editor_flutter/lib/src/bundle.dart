@@ -1,6 +1,7 @@
 /// Everything registered at once, and the widget that puts it together.
 library;
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -176,6 +177,18 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
     _unsubscribe = registerLexical(widget.editor, history: widget.history);
     // A document with no block has nowhere to put the caret; the rich-text
     // root transform maintains that afterwards.
+    //
+    // This runs from `initState`, which is inside a build. Seeding the
+    // paragraph there would commit — and notify every listener — mid-build,
+    // and a listener that calls `setState` is the most ordinary thing an
+    // application writes. So an empty document waits for the frame to end.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.editor.ensureNonEmpty();
+      });
+      return;
+    }
     widget.editor.ensureNonEmpty();
   }
 

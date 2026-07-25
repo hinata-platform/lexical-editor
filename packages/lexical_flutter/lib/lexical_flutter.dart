@@ -72,6 +72,7 @@ export 'src/theme/lexical_theme.dart'
         applyCaseTransform;
 export 'src/widgets/block_registry.dart'
     show BlockRegistry, BlockRegistryScope, MountedBlock, RegisteredBlock;
+export 'src/widgets/lexical_builder.dart' show LexicalBuilder;
 export 'src/widgets/lexical_document.dart'
     show LexicalDocument, LexicalDocumentState, LexicalRenderStats;
 export 'src/widgets/lexical_editable.dart'

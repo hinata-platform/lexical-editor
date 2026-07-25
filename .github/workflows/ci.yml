@@ -47,6 +47,39 @@ jobs:
             fi
           done
 
+  examples:
+    name: every example still runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+
+      # An example is the first thing anyone evaluating a package runs, so a
+      # broken one is a broken first impression. Running them is cheap; the
+      # console ones take a second each.
+      - name: Console examples
+        run: |
+          set -e
+          for dir in packages/*/; do
+            [ -f "$dir/example/main.dart" ] || continue
+            echo "== $dir"
+            (cd "$dir" && dart run example/main.dart > /dev/null)
+          done
+
+      - name: App examples
+        run: |
+          set -e
+          for dir in packages/*/example/; do
+            [ -f "$dir/pubspec.yaml" ] || continue
+            echo "== $dir"
+            (cd "$dir" && flutter pub get && flutter analyze && flutter test)
+          done
+
   discover:
     name: discover publishable packages
     runs-on: ubuntu-latest

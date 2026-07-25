@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Example — lexical_editor_flutter (Web)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "packages/lexical_editor_flutter/example",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Example — lexical_flutter (Web)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "packages/lexical_flutter/example",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Example — lexical_mention_flutter (Web)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "packages/lexical_mention_flutter/example",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Example — lexical_editor_flutter (macOS)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "packages/lexical_editor_flutter/example",
+      "deviceId": "macos"
+    }
+  ]
+}

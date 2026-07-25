@@ -638,6 +638,11 @@ final class LexicalEditor {
   /// after installing a state if the editor should never be structurally
   /// empty.
   void ensureNonEmpty() {
+    // Checked before opening an update rather than inside one: a commit
+    // notifies every listener whether or not anything changed, and this is
+    // called on the way to the first frame, where a listener that rebuilds
+    // would be rebuilding during a build.
+    if (!editorState.read(() => $getRoot().isEmpty)) return;
     update(() {
       final root = $getRoot();
       if (root.isEmpty) {

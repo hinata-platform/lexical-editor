@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-dev.3
+
+`ensureNonEmpty` no longer opens an update when the document already has
+children — it committed, and notified every listener, for nothing.
+
 ## 0.1.0-dev.2
 
 Milestone M1 — the behaviour layer. Still no Flutter dependency.

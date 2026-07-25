@@ -28,6 +28,7 @@ export 'src/history.dart'
         HistoryMergeAction,
         HistoryState,
         classifyChange,
+        collaborationTag,
         historicTag,
         historyMergeTag,
         historyPushTag,

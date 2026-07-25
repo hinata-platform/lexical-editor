@@ -67,8 +67,13 @@ final class SpanBuilder {
         switch (child) {
           case final TextNode text:
             final format = text.getFormat();
+            // A text node's *type* is styled too, not only its formats. A
+            // mention and a hashtag are TextNode subclasses that look
+            // different from ordinary text without carrying a format bit or a
+            // style string, and their theme entry would otherwise do nothing.
+            final typeStyle = theme.blockStyleFor(text.type).textStyle;
             final style = theme.resolveTextStyle(
-              base: inherited,
+              base: typeStyle == null ? inherited : inherited.merge(typeStyle),
               format: format,
               style: text.getStyle(),
             );

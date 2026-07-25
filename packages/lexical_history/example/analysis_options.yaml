@@ -1,0 +1,8 @@
+# An example is documentation, not API: doc comments on its own widgets
+# would be noise, and the comments that matter are the ones explaining the
+# editor rather than the demo around it.
+include: ../../../analysis_options.yaml
+
+analyzer:
+  errors:
+    public_member_api_docs: ignore

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-dev.2
+
+- A commit tagged `collaboration` no longer becomes an undo entry of its own,
+  so undo steps over your own work rather than a collaborator's.
+- Registering no longer dispatches `canUndo`/`canRedo` immediately, which
+  committed an update from `initState`.
+
 ## 0.1.0-dev.1
 
 First development release.

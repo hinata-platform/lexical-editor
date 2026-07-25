@@ -204,4 +204,51 @@ void main() {
       expect((built.span as TextSpan).style!.fontSize, 30);
     });
   });
+
+  testWidgets('a text node is styled by its type, not only by its formats', (
+    tester,
+  ) async {
+    // A mention and a hashtag are TextNode subclasses that look different
+    // from ordinary text without carrying a format bit or a style string.
+    // Their theme entry has to reach them, or it silently does nothing.
+    final editor = LexicalEditor(
+      nodes: [NodeSpec<_Badge>(type: 'badge', create: _Badge.new)],
+    );
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()
+            ..append($createTextNode('normal '))
+            ..append($applyNodeReplacement(_Badge('@rebar'))),
+        );
+    }, discrete: true);
+
+    const theme = LexicalTheme(
+      baseTextStyle: TextStyle(fontSize: 14),
+      blockStyles: {
+        'badge': BlockStyle(textStyle: TextStyle(color: Color(0xFFFF0000))),
+      },
+    );
+    await withContext(tester, (context) {
+      final built = editor.read(() {
+        final block = $getRoot().getFirstChild()! as ElementNode;
+        return SpanBuilder(theme: theme, context: context).buildBlock(block);
+      });
+      final spans = (built.span as TextSpan).children!.cast<TextSpan>();
+      expect(spans.first.style!.color, isNot(const Color(0xFFFF0000)));
+      expect(spans.last.style!.color, const Color(0xFFFF0000));
+    });
+  });
+}
+
+/// A text node with its own type, standing in for a mention or a hashtag.
+class _Badge extends TextNode {
+  _Badge([super.text]);
+
+  @override
+  String get type => 'badge';
+
+  @override
+  _Badge clone() => _Badge(getTextContent());
 }

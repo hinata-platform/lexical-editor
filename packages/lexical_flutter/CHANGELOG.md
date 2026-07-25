@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-dev.2
+
+- Selection handles, the platform context menu and the magnifier, built on
+  Flutter's own `TextSelectionControls` and `AdaptiveTextSelectionToolbar`.
+- `RemoteSelection`: other people's carets and ranges, painted in their own
+  colour.
+- `LexicalBuilder`, for rebuilding a widget after every commit without
+  tripping over a commit that lands during a build.
+- Fixed: a text node's *type* is styled again, so a theme entry for `mention`
+  or `hashtag` reaches the node it names.
+
 ## 0.1.0-dev.1
 
 Milestone M2 — the read-only renderer.
