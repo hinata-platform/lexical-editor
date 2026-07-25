@@ -27,3 +27,26 @@ Milestone M2 — the read-only renderer.
 
 - Editing arrives in M3: no IME, no keyboard handling, no selection gestures.
 - Semantics are not yet emitted per block.
+
+### Added — editable
+
+- `LexicalEditable`: focus, pointer, keyboard, caret, selection painting and
+  the composing underline, with caret and selection pushed straight onto
+  render objects so a blink never rebuilds a widget.
+- `LexicalInput`, a `DeltaTextInputClient`. The platform is given a **bounded
+  window** around the caret rather than the document, with newline sentinels
+  standing in for the block boundaries — without them, backspace at the start
+  of a paragraph produces no delta at all and blocks can never be merged from
+  a soft keyboard.
+- The model stays authoritative about the caret: after a text-changing delta
+  the corrected value is pushed back, which is what lets an atomic token
+  delete whole when the platform thinks one character went.
+- A delta computed against a value we no longer hold is refused and our value
+  re-stated, rather than corrupting the document over a transient race.
+- `$resolveDocumentSelection` and `flatSelectionFor`, mapping the model's
+  selection onto the blocks that paint it.
+- `buildModelOffsets`: the model-side offset map, deliberately distinct from
+  the renderer's — handing a presentational uppercase to an input method would
+  have it autocorrect text that does not exist.
+- `LexicalTheme.blockStyleResolver`, for types whose presentation depends on a
+  field rather than only on their type string.

@@ -206,6 +206,7 @@ final class LexicalEditor {
   /// Nested updates throw. Upstream defers them with counter-intuitive
   /// semantics preserved for backwards compatibility; there is no
   /// compatibility to preserve in a new port, and the deferral is a footgun.
+  /// Use [runUpdate] where joining an enclosing update is what you mean.
   void update(void Function() fn, {bool discrete = false, Set<String>? tags}) {
     if (_updating) {
       throw const LexicalStateError(
@@ -291,16 +292,21 @@ final class LexicalEditor {
     }
   }
 
-  /// Runs [fn] inside the current update when one is active.
+  /// Runs [fn] against the document, joining an update already in flight.
   ///
-  /// This is what command dispatch uses: a handler must be able to mutate
-  /// without opening a nested update.
-  @internal
-  void updateSync(void Function() fn, {Set<String>? tags}) {
+  /// [update] throws on nesting so that a genuine mistake is loud. This is
+  /// the explicit way to say the nesting is intended, and it is what any code
+  /// reachable **both** from a command handler and directly should use — a
+  /// handler already runs inside an update, and a mention picker or a toolbar
+  /// button can be either.
+  ///
+  /// Command dispatch is built on it, which is why a handler may mutate
+  /// freely without opening an update of its own.
+  void runUpdate(void Function() fn, {Set<String>? tags}) {
     if (_updating) {
       final pending = _pendingEditorState;
       if (pending == null) {
-        throw const LexicalStateError('updateSync: no pending state.');
+        throw const LexicalStateError('runUpdate: no pending state.');
       }
       if (tags != null) updateTags.addAll(tags);
       fn();
@@ -363,7 +369,7 @@ final class LexicalEditor {
     _dispatchDepth++;
     var handled = false;
     try {
-      updateSync(() {
+      runUpdate(() {
         handled = commands.dispatch(command, payload);
       });
     } finally {

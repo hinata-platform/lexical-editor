@@ -19,6 +19,7 @@ import 'package:lexical_core/lexical_core.dart';
 import 'src/list_item_node.dart';
 import 'src/list_node.dart';
 
+export 'src/list_commands.dart' show registerList;
 export 'src/list_item_node.dart' show ListItemNode, $createListItemNode;
 export 'src/list_node.dart'
     show

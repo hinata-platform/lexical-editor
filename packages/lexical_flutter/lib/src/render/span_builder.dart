@@ -58,7 +58,7 @@ final class SpanBuilder {
     final children = <InlineSpan>[];
     var hasDecorators = false;
 
-    final blockStyle = theme.blockStyleFor(block.type);
+    final blockStyle = theme.blockStyleForNode(block);
     final base = (baseStyle ?? theme.baseTextStyle).merge(blockStyle.textStyle);
 
     void visit(ElementNode parent, TextStyle inherited) {

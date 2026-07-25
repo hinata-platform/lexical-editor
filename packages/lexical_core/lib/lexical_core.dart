@@ -48,6 +48,7 @@ export 'src/commands.dart'
         selectAllCommand,
         selectionChangeCommand,
         undoCommand;
+export 'src/editing.dart' show maxIndent, registerPlainText, registerRichText;
 export 'src/editor.dart'
     show DirtyType, EditorConfig, LexicalEditor, UnknownNodePolicy, coreNodes;
 export 'src/editor_state.dart' show EditorState;
@@ -95,6 +96,18 @@ export 'src/selection.dart'
         RangeSelection,
         $getSelection,
         $setSelection;
+export 'src/selection_ops.dart'
+    show
+        ElementNodeSelection,
+        LexicalNodeSelection,
+        RangeSelectionEditing,
+        SelectionUnit,
+        TextNodeSelection,
+        $createRangeSelection,
+        $getNearestBlock,
+        $getNextBlock,
+        $getPreviousBlock,
+        $selectAll;
 export 'src/transforms.dart' show NodeTransform, maxTransformCycles;
 export 'src/updates.dart'
     show

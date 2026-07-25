@@ -1,0 +1,26 @@
+name: lexical_mention_flutter
+description: >-
+  Typeahead UI for lexical_mention: a caret-anchored suggestion popover with
+  debounced async search, keyboard navigation and atomic mention insertion.
+version: 0.1.0-dev.1
+repository: https://github.com/hinata-platform/lexical-editor
+issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
+
+environment:
+  sdk: ^3.8.0
+  flutter: ">=3.27.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  lexical_core: ^0.1.0-dev.2
+  lexical_flutter: ^0.1.0-dev.1
+  lexical_mention: ^0.1.0-dev.1
+  meta: ^1.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0

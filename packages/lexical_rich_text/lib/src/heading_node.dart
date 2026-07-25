@@ -69,6 +69,17 @@ class HeadingNode extends ElementNode {
       getWritable<HeadingNode>().._tag = value;
 
   @override
+  ElementNode insertNewAfter({required bool isAtEnd}) {
+    // Enter at the end of a heading starts body text; Enter inside it splits
+    // the heading in two. Both match Lexical web, and the first is the one
+    // people notice when it is wrong.
+    final next = isAtEnd ? $createParagraphNode() : $createHeadingNode(tag);
+    next.setDirection(getDirection());
+    insertAfter(next);
+    return next;
+  }
+
+  @override
   Map<String, Object?> exportJson() => {
     ...super.exportJson(),
     'tag': _tag.wire,

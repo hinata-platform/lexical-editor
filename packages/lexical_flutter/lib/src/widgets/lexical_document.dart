@@ -68,6 +68,7 @@ class LexicalDocument extends StatefulWidget {
     this.scrollController,
     this.textDirection,
     this.textScaler,
+    this.registry,
     this.stats,
   });
 
@@ -98,6 +99,13 @@ class LexicalDocument extends StatefulWidget {
   /// Overrides the ambient text scaler.
   final TextScaler? textScaler;
 
+  /// A registry to publish mounted blocks into.
+  ///
+  /// Supplied by the editable layer, which needs to reach render objects to
+  /// paint carets and selections without rebuilding widgets. A read-only
+  /// document creates its own.
+  final BlockRegistry? registry;
+
   /// Test-only rebuild counters.
   @visibleForTesting
   final LexicalRenderStats? stats;
@@ -109,7 +117,7 @@ class LexicalDocument extends StatefulWidget {
 /// State of a [LexicalDocument]; exposed so the editable layer can reach the
 /// block registry.
 class LexicalDocumentState extends State<LexicalDocument> {
-  final BlockRegistry _registry = BlockRegistry();
+  late final BlockRegistry _registry = widget.registry ?? BlockRegistry();
   final Map<NodeKey, _CachedBlock> _cache = <NodeKey, _CachedBlock>{};
   List<NodeKey> _topLevelKeys = const [];
   Unsubscribe? _unsubscribe;
@@ -223,7 +231,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
     required int depth,
   }) {
     final theme = widget.theme;
-    final style = theme.blockStyleFor(element.type);
+    final style = theme.blockStyleForNode(element);
     final direction = _resolveDirection(element);
 
     final children = element.children.toList();
@@ -339,7 +347,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
   }
 
   TextAlign _resolveAlign(ElementNode element, TextDirection direction) {
-    final style = widget.theme.blockStyleFor(element.type);
+    final style = widget.theme.blockStyleForNode(element);
     return switch (element.getFormat()) {
       ElementFormat.left => TextAlign.left,
       ElementFormat.center => TextAlign.center,

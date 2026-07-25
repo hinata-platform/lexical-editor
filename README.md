@@ -21,22 +21,37 @@ native scrolling and native performance to keep code no user ever sees.
 
 ## Packages
 
-| Package | Status | What it is |
-|---|---|---|
-| [`lexical_core`](packages/lexical_core) | **done** | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, listeners. No Flutter import. |
-| [`lexical_history`](packages/lexical_history) | **done** | Undo/redo over state snapshots, deterministic tag-driven coalescing |
-| [`lexical_rich_text`](packages/lexical_rich_text) | **done** | Heading, quote |
-| [`lexical_list`](packages/lexical_list) | **done** | Bullet, ordered and check lists, with derived item numbering |
-| [`lexical_link`](packages/lexical_link) | **done** | Link and auto-link, with URL scheme validation at the point of use |
-| [`lexical_code`](packages/lexical_code) | **done** | Code blocks and syntax-highlight runs |
-| [`lexical_table`](packages/lexical_table) | **done** | Table, row, cell with bitmask header state |
-| [`lexical_mark`](packages/lexical_mark) | **done** | Annotation and comment ranges |
-| [`lexical_hashtag`](packages/lexical_hashtag) | **done** | Hashtags |
-| [`lexical_mention`](packages/lexical_mention) | **done** | Typed `@mentions`, bounded trigger matching, debounced search |
-| [`lexical_flutter`](packages/lexical_flutter) | **read-only done** | Dirty-set reconciler, one render object per block, spans, offset map, theme |
-| `lexical_mention_flutter` | planned (after M3) | Typeahead popover with keyboard navigation |
-| `lexical_editor_flutter` | planned (after M3) | Umbrella: default theme and block presenters for every node type |
-| `lexical_markdown` / `lexical_html` | planned (M5) | Import/export and clipboard interop |
+| Package | What it is |
+|---|---|
+| [`lexical_core`](packages/lexical_core) | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, selection and every editing operation. No Flutter import. |
+| [`lexical_history`](packages/lexical_history) | Undo/redo over state snapshots, deterministic tag-driven coalescing |
+| [`lexical_rich_text`](packages/lexical_rich_text) | Heading, quote |
+| [`lexical_list`](packages/lexical_list) | Bullet, ordered and check lists; nesting, numbering, Enter and Tab behaviour |
+| [`lexical_link`](packages/lexical_link) | Link and auto-link, with URL scheme validation at the point of use |
+| [`lexical_code`](packages/lexical_code) | Code blocks, syntax-highlight runs, and code-shaped Enter and Tab |
+| [`lexical_table`](packages/lexical_table) | Table, row, cell with bitmask header state |
+| [`lexical_mark`](packages/lexical_mark) | Annotation and comment ranges |
+| [`lexical_hashtag`](packages/lexical_hashtag) | Hashtags |
+| [`lexical_mention`](packages/lexical_mention) | Typed `@mentions`: atomic nodes, bounded trigger matching, debounced search |
+| [`lexical_markdown`](packages/lexical_markdown) | Markdown in and out, from transformers that describe both directions at once |
+| [`lexical_html`](packages/lexical_html) | HTML in and out, for text that has to leave the editor |
+| [`lexical_flutter`](packages/lexical_flutter) | Dirty-set reconciler, one render object per block, spans, offset map, theme, IME, selection, caret, keyboard |
+| [`lexical_mention_flutter`](packages/lexical_mention_flutter) | Caret-anchored typeahead popover with keyboard navigation |
+| [`lexical_editor_flutter`](packages/lexical_editor_flutter) | Batteries included: every node type, a theme presenting all of them, undo, one widget |
+
+Start with `lexical_editor_flutter` and drop to the narrower packages when a
+document must *not* contain something — the registry is closed at
+construction, so a type that was never registered cannot be created, pasted or
+imported.
+
+```dart
+final editor = createLexicalEditor();
+
+LexicalEditorField(
+  editor: editor,
+  baseTextStyle: Theme.of(context).textTheme.bodyMedium!,
+)
+```
 
 Every node type in the fixture corpus is implemented: all 20 canonical
 documents from Lexical 0.48 round-trip as a fixed point. The suite lives in
@@ -80,19 +95,29 @@ web.
 | **M1** | Commands with the full priority ladder, transforms, listeners, normalization, history | done |
 | **M4** | Feature node packages — pulled forward so the whole fixture corpus round-trips | done |
 | **M2** | Read-only Flutter renderer — shippable on its own as a viewer for web-authored documents | done |
-| **M3** | Editable: `DeltaTextInputClient`, selection mapping, caret, keyboard | next |
-| **M5** | Tables, markdown, collaboration, HTML clipboard | |
+| **M3** | Editable: selection operations, `DeltaTextInputClient`, caret, gestures, keyboard | done |
+| **M5** | Markdown and HTML conversion, mention typeahead, the batteries-included bundle | done |
+| — | Collaboration (CRDT), selection handles and toolbars, table editing commands | open |
 
-Versioning stays pre-1.0 until M3 is trustworthy.
+Versioning stays pre-1.0 while the API settles. Selection handles and a
+context toolbar are deliberately absent: Material and Cupertino disagree about
+what they look like, so the package exposes the geometry
+(`LexicalEditableState.caretRect`, `.selectionRects`) and leaves the design to
+the application.
 
 ## Development
 
 ```sh
-dart pub get                                  # workspace resolve
-dart analyze                                  # must be clean
+flutter pub get                               # workspace resolve
+flutter analyze                               # must be clean
 dart format --output=none --set-exit-if-changed .
 cd packages/lexical_core && dart test         # headless, no Flutter binding
+cd packages/lexical_flutter && flutter test   # widget and render tests
 ```
+
+`lexical_core` and every pure-Dart feature package run under `dart test` with
+no Flutter binding. If one of them only passes under `flutter test`, the
+layering has broken — that is the finding, not a reason to switch runners.
 
 Regenerating fixtures against upstream (needs Node):
 
@@ -120,7 +145,15 @@ consumed by third-party apps.
   preserved verbatim. They are never silently dropped: that would turn a
   version skew into permanent data loss the moment the user saves.
 - `style` and `url` are kept **verbatim in the model** for round-trip
-  fidelity and validated at the point of use, not mutated on import.
+  fidelity and validated at the point of use, not mutated on import. The
+  markdown and HTML importers follow the same rule: a document is allowed to
+  contain a link this application will refuse to open, and rewriting it on
+  import would silently change the document.
+- The HTML importer is bounded the same way the JSON one is — depth, node
+  count and text length — because pasted markup is untrusted input too.
+- Keystrokes do not train the platform's personalized keyboard model by
+  default. An editor holds documents its user did not choose to share with a
+  keyboard vendor, and the opposite default makes that decision for them.
 
 ## Licence
 

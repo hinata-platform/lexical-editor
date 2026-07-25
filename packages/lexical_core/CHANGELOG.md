@@ -70,3 +70,27 @@ First development release — milestone M0 of the port.
 - Text nodes containing a newline are rejected at import rather than
   normalized. Upstream tolerates them; splitting them into line breaks
   arrives with the normalization transforms in M1.
+
+### Added — editing
+
+- Every editing operation on `RangeSelection`: `insertText`, `removeText`,
+  `deleteCharacter`, `deleteWord`, `deleteLine`, `insertParagraph`,
+  `insertLineBreak`, `insertNodes`, `formatText`, `setTextStyle`, `moveCaret`,
+  `moveTo`, `selectWord`, `getBlocks` and `getTextContent`. A replacement is
+  one operation throughout, never a delete followed by an insert.
+- Movement by **grapheme cluster**, so a skin-toned emoji is one press of
+  backspace rather than four.
+- Atomic token handling: a range that reaches into a token takes all of it,
+  which is what makes a mention behave like the entity it names.
+- `registerPlainText` and `registerRichText`, wiring the commands to those
+  operations at the lowest priority, plus a root transform that keeps the
+  document from ever being left without somewhere to put the caret.
+- `ElementNode.insertNewAfter`, the extension point deciding which block Enter
+  produces; `TextNode.spliceText`; selection helpers on every node type.
+- `LexicalEditor.runUpdate`, for code reachable both from a command handler —
+  which is already inside an update — and directly.
+
+### Fixed
+
+- Text nodes preserve newlines, matching upstream. The canonical code-block
+  fixture contains them, so rejecting or splitting them broke real documents.

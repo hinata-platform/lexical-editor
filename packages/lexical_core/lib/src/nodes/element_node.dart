@@ -7,6 +7,7 @@ import '../errors.dart';
 import '../keys.dart';
 import '../updates.dart';
 import 'lexical_node.dart';
+import 'paragraph_node.dart';
 import 'text_node.dart';
 
 /// Resolved writing direction of a block.
@@ -260,6 +261,26 @@ abstract class ElementNode extends LexicalNode {
 
   /// Whether this element accepts indentation.
   bool get canIndent => true;
+
+  /// Creates and inserts the element that follows this one when the user
+  /// splits it — the block Enter produces.
+  ///
+  /// This is the extension point for Enter behaviour, and the reason it is a
+  /// virtual method rather than a switch in the command handler: a list item
+  /// yields another list item, while a heading yields a *paragraph*, because
+  /// continuing a heading is almost never what the user meant. Each of those
+  /// rules belongs to the node that knows it, in its own package.
+  ///
+  /// [isAtEnd] reports whether the caret was at the very end of this element,
+  /// which is the one thing the decision usually turns on. The selection
+  /// itself is deliberately not passed: a node that reaches into the
+  /// selection to decide its shape is a node that behaves differently
+  /// depending on how the edit arrived.
+  ElementNode insertNewAfter({required bool isAtEnd}) {
+    final paragraph = $createParagraphNode();
+    insertAfter(paragraph);
+    return paragraph;
+  }
 
   // ---------------------------------------------------------------------
   // Mutation

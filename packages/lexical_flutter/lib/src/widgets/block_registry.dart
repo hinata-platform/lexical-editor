@@ -31,7 +31,12 @@ class MountedBlock {
 /// Only mounted blocks are registered, so a viewport-culled document keeps a
 /// map proportional to what is on screen rather than to the document — which
 /// is the whole point of culling.
-class BlockRegistry {
+///
+/// It is a [ChangeNotifier] because caret and selection are pushed straight
+/// onto render objects rather than through the widget tree: a block that
+/// mounts, or rebuilds and gets a fresh render object, has to be told what to
+/// paint, and this is how the editable layer learns that it happened.
+class BlockRegistry extends ChangeNotifier {
   final Map<NodeKey, MountedBlock> _blocks = <NodeKey, MountedBlock>{};
 
   /// The mounted blocks, in no particular order.
@@ -41,10 +46,20 @@ class BlockRegistry {
   MountedBlock? operator [](NodeKey key) => _blocks[key];
 
   /// Registers a mounted block.
-  void register(MountedBlock block) => _blocks[block.key] = block;
+  void register(MountedBlock block) {
+    final existing = _blocks[block.key];
+    _blocks[block.key] = block;
+    if (existing == null ||
+        !identical(existing.render, block.render) ||
+        existing.offsets != block.offsets) {
+      notifyListeners();
+    }
+  }
 
   /// Removes a block that has been unmounted.
-  void unregister(NodeKey key) => _blocks.remove(key);
+  void unregister(NodeKey key) {
+    if (_blocks.remove(key) != null) notifyListeners();
+  }
 
   /// The mounted block containing [nodeKey], or `null`.
   MountedBlock? blockContaining(NodeKey nodeKey) {
@@ -68,7 +83,11 @@ class BlockRegistry {
   }
 
   /// Forgets every block. Called when the document is replaced.
-  void clear() => _blocks.clear();
+  void clear() {
+    if (_blocks.isEmpty) return;
+    _blocks.clear();
+    notifyListeners();
+  }
 }
 
 /// Makes the [BlockRegistry] of the enclosing document available to

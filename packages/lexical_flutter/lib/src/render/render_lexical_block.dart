@@ -142,6 +142,30 @@ class RenderLexicalBlock extends RenderBox
     markNeedsPaint();
   }
 
+  TextRange? _composing;
+
+  /// The input method's composing region, in flat offsets, or `null`.
+  ///
+  /// Painted as an underline and **never stored in the editor state**: the
+  /// text itself is already in the document, and only the hint that it is
+  /// still being composed lives here.
+  TextRange? get composing => _composing;
+  set composing(TextRange? value) {
+    if (_composing == value) return;
+    _composing = value;
+    markNeedsPaint();
+  }
+
+  Color? _composingColor;
+
+  /// Colour of the composing underline.
+  Color? get composingColor => _composingColor;
+  set composingColor(Color? value) {
+    if (_composingColor == value) return;
+    _composingColor = value;
+    markNeedsPaint();
+  }
+
   BlockCaret? _caret;
 
   /// The caret to paint, or `null` when this block has no caret.
@@ -249,7 +273,28 @@ class RenderLexicalBlock extends RenderBox
     _paintSelection(context.canvas, offset);
     _textPainter.paint(context.canvas, offset);
     paintInlineChildren(context, offset);
+    _paintComposing(context.canvas, offset);
     _paintCaret(context.canvas, offset);
+  }
+
+  void _paintComposing(Canvas canvas, Offset offset) {
+    final composing = _composing;
+    final color = _composingColor;
+    if (composing == null || color == null) return;
+    if (!composing.isValid || composing.isCollapsed) return;
+    final selection = TextSelection(
+      baseOffset: composing.start.clamp(0, _flatLength),
+      extentOffset: composing.end.clamp(0, _flatLength),
+    );
+    if (selection.isCollapsed) return;
+    final paint = Paint()..color = color;
+    for (final box in _textPainter.getBoxesForSelection(selection)) {
+      final rect = box.toRect();
+      canvas.drawRect(
+        Rect.fromLTWH(rect.left, rect.bottom - 1, rect.width, 1).shift(offset),
+        paint,
+      );
+    }
   }
 
   void _paintSelection(Canvas canvas, Offset offset) {

@@ -21,6 +21,7 @@ import 'package:lexical_core/lexical_core.dart';
 
 import 'src/code_node.dart';
 
+export 'src/code_commands.dart' show registerCode;
 export 'src/code_node.dart'
     show CodeHighlightNode, CodeNode, $createCodeHighlightNode, $createCodeNode;
 

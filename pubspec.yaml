@@ -11,13 +11,17 @@ workspace:
   - packages/lexical_code
   - packages/lexical_conformance
   - packages/lexical_core
+  - packages/lexical_editor_flutter
   - packages/lexical_flutter
   - packages/lexical_hashtag
   - packages/lexical_history
+  - packages/lexical_html
   - packages/lexical_link
   - packages/lexical_list
   - packages/lexical_mark
+  - packages/lexical_markdown
   - packages/lexical_mention
+  - packages/lexical_mention_flutter
   - packages/lexical_rich_text
   - packages/lexical_table
 

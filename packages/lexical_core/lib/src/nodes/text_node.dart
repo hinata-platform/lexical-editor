@@ -262,6 +262,23 @@ class TextNode extends LexicalNode {
       !other.isUnmergeable &&
       type == other.type;
 
+  /// Replaces [delCount] code units at [offset] with [newText].
+  ///
+  /// The single primitive every text edit funnels through. Offsets are
+  /// clamped rather than asserted: they arrive from platform IMEs, which
+  /// occasionally report a range against a value they have not finished
+  /// applying, and throwing there would freeze the editor over a transient
+  /// disagreement that the next delta corrects.
+  TextNode spliceText(int offset, int delCount, String newText) {
+    final writable = getWritable<TextNode>();
+    final text = writable.textInternal;
+    final start = offset.clamp(0, text.length);
+    final requested = start + (delCount < 0 ? 0 : delCount);
+    final end = requested.clamp(start, text.length);
+    writable.textInternal = text.replaceRange(start, end, newText);
+    return writable;
+  }
+
   /// Splits this node at the given code-unit [offsets].
   ///
   /// Returns the resulting nodes in document order, this node first. Offsets

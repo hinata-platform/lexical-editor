@@ -209,3 +209,78 @@ final class BlockOffsetMap {
   bool contains(NodeKey key) =>
       key == blockKey || segments.any((segment) => segment.key == key);
 }
+
+/// Builds [block]'s flat text and offset map from the **model** alone.
+///
+/// Deliberately distinct from the map the renderer produces alongside a span.
+/// That one describes what is on screen, case transforms included; this one
+/// describes what the user is editing. Handing a presentational `STRASSE` to
+/// an input method would have it autocorrect, select and replace text that
+/// does not exist in the document.
+///
+/// Because nothing here is presentational, every segment is one-to-one, and
+/// offsets map without the edge cases [OffsetSegment.isIdentity] guards.
+BlockOffsetMap buildModelOffsets(ElementNode block) {
+  final segments = <OffsetSegment>[];
+  final buffer = StringBuffer();
+
+  void visit(ElementNode parent) {
+    var index = 0;
+    for (final child in parent.children) {
+      switch (child) {
+        case final TextNode text:
+          final content = text.getTextContent();
+          segments.add(
+            OffsetSegment(
+              key: text.key,
+              flatStart: buffer.length,
+              flatLength: content.length,
+              modelLength: content.length,
+              type: PointType.text,
+              parent: parent.key,
+              indexInParent: index,
+            ),
+          );
+          buffer.write(content);
+        case final LineBreakNode lineBreak:
+          segments.add(
+            OffsetSegment(
+              key: lineBreak.key,
+              flatStart: buffer.length,
+              flatLength: 1,
+              modelLength: 1,
+              type: PointType.element,
+              parent: parent.key,
+              indexInParent: index,
+            ),
+          );
+          buffer.write('\n');
+        case final DecoratorNode decorator when decorator.isInline:
+          segments.add(
+            OffsetSegment(
+              key: decorator.key,
+              flatStart: buffer.length,
+              flatLength: 1,
+              modelLength: 1,
+              type: PointType.element,
+              parent: parent.key,
+              indexInParent: index,
+            ),
+          );
+          buffer.write('￼');
+        case final ElementNode inline when inline.isInline:
+          visit(inline);
+        default:
+          break;
+      }
+      index++;
+    }
+  }
+
+  visit(block);
+  return BlockOffsetMap(
+    blockKey: block.key,
+    flatText: buffer.toString(),
+    segments: segments,
+  );
+}

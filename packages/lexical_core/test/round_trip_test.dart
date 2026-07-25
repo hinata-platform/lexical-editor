@@ -41,9 +41,12 @@ void main() {
           );
           expect(jsonDeepEquals(fixture.json, encoded), isTrue);
         },
+        // Not a gap: these types live in their own packages, which the core
+        // must not depend on. The full corpus runs in lexical_conformance,
+        // against an editor that registers all of them.
         skip: missing.isEmpty
             ? null
-            : 'node types not implemented yet: ${missing.join(", ")}',
+            : 'types belong to feature packages: ${missing.join(", ")}',
       );
     }
   });
@@ -64,9 +67,12 @@ void main() {
             reason: 'a second decode/encode pass must change nothing',
           );
         },
+        // Not a gap: these types live in their own packages, which the core
+        // must not depend on. The full corpus runs in lexical_conformance,
+        // against an editor that registers all of them.
         skip: missing.isEmpty
             ? null
-            : 'node types not implemented yet: ${missing.join(", ")}',
+            : 'types belong to feature packages: ${missing.join(", ")}',
       );
     }
   });

@@ -48,6 +48,16 @@ class ListItemNode extends ElementNode {
   ListItemNode setValue(int value) =>
       getWritable<ListItemNode>().._value = value;
 
+  @override
+  ElementNode insertNewAfter({required bool isAtEnd}) {
+    // A new item continues the list. Inside a check list it starts unticked
+    // rather than inheriting the state above, which would silently mark work
+    // as done that nobody did.
+    final item = $createListItemNode(checked == null ? null : false);
+    insertAfter(item);
+    return item;
+  }
+
   /// An item holding only a nested list is a structural wrapper, not content.
   bool get isNestedListHolder {
     final first = getFirstChild();

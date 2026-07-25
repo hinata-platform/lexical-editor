@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.1.0-dev.1
+
+First development release.
+
+### Added
+
+- `$convertFromMarkdown` and `$convertToMarkdown`, driven by a
+  `MarkdownTransformers` set that describes each construct in both directions.
+- `defaultMarkdownTransformers`: headings, quotes, fenced code, bullet,
+  ordered and check lists with nesting, links, and the four inline formats.
+- Delimiter matching that gets `***both***` right, by requiring a closing
+  delimiter to sit at the end of its run rather than taking the first one it
+  finds.

@@ -87,6 +87,17 @@ class BlockMarker {
 typedef BlockMarkerBuilder =
     BlockMarker? Function(BuildContext context, ElementNode node);
 
+/// Refines a block's presentation using the node itself.
+///
+/// [LexicalTheme.blockStyles] is keyed on the **type string**, which is what
+/// lets this package style headings and lists without importing the packages
+/// that define them. Some types present differently depending on a field —
+/// a heading's level, a table cell's header flags — and a type string cannot
+/// express that. This hook is where those cases live, and it is supplied by
+/// whoever does know the node type.
+typedef BlockStyleResolver =
+    BlockStyle Function(ElementNode node, BlockStyle base);
+
 /// Renders a decorator node.
 ///
 /// Inline decorators become `WidgetSpan`s; block decorators become their own
@@ -109,6 +120,7 @@ class LexicalTheme {
     required this.baseTextStyle,
     this.textFormatStyles = const {},
     this.blockStyles = const {},
+    this.blockStyleResolver,
     this.markerBuilders = const {},
     this.styleResolver = defaultCssStyleResolver,
     this.defaultBlockStyle = const BlockStyle(),
@@ -130,6 +142,10 @@ class LexicalTheme {
 
   /// Per-node-type block presentation.
   final Map<String, BlockStyle> blockStyles;
+
+  /// Refines a block style using the node, for types whose presentation
+  /// depends on a field rather than only on their type.
+  final BlockStyleResolver? blockStyleResolver;
 
   /// Per-node-type marker builders.
   final Map<String, BlockMarkerBuilder> markerBuilders;
@@ -162,6 +178,15 @@ class LexicalTheme {
   /// The block presentation for [type].
   BlockStyle blockStyleFor(String type) =>
       blockStyles[type] ?? defaultBlockStyle;
+
+  /// The block presentation for [node], after [blockStyleResolver].
+  ///
+  /// Prefer this over [blockStyleFor] wherever a node is in hand: it is the
+  /// only one that sees a heading's level.
+  BlockStyle blockStyleForNode(ElementNode node) {
+    final base = blockStyleFor(node.type);
+    return blockStyleResolver?.call(node, base) ?? base;
+  }
 
   /// Applies [format] and [style] to the inherited [base].
   ///
