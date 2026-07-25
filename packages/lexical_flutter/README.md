@@ -78,6 +78,48 @@ The default resolver handles `color`, `background-color`, `font-size`,
 `font-family`, `font-weight` and `text-decoration` and ignores the rest —
 which loses nothing, because the string is preserved either way.
 
+## Hover and tap
+
+Smart links — hover a mention for a preview, tap it to navigate — need to know
+which node is under the pointer. `LexicalInteraction` answers that, keyed on
+**type string** so this package still knows nothing about links, mentions or
+hashtags:
+
+```dart
+LexicalDocument(
+  editor: editor,
+  theme: theme,
+  interaction: LexicalInteraction(
+    types: const {'link', 'autolink', 'mention', 'hashtag'},
+    onEnter: (hit) => preview.show(hit),      // mouse only
+    onExit: (hit) => preview.hide(),
+    onTap: (hit) => router.go(hit.json['url'] as String? ?? '/'),
+  ),
+)
+```
+
+A `LexicalNodeHit` is a **snapshot** — key, type, text, the node's serialized
+fields and its bounds in global coordinates — not a node. It is handed to
+callbacks that outlive the read it came from, and a preview card reads it
+frames later, so everything in it is a plain value.
+
+Three details that make it behave:
+
+- The pointer is usually over a link's *text child*; the hit reports the
+  **link**, resolved by walking up to the nearest requested type.
+- A hit is confirmed against the node's own line boxes. `getPositionForOffset`
+  answers with the nearest position however far away the pointer is, so
+  without that check a mention at the end of a line owns the whole margin
+  beside it.
+- Moving *within* a node is not an event. A preview that is torn down and
+  rebuilt on every mouse move is unusable.
+
+`onTap` fires on tap **up**, so a selection drag that started on a link does
+not navigate. Inside an editable the caret still moves — text inside a link has
+to stay reachable — and the tap resolves after the double-tap deadline, since
+double-tap-to-select shares the gesture arena. A read-only document reacts
+immediately.
+
 ## One rendering difference from the web
 
 A run formatted `uppercase` reads `STRAßE` here and `STRASSE` on the web:

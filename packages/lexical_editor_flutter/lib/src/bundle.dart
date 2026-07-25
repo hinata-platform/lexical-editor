@@ -34,6 +34,18 @@ List<NodeSpec<LexicalNode>> get lexicalNodes => <NodeSpec<LexicalNode>>[
   ...mentionNodes,
 ];
 
+/// The node types that can point somewhere: links, mentions, hashtags.
+///
+/// The `types` a [LexicalInteraction] usually wants. It is a plain set, so
+/// narrow it — `interactiveNodeTypes.difference({'hashtag'})` for an app whose
+/// hashtags are not clickable — or add your own type to it.
+const Set<String> interactiveNodeTypes = {
+  'link',
+  'autolink',
+  'mention',
+  'hashtag',
+};
+
 /// Creates an editor understanding every type in [lexicalNodes].
 LexicalEditor createLexicalEditor({
   List<NodeSpec<LexicalNode>> nodes = const [],
@@ -101,6 +113,7 @@ class LexicalEditorField extends StatefulWidget {
     this.tabBehaviour = TabBehaviour.indent,
     this.registerBehaviour = true,
     this.history,
+    this.interaction,
   });
 
   /// The editor to edit.
@@ -138,6 +151,12 @@ class LexicalEditorField extends StatefulWidget {
 
   /// What the Tab key does.
   final TabBehaviour tabBehaviour;
+
+  /// Which node types respond to hover and tap.
+  ///
+  /// Pass [interactiveNodeTypes] as `types` to cover everything this bundle
+  /// ships that can point somewhere.
+  final LexicalInteraction? interaction;
 
   /// Whether to call [registerLexical] for the lifetime of this widget.
   ///
@@ -217,6 +236,7 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
       scrollController: widget.scrollController,
       decoratorBuilders: widget.decoratorBuilders,
       tabBehaviour: widget.tabBehaviour,
+      interaction: widget.interaction,
       cursorColor: theme.caretColor,
       cursorWidth: theme.caretWidth,
       selectionColor: theme.selectionColor,

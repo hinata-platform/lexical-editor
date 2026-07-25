@@ -34,6 +34,11 @@ export 'package:lexical_rich_text/lexical_rich_text.dart';
 export 'package:lexical_table/lexical_table.dart';
 
 export 'src/bundle.dart'
-    show LexicalEditorField, createLexicalEditor, lexicalNodes, registerLexical;
+    show
+        LexicalEditorField,
+        createLexicalEditor,
+        interactiveNodeTypes,
+        lexicalNodes,
+        registerLexical;
 export 'src/default_theme.dart'
     show LexicalPalette, defaultHeadingStyles, defaultLexicalTheme;

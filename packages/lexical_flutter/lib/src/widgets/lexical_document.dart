@@ -9,6 +9,7 @@ import '../render/span_builder.dart';
 import '../theme/lexical_theme.dart';
 import 'block_registry.dart';
 import 'lexical_inline_block.dart';
+import 'lexical_interaction.dart';
 
 /// A block's built presentation, cached between commits.
 @immutable
@@ -68,6 +69,7 @@ class LexicalDocument extends StatefulWidget {
     this.scrollController,
     this.textDirection,
     this.textScaler,
+    this.interaction,
     this.registry,
     this.stats,
   });
@@ -98,6 +100,12 @@ class LexicalDocument extends StatefulWidget {
 
   /// Overrides the ambient text scaler.
   final TextScaler? textScaler;
+
+  /// Which node types respond to hover and tap, and how.
+  ///
+  /// Left null the document is inert: no mouse tracking, no gesture
+  /// recognizer, nothing hit-tested.
+  final LexicalInteraction? interaction;
 
   /// A registry to publish mounted blocks into.
   ///
@@ -392,9 +400,20 @@ class LexicalDocumentState extends State<LexicalDocument> {
       );
     }
 
+    final interaction = widget.interaction;
     return Directionality(
       textDirection: direction,
-      child: BlockRegistryScope(registry: _registry, child: body),
+      child: BlockRegistryScope(
+        registry: _registry,
+        child: interaction == null
+            ? body
+            : LexicalInteractionRegion(
+                editor: widget.editor,
+                registry: _registry,
+                interaction: interaction,
+                child: body,
+              ),
+      ),
     );
   }
 }

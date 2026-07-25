@@ -27,6 +27,19 @@ dissolving into the sentence on the next normalization pass.
 
 Wire-compatible with `@lexical/hashtag` 0.48.x.
 
+## Hover and tap
+
+A hashtag is worth rendering only if it leads somewhere. Pass its type to a
+`LexicalInteraction` in `lexical_flutter` and hovering or tapping one reports
+it, with its text and its bounds for anchoring a preview:
+
+```dart
+LexicalInteraction(
+  types: const {'hashtag'},
+  onTap: (hit) => search(hit.text),
+)
+```
+
 ## Licence
 
 MIT. Derived from Lexical, © Meta Platforms, Inc., also MIT. See `NOTICE`.

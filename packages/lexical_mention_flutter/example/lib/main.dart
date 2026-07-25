@@ -8,6 +8,9 @@
 // arrow keys move through it, Enter accepts and Escape closes — and the
 // search behind it is debounced, cached and drops stale answers, which is
 // what keeps typing smooth when the list comes from a network.
+//
+// The mentions themselves are smart links: they render as chips, hovering one
+// shows a preview card, and tapping one navigates.
 import 'package:flutter/material.dart';
 import 'package:lexical_core/lexical_core.dart';
 import 'package:lexical_flutter/lexical_flutter.dart';
@@ -119,6 +122,69 @@ class _MentionPageState extends State<MentionPage> {
     }, discrete: true);
   }
 
+  // -------------------------------------------------------------------
+  // Smart links: hover previews, tap navigates
+  // -------------------------------------------------------------------
+
+  OverlayEntry? _preview;
+
+  /// What the entity behind a mention is called, from the same fake directory.
+  (String, String)? _lookup(LexicalNodeHit hit) {
+    final id = hit.json['mentionId'];
+    if (hit.json['mentionType'] == 'issue') {
+      for (final (issue, title) in _issues) {
+        if (issue == id) return ('Ticket #$issue', title);
+      }
+      return null;
+    }
+    for (final (user, name, team) in _people) {
+      if (user == id) return (name, team);
+    }
+    return null;
+  }
+
+  void _showPreview(LexicalNodeHit hit) {
+    _hidePreview();
+    final found = _lookup(hit);
+    if (found == null) return;
+    final (title, subtitle) = found;
+    final overlay = Overlay.of(context);
+    final box = overlay.context.findRenderObject()! as RenderBox;
+    // The hit reports global coordinates; the overlay wants its own.
+    final anchor = box.globalToLocal(hit.rect.bottomLeft);
+    _preview = OverlayEntry(
+      builder: (context) => Positioned(
+        left: anchor.dx,
+        top: anchor.dy + 6,
+        child: _PreviewCard(title: title, subtitle: subtitle),
+      ),
+    );
+    overlay.insert(_preview!);
+  }
+
+  void _hidePreview() {
+    _preview?.remove();
+    _preview = null;
+  }
+
+  void _openMention(LexicalNodeHit hit) {
+    _hidePreview();
+    // Where an application would route. The hit carries the node's serialized
+    // fields, so `mentionId` is there without this widget touching the model.
+    final route = hit.json['mentionType'] == 'issue'
+        ? '/issues/${hit.json['mentionId']}'
+        : '/users/${hit.json['mentionId']}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Navigation → $route')));
+  }
+
+  @override
+  void dispose() {
+    _hidePreview();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('lexical_mention_flutter')),
@@ -165,6 +231,15 @@ class _MentionPageState extends State<MentionPage> {
         editor: editor,
         autofocus: true,
         padding: const EdgeInsets.all(20),
+        // The smart-link half: hovering a mention previews what it points at,
+        // tapping it goes there. The hit is a snapshot, so it is safe to keep
+        // in state and read three frames later from a preview card.
+        interaction: LexicalInteraction(
+          types: const {'mention'},
+          onEnter: _showPreview,
+          onExit: (_) => _hidePreview(),
+          onTap: _openMention,
+        ),
         theme: LexicalTheme(
           baseTextStyle: Theme.of(context).textTheme.bodyLarge!,
           blockStyles: {
@@ -243,6 +318,41 @@ class _MentionChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(label, style: style.copyWith(color: color)),
+    );
+  }
+}
+
+/// The card shown while the pointer rests on a mention.
+///
+/// A real application would fetch this; here it comes from the same fake
+/// directory the typeahead searches. Note that it takes strings — the hit it
+/// was built from is a snapshot, and this widget never sees the editor.
+class _PreviewCard extends StatelessWidget {
+  const _PreviewCard({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(12),
+      color: scheme.surfaceContainerHigh,
+      child: Container(
+        width: 260,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
     );
   }
 }

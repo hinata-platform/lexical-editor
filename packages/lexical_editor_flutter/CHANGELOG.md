@@ -5,6 +5,10 @@
 Seeding an empty document waits for the end of the frame, so a listener that
 rebuilds is not asked to rebuild during a build.
 
+`LexicalEditorField.interaction` forwards hover and tap, and
+`interactiveNodeTypes` names every type in the bundle that can point
+somewhere — link, autolink, mention, hashtag.
+
 ## 0.1.0-dev.1
 
 First development release.

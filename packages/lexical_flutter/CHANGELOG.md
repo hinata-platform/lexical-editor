@@ -2,6 +2,12 @@
 
 ## 0.1.0-dev.2
 
+- `LexicalInteraction`: hover and tap for links, mentions and hashtags, keyed
+  on node **type string** so this package still imports none of them. Reports
+  the interactive ancestor rather than the text node under the pointer,
+  confirms the hit against the node's own line boxes, and hands callbacks a
+  snapshot — key, type, text, serialized fields and global bounds — that stays
+  valid outside the read it came from.
 - `LexicalTheme.tokenBuilders`: render a token text node as a widget, so a
   mention can be a rounded chip. The node stays text in the model — same JSON,
   same atomic delete — and only token-mode nodes qualify, because the widget

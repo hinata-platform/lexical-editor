@@ -69,6 +69,7 @@ export 'src/theme/lexical_theme.dart'
         BlockStyleResolver,
         DecoratorBuilder,
         LexicalTheme,
+        TokenBuilder,
         applyCaseTransform;
 export 'src/widgets/block_registry.dart'
     show BlockRegistry, BlockRegistryScope, MountedBlock, RegisteredBlock;
@@ -86,3 +87,11 @@ export 'src/widgets/lexical_editable.dart'
         keyDownCommand,
         pasteCommand;
 export 'src/widgets/lexical_inline_block.dart' show LexicalInlineBlock;
+export 'src/widgets/lexical_interaction.dart'
+    show
+        LexicalInteraction,
+        LexicalInteractionRegion,
+        LexicalInteractionRegionState,
+        LexicalNodeHit,
+        LexicalNodeHitCallback,
+        hitTestNodes;

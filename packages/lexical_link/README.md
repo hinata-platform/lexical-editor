@@ -53,6 +53,29 @@ automatic link so it is not recreated.
 
 Wire-compatible with `@lexical/link` 0.48.x.
 
+## Hover and tap
+
+A link that cannot be followed is decoration. `lexical_flutter` resolves the
+node under the pointer by **type string**, so this package stays free of any
+Flutter dependency while its nodes still respond:
+
+```dart
+LexicalEditable(
+  editor: editor,
+  theme: theme,
+  interaction: LexicalInteraction(
+    types: const {'link', 'autolink'},
+    onEnter: (hit) => preview.show(hit.json['url']! as String, hit.rect),
+    onExit: (_) => preview.hide(),
+    onTap: (hit) => launchUrlString(hit.json['url']! as String),
+  ),
+)
+```
+
+The hit reports the **link**, not the text node the pointer was over, and
+carries the node's serialized fields — which is how `url` arrives without the
+render layer knowing this package exists.
+
 ## Licence
 
 MIT. Derived from Lexical, © Meta Platforms, Inc., also MIT. See `NOTICE`.

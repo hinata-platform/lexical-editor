@@ -18,6 +18,7 @@ import '../selection/selection_overlay.dart';
 import '../theme/lexical_theme.dart';
 import 'block_registry.dart';
 import 'lexical_document.dart';
+import 'lexical_interaction.dart';
 
 /// A raw key press, before any default handling.
 ///
@@ -154,6 +155,7 @@ class LexicalEditable extends StatefulWidget {
     this.magnifierConfiguration,
     this.showSelectionHandles,
     this.enableInteractiveSelection = true,
+    this.interaction,
   });
 
   /// The editor being edited.
@@ -252,6 +254,14 @@ class LexicalEditable extends StatefulWidget {
   /// that must not be selectable — a preview, a drag proxy — needs.
   final bool enableInteractiveSelection;
 
+  /// Which node types respond to hover and tap, and how.
+  ///
+  /// A tap on an interactive node still moves the caret — this is an editor,
+  /// and text inside a link has to stay reachable. The callback runs as well,
+  /// so an application that wants a link to open only while reading, or only
+  /// with a modifier held, decides that in the callback.
+  final LexicalInteraction? interaction;
+
   @override
   State<LexicalEditable> createState() => LexicalEditableState();
 }
@@ -259,6 +269,8 @@ class LexicalEditable extends StatefulWidget {
 /// State of a [LexicalEditable]; exposed for caret and selection geometry.
 class LexicalEditableState extends State<LexicalEditable> {
   final BlockRegistry _registry = BlockRegistry();
+  final GlobalKey<LexicalInteractionRegionState> _interactionKey =
+      GlobalKey<LexicalInteractionRegionState>();
   late LexicalInput _input;
   FocusNode? _ownedFocusNode;
   Unsubscribe? _unsubscribeEditor;
@@ -759,6 +771,15 @@ class LexicalEditableState extends State<LexicalEditable> {
     if (_wantsHandles) showHandles();
   }
 
+  /// Reports the tap to [LexicalEditable.interaction], if it hit a node.
+  ///
+  /// On tap **up**, not down: a tap that turned into a selection drag is not a
+  /// tap, and opening a link because someone started selecting inside it is
+  /// the kind of bug that only shows up in someone else's hands.
+  void _onTapUp(TapUpDetails details) {
+    _interactionKey.currentState?.handleTapAt(details.globalPosition);
+  }
+
   void _onSecondaryTapDown(TapDownDetails details) {
     requestFocus();
     if (!(_selection?.hasRange ?? false)) {
@@ -1133,13 +1154,33 @@ class LexicalEditableState extends State<LexicalEditable> {
       textScaler: widget.textScaler,
     );
 
+    // The interaction region replaces the plain cursor region rather than
+    // nesting inside it: one MouseRegion owns the cursor, and it is the one
+    // that knows whether the pointer is over a link.
+    Widget hover(Widget child) {
+      final interaction = widget.interaction;
+      if (interaction == null) {
+        return MouseRegion(cursor: SystemMouseCursors.text, child: child);
+      }
+      return LexicalInteractionRegion(
+        key: _interactionKey,
+        editor: widget.editor,
+        registry: _registry,
+        interaction: interaction,
+        cursor: SystemMouseCursors.text,
+        // The caret's own recognizer already owns taps here; a second one in
+        // the same arena would win and the caret would stop moving.
+        handleTaps: false,
+        child: child,
+      );
+    }
+
     return Focus(
       focusNode: _focusNode,
       autofocus: widget.autofocus,
       onKeyEvent: _onKeyEvent,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.text,
-        child: NotificationListener<ScrollNotification>(
+      child: hover(
+        NotificationListener<ScrollNotification>(
           // Handles that stay behind while the text scrolls away are worse
           // than no handles at all.
           onNotification: (_) {
@@ -1154,6 +1195,7 @@ class LexicalEditableState extends State<LexicalEditable> {
                     TapGestureRecognizer.new,
                     (instance) => instance
                       ..onTapDown = _onTapDown
+                      ..onTapUp = _onTapUp
                       ..onSecondaryTapDown = _onSecondaryTapDown,
                   ),
               DoubleTapGestureRecognizer:

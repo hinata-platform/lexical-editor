@@ -52,6 +52,27 @@ six-colour `LexicalPalette`, so an app gets its own typography by passing its
 body style in and changing nothing else. `LexicalPalette.dark()` is provided;
 any `LexicalTheme` can be passed instead.
 
+## Smart links
+
+Everything in the bundle that can point somewhere — links, autolinks, mentions,
+hashtags — is named by `interactiveNodeTypes`:
+
+```dart
+LexicalEditorField(
+  editor: editor,
+  baseTextStyle: Theme.of(context).textTheme.bodyMedium!,
+  interaction: LexicalInteraction(
+    types: interactiveNodeTypes,
+    onEnter: (hit) => preview.show(hit),
+    onExit: (_) => preview.hide(),
+    onTap: (hit) => router.open(hit.type, hit.json),
+  ),
+)
+```
+
+It is a plain set: narrow it with `.difference({'hashtag'})`, or add a type of
+your own.
+
 ## What is deliberately not here
 
 Selection handles and a context toolbar. Material and Cupertino disagree about

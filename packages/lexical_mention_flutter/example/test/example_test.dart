@@ -18,6 +18,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('tapping a mention routes to what it points at', (tester) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    await tester.tap(find.text('#108'));
+    // Inside an editable a single tap resolves only after the double-tap
+    // deadline, because double-tap-to-select shares the gesture arena.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(find.text('Navigation → /issues/108'), findsOneWidget);
+  });
+
   test('an inserted mention carries its trigger exactly once', () async {
     // The label builder prepends the trigger, so a suggestion label that
     // already begins with one produces `##108`. It reads on screen as a

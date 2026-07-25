@@ -76,6 +76,28 @@ size and the platform's text scale. The cost is a placeholder layout and a
 render object per mention, which is why it is opt-in per type rather than the
 default.
 
+## Hover previews, tap to navigate
+
+The other half of a smart link. `LexicalInteraction` (from `lexical_flutter`)
+reports the mention under the pointer, with the serialized fields to act on and
+the bounds to anchor a card to:
+
+```dart
+LexicalEditable(
+  editor: editor,
+  theme: theme,
+  interaction: LexicalInteraction(
+    types: const {'mention'},
+    onEnter: (hit) => preview.showAt(hit.rect, hit.json['mentionId']),
+    onExit: (_) => preview.hide(),
+    onTap: (hit) => router.go('/users/${hit.json['mentionId']}'),
+  ),
+)
+```
+
+`onEnter`/`onExit` are mouse events and never fire on a phone, so keep what
+matters behind `onTap`. The example app wires all three.
+
 ## Rows are yours
 
 `itemBuilder` builds each row, so avatars, subtitles and highlighting are the
