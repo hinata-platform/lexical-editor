@@ -23,12 +23,25 @@ native scrolling and native performance to keep code no user ever sees.
 
 | Package | Status | What it is |
 |---|---|---|
-| [`lexical_core`](packages/lexical_core) | **M0 + M1 complete** | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, listeners. No Flutter import. |
-| [`lexical_history`](packages/lexical_history) | **complete** | Undo/redo over state snapshots, deterministic tag-driven coalescing |
-| `lexical_flutter` | planned (M2) | Reconciler, block render objects, spans, theme, IME, selection |
-| `lexical_rich_text` | planned (M4) | Heading, quote, rich-text command defaults |
-| `lexical_list` / `_link` / `_code` / `_table` / `_mark` / `_hashtag` | planned (M4) | One concern per package |
+| [`lexical_core`](packages/lexical_core) | **done** | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, listeners. No Flutter import. |
+| [`lexical_history`](packages/lexical_history) | **done** | Undo/redo over state snapshots, deterministic tag-driven coalescing |
+| [`lexical_rich_text`](packages/lexical_rich_text) | **done** | Heading, quote |
+| [`lexical_list`](packages/lexical_list) | **done** | Bullet, ordered and check lists, with derived item numbering |
+| [`lexical_link`](packages/lexical_link) | **done** | Link and auto-link, with URL scheme validation at the point of use |
+| [`lexical_code`](packages/lexical_code) | **done** | Code blocks and syntax-highlight runs |
+| [`lexical_table`](packages/lexical_table) | **done** | Table, row, cell with bitmask header state |
+| [`lexical_mark`](packages/lexical_mark) | **done** | Annotation and comment ranges |
+| [`lexical_hashtag`](packages/lexical_hashtag) | **done** | Hashtags |
+| [`lexical_mention`](packages/lexical_mention) | **done** | Typed `@mentions`, bounded trigger matching, debounced search |
+| [`lexical_flutter`](packages/lexical_flutter) | **read-only done** | Dirty-set reconciler, one render object per block, spans, offset map, theme |
+| `lexical_mention_flutter` | planned (after M3) | Typeahead popover with keyboard navigation |
+| `lexical_editor_flutter` | planned (after M3) | Umbrella: default theme and block presenters for every node type |
 | `lexical_markdown` / `lexical_html` | planned (M5) | Import/export and clipboard interop |
+
+Every node type in the fixture corpus is implemented: all 20 canonical
+documents from Lexical 0.48 round-trip as a fixed point. The suite lives in
+[`lexical_conformance`](packages/lexical_conformance), which is test-only —
+consumers depend on the feature packages they actually need.
 
 The layering is enforced, not aspirational: `lexical_core` has a test that
 fails if any file in it imports `package:flutter/`. A single Flutter import
@@ -65,9 +78,9 @@ web.
 |---|---|---|
 | **M0** | Core model, pure Dart: state, keys, pointers, clone semantics, registry, JSON | done |
 | **M1** | Commands with the full priority ladder, transforms, listeners, normalization, history | done |
-| **M2** | Read-only Flutter renderer — already useful on its own for viewing web-authored documents | next |
-| **M3** | Editable: `DeltaTextInputClient`, selection mapping, caret, keyboard | |
-| **M4** | Feature node packages | |
+| **M4** | Feature node packages — pulled forward so the whole fixture corpus round-trips | done |
+| **M2** | Read-only Flutter renderer — shippable on its own as a viewer for web-authored documents | done |
+| **M3** | Editable: `DeltaTextInputClient`, selection mapping, caret, keyboard | next |
 | **M5** | Tables, markdown, collaboration, HTML clipboard | |
 
 Versioning stays pre-1.0 until M3 is trustworthy.

@@ -1,0 +1,25 @@
+name: lexical_conformance
+description: >-
+  Test-only package that registers every node type and verifies the whole
+  fixture corpus round-trips. Not published.
+publish_to: none
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  lexical_code: ^0.1.0-dev.1
+  lexical_core: ^0.1.0-dev.2
+  lexical_hashtag: ^0.1.0-dev.1
+  lexical_history: ^0.1.0-dev.1
+  lexical_link: ^0.1.0-dev.1
+  lexical_list: ^0.1.0-dev.1
+  lexical_mark: ^0.1.0-dev.1
+  lexical_rich_text: ^0.1.0-dev.1
+  lexical_table: ^0.1.0-dev.1
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

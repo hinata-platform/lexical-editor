@@ -1,0 +1,19 @@
+name: lexical_hashtag
+description: >-
+  Hashtag nodes for lexical_core, wire-compatible with Lexical's @lexical/hashtag. Pure Dart.
+version: 0.1.0-dev.1
+repository: https://github.com/hinata-platform/lexical-editor
+issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  lexical_core: ^0.1.0-dev.2
+  meta: ^1.15.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

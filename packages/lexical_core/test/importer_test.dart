@@ -121,16 +121,18 @@ void main() {
       );
     });
 
-    test('a newline inside a text node is rejected', () {
+    test('a newline inside a text node is preserved, not rejected', () {
+      // Lexical's editing paths avoid newlines in text nodes, but its
+      // serializer preserves them: a code block built by appending a
+      // multi-line text node round-trips through real Lexical unchanged.
+      // Rejecting or splitting them would make this port unable to open
+      // documents Lexical itself produces.
       final editor = LexicalEditor();
-      expect(
-        () => editor.parseEditorState(
-          _doc([
-            _paragraph([_text('zwei\nzeilen')]),
-          ]),
-        ),
-        throwsA(isA<MalformedDocumentException>()),
-      );
+      final document = _doc([
+        _paragraph([_text('zwei\nzeilen')]),
+      ]);
+      final encoded = editor.parseEditorState(document).toJson();
+      expect(jsonFirstDifference(document, encoded), isNull);
     });
 
     test('invalid JSON is rejected with a typed error', () {

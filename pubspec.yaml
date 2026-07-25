@@ -8,8 +8,18 @@ environment:
   sdk: ^3.8.0
 
 workspace:
+  - packages/lexical_code
+  - packages/lexical_conformance
   - packages/lexical_core
+  - packages/lexical_flutter
+  - packages/lexical_hashtag
   - packages/lexical_history
+  - packages/lexical_link
+  - packages/lexical_list
+  - packages/lexical_mark
+  - packages/lexical_mention
+  - packages/lexical_rich_text
+  - packages/lexical_table
 
 dev_dependencies:
   lints: ^6.0.0

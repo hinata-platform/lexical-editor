@@ -20,41 +20,77 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dart-lang/setup-dart@v1
+      - uses: subosito/flutter-action@v2
         with:
-          sdk: stable
+          channel: stable
 
       - name: Resolve workspace
-        run: dart pub get
+        run: flutter pub get
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
-        run: dart analyze --fatal-infos --fatal-warnings
+        run: flutter analyze
 
-      - name: Test lexical_core
-        working-directory: packages/lexical_core
-        run: dart test --reporter=expanded
+      - name: Test every package
+        run: |
+          set -e
+          for dir in packages/*/; do
+            if [ -d "$dir/test" ]; then
+              echo "== $dir"
+              if grep -q "sdk: flutter" "$dir/pubspec.yaml"; then
+                (cd "$dir" && flutter test --reporter=expanded)
+              else
+                (cd "$dir" && dart test --reporter=expanded)
+              fi
+            fi
+          done
 
-      - name: Test lexical_history
-        working-directory: packages/lexical_history
-        run: dart test --reporter=expanded
-
-  publish-dry-run:
-    name: pub publish --dry-run
+  discover:
+    name: discover publishable packages
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        package: [lexical_core, lexical_history]
+    outputs:
+      packages: ${{ steps.list.outputs.packages }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+
+      # Derived, not hand-maintained: a hard-coded list lets a new package
+      # join the workspace and quietly skip its publish check, which is only
+      # noticed at release time.
+      - id: list
+        run: |
+          set -euo pipefail
+          names=()
+          for pubspec in packages/*/pubspec.yaml; do
+            package="$(basename "$(dirname "$pubspec")")"
+            if grep -qE '^publish_to:[[:space:]]*none[[:space:]]*$' "$pubspec"; then
+              echo "skipping $package — publish_to: none"
+              continue
+            fi
+            names+=("$package")
+          done
+          json="$(printf '%s\n' "${names[@]}" \
+            | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          echo "publishable: $json"
+          echo "packages=$json" >> "$GITHUB_OUTPUT"
+
+  publish-dry-run:
+    name: pub publish --dry-run (${{ matrix.package }})
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.discover.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          sdk: stable
-      - run: dart pub get
+          channel: stable
+      - run: flutter pub get
       - working-directory: packages/${{ matrix.package }}
-        run: dart pub publish --dry-run
+        run: flutter pub publish --dry-run
 
   fixture-drift:
     name: fixtures still canonical for upstream

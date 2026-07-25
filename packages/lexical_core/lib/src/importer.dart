@@ -151,11 +151,12 @@ LexicalNode _createNode(
   node.updateFromJson(json);
   if (node is TextNode) {
     budget.countText(node.textInternal.length);
-    if (node.textInternal.contains('\n')) {
-      throw const MalformedDocumentException(
-        'text nodes must not contain newlines; use a linebreak node',
-      );
-    }
+    // A newline inside a text node breaks Lexical's own convention, but the
+    // convention is enforced by its *editing* paths, not by its serializer:
+    // a code block built by appending a multi-line text node round-trips
+    // through real Lexical with the newlines intact. Rejecting or splitting
+    // them here would make this port unable to open documents Lexical itself
+    // produces, so they are preserved verbatim.
   }
   return node;
 }

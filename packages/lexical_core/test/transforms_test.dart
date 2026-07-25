@@ -74,7 +74,10 @@ void main() {
       });
     });
 
-    test('newlines are split into line breaks', () {
+    test('newlines in a text node survive normalization', () {
+      // Splitting them would be a reasonable editor behaviour but a wire
+      // incompatibility: real Lexical keeps them, so the core keeps them too.
+      // Editing paths that want line breaks build them explicitly.
       final editor = LexicalEditor();
       editor.update(() {
         final paragraph = $createParagraphNode();
@@ -84,8 +87,7 @@ void main() {
 
       editor.read(() {
         final paragraph = $getRoot().getFirstChild()! as ElementNode;
-        final types = paragraph.children.map((node) => node.type).toList();
-        expect(types, ['text', 'linebreak', 'text', 'linebreak', 'text']);
+        expect(paragraph.childrenSize, 1);
         expect(paragraph.getTextContent(), 'eins\nzwei\ndrei');
         expect(assertTreeIntegrity($getRoot()), isTrue);
       });

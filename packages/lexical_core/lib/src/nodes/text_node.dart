@@ -117,8 +117,15 @@ enum TextMode {
 /// They are never grapheme indices; mixing the two produces carets that land
 /// one character off for some inputs and not others.
 class TextNode extends LexicalNode {
-  /// Creates a text node holding [textInternal].
-  TextNode([this.textInternal = '']);
+  /// Creates a text node holding [textInternal] in [modeInternal].
+  ///
+  /// The mode is a constructor argument rather than something a subclass sets
+  /// afterwards, because a subclass constructor must not call accessors:
+  /// during a clone the node is not yet in the node map, so `getWritable()`
+  /// would resolve to the node being cloned and quietly write to the wrong
+  /// object. Constructor arguments and direct field initialisers are the only
+  /// safe way to establish state.
+  TextNode([this.textInternal = '', this.modeInternal = TextMode.normal]);
 
   @override
   String get type => 'text';
@@ -140,12 +147,18 @@ class TextNode extends LexicalNode {
 
   /// Editing mode. Framework-internal; read through [getMode].
   @internal
-  TextMode modeInternal = TextMode.normal;
+  TextMode modeInternal;
 
   /// Detail bitmask. Framework-internal; read through [getDetail].
   @internal
   int detailInternal = 0;
 
+  /// Creates a copy carrying this node's constructor state.
+  ///
+  /// Subclasses in other packages only need to carry *their own* fields:
+  /// text, format, style, mode and detail are restored by
+  /// [afterCloneFrom]. Read the text with [getTextContent] — the raw field
+  /// is framework-internal.
   @override
   TextNode clone() => TextNode(textInternal);
 

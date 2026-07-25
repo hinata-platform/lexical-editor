@@ -22,7 +22,6 @@ import 'nodes/paragraph_node.dart';
 import 'nodes/root_node.dart';
 import 'nodes/tab_node.dart';
 import 'nodes/text_node.dart';
-import 'normalization.dart';
 import 'registry.dart';
 import 'selection.dart';
 import 'transforms.dart';
@@ -121,20 +120,6 @@ final class LexicalEditor {
     : _editorState = initial,
       _editable = config.editable {
     _editorState.freeze();
-    _registerCoreTransforms();
-  }
-
-  /// Invariants the core maintains itself, regardless of how an edit arrived.
-  ///
-  /// Only one for now, and it is a deliberate strengthening rather than a
-  /// straight port: a newline that reaches a text node is split into runs
-  /// separated by line breaks. Upstream leaves such a node alone and relies
-  /// on its insertion paths never producing one, which holds in the browser
-  /// but not for a package whose consumers mutate the model directly.
-  void _registerCoreTransforms() {
-    transforms.register('text', (node) {
-      if (node is TextNode) $splitNewlines(node);
-    });
   }
 
   /// The node types this editor understands.

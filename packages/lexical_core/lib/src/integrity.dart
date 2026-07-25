@@ -76,11 +76,10 @@ void _checkElement(ElementNode element, Set<NodeKey> seen, int depth) {
         'Text node ${child.key} is a direct child of the root.',
       );
     }
-    if (child is TextNode && child.textInternal.contains('\n')) {
-      throw LexicalTreeError(
-        'Text node ${child.key} contains a newline; use a LineBreakNode.',
-      );
-    }
+    // Newlines inside a text node are *not* an integrity violation. Lexical's
+    // editing paths avoid them, but its serializer preserves them, and a code
+    // block authored on the web arrives with them. Failing here would reject
+    // a document real Lexical considers canonical.
     if (child is ElementNode) {
       _checkElement(child, seen, depth + 1);
     } else if (!seen.add(child.key)) {
