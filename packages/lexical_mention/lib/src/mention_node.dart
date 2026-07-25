@@ -10,8 +10,13 @@ import 'package:lexical_core/lexical_core.dart';
 /// Token mode makes it atomic — edited as a unit, deleted whole — while
 /// keeping it part of the ordinary text run, so it costs one span rather than
 /// one widget, one placeholder layout and one render-object child. A decorator
-/// buys an avatar and pays for it on every frame; if you need that, render a
-/// specific mention type as a `WidgetSpan` and leave the rest as text.
+/// buys an avatar and pays for it on every frame.
+///
+/// That is the default, not a ceiling. A `TextStyle` covers colour and weight;
+/// for a rounded chip — padding, a border, an avatar — register a
+/// `LexicalTheme.tokenBuilders` entry for `mention` and the node is drawn as a
+/// widget while staying text in the model, so the document a web client reads
+/// is unchanged. Pay that cost where the chips are, not everywhere.
 ///
 /// The kind of thing referenced is data, not a subclass: [mentionType] is a
 /// free-form string, so an application adds `sprint` or `release` without

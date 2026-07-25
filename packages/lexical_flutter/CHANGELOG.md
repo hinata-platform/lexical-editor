@@ -2,6 +2,10 @@
 
 ## 0.1.0-dev.2
 
+- `LexicalTheme.tokenBuilders`: render a token text node as a widget, so a
+  mention can be a rounded chip. The node stays text in the model — same JSON,
+  same atomic delete — and only token-mode nodes qualify, because the widget
+  occupies one position while the node holds a whole label.
 - Selection handles, the platform context menu and the magnifier, built on
   Flutter's own `TextSelectionControls` and `AdaptiveTextSelectionToolbar`.
 - `RemoteSelection`: other people's carets and ranges, painted in their own

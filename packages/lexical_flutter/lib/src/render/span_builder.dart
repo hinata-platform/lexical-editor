@@ -78,7 +78,15 @@ final class SpanBuilder {
               style: text.getStyle(),
             );
             final modelText = text.getTextContent();
-            final rendered = applyCaseTransform(modelText, format);
+            final tokenBuilder = _tokenBuilderFor(text);
+            // A token rendered as a widget occupies one flat position for a
+            // whole label. The offset map already handles a run whose rendered
+            // and model lengths differ by snapping the caret to its edges —
+            // which is the rule token mode enforces in the model, arrived at
+            // here from the other direction.
+            final rendered = tokenBuilder != null
+                ? '￼'
+                : applyCaseTransform(modelText, format);
             segments.add(
               OffsetSegment(
                 key: text.key,
@@ -91,7 +99,21 @@ final class SpanBuilder {
               ),
             );
             buffer.write(rendered);
-            children.add(TextSpan(text: rendered, style: style));
+            if (tokenBuilder == null) {
+              children.add(TextSpan(text: rendered, style: style));
+            } else {
+              hasDecorators = true;
+              children.add(
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  baseline: TextBaseline.alphabetic,
+                  child: KeyedSubtree(
+                    key: ValueKey<String>('lexical-token-${text.key.value}'),
+                    child: tokenBuilder(context, text, style),
+                  ),
+                ),
+              );
+            }
           case final LineBreakNode lineBreak:
             // A line break occupies exactly one flat position.
             segments.add(
@@ -146,6 +168,26 @@ final class SpanBuilder {
       ),
       hasDecorators: hasDecorators,
     );
+  }
+
+  /// The widget builder for [text], or `null` if it renders as text.
+  ///
+  /// A builder registered for an editable text node is refused: its widget
+  /// would occupy one position while the node holds many characters, so every
+  /// caret position inside it — and every offset after it in the block —
+  /// would be wrong. Rendering it as styled text instead is the failure that
+  /// loses the least.
+  TokenBuilder? _tokenBuilderFor(TextNode text) {
+    final builder = theme.tokenBuilders[text.type];
+    if (builder == null) return null;
+    assert(
+      text.isToken,
+      'LexicalTheme.tokenBuilders has an entry for "${text.type}", but that '
+      'node is in ${text.getMode().name} mode. Only a token-mode node can be '
+      'rendered as a widget; give the node TextMode.token, or style it with '
+      'blockStyles instead.',
+    );
+    return text.isToken ? builder : null;
   }
 
   TextStyle _inlineElementStyle(ElementNode node, TextStyle inherited) {

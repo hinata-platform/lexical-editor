@@ -30,6 +30,10 @@ class MentionSuggestion {
   final String id;
 
   /// The text shown in the list, and the mention's label once inserted.
+  ///
+  /// **Without the trigger character.** The label builder prepends it, so a
+  /// label of `#108` for a `#` trigger inserts `##108` — a mistake that looks
+  /// like a rendering bug and is really in the search result.
   final String label;
 
   /// The kind of thing this is.

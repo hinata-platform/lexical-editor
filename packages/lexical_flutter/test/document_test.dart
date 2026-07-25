@@ -278,4 +278,119 @@ void main() {
     );
     expect(render.size.height, greaterThan(0));
   });
+
+  testWidgets('a token builder puts a real widget in the line', (tester) async {
+    // A chip is laid out by the text as a placeholder, so it sits on the same
+    // line as the words around it rather than becoming its own block.
+    final editor = LexicalEditor(
+      nodes: [NodeSpec<_Chip>(type: 'chip', create: _Chip.new)],
+    );
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()
+            ..append($createTextNode('hallo '))
+            ..append($applyNodeReplacement(_Chip('@Ada'))),
+        );
+    }, discrete: true);
+
+    await tester.pumpWidget(
+      wrap(
+        SizedBox(
+          width: 400,
+          height: 200,
+          child: LexicalDocument(
+            editor: editor,
+            theme: LexicalTheme(
+              baseTextStyle: testTheme.baseTextStyle,
+              tokenBuilders: {
+                'chip': (context, node, style) => DecoratedBox(
+                  decoration: const BoxDecoration(color: Color(0xFFEEEEEE)),
+                  child: Text(node.getTextContent(), style: style),
+                ),
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('@Ada'), findsOneWidget);
+    final chip = tester.getRect(find.text('@Ada'));
+    final block = tester.getRect(find.byType(LexicalInlineBlock));
+    expect(chip.left, greaterThan(block.left));
+    expect(block.contains(chip.center), isTrue);
+  });
+
+  testWidgets('a token builder runs inside a read; its widget does not', (
+    tester,
+  ) async {
+    // The contract, pinned rather than asserted in prose. A builder is called
+    // while the document is being read, so it can ask the node anything. The
+    // widget it returns is built later, by Flutter, with no editor state
+    // around it — so a widget that kept the node instead of its values throws
+    // on the first frame. Take what you need in the builder.
+    final editor = LexicalEditor(
+      nodes: [NodeSpec<_Chip>(type: 'chip', create: _Chip.new)],
+    );
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()..append($applyNodeReplacement(_Chip('@Ada'))),
+        );
+    }, discrete: true);
+
+    bool? readableInBuilder;
+    bool? readableInWidget;
+    bool canRead(TextNode node) {
+      try {
+        node.getTextContent();
+        return true;
+      } on LexicalStateError {
+        return false;
+      }
+    }
+
+    await tester.pumpWidget(
+      wrap(
+        SizedBox(
+          width: 400,
+          height: 200,
+          child: LexicalDocument(
+            editor: editor,
+            theme: LexicalTheme(
+              baseTextStyle: testTheme.baseTextStyle,
+              tokenBuilders: {
+                'chip': (context, node, style) {
+                  readableInBuilder = canRead(node);
+                  return Builder(
+                    builder: (context) {
+                      readableInWidget = canRead(node);
+                      return const SizedBox(width: 10, height: 10);
+                    },
+                  );
+                },
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(readableInBuilder, isTrue);
+    expect(readableInWidget, isFalse);
+  });
+}
+
+/// A token text node standing in for a mention.
+class _Chip extends TextNode {
+  _Chip([String text = '']) : super(text, TextMode.token);
+
+  @override
+  String get type => 'chip';
+
+  @override
+  _Chip clone() => _Chip(getTextContent());
 }

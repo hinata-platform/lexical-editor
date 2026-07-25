@@ -45,6 +45,37 @@ and nobody can reproduce on demand.
 **The popover takes no focus**, so the caret keeps blinking and the software
 keyboard stays up while the user picks.
 
+A suggestion's `label` carries **no trigger character** — the label builder
+prepends it. A label of `#108` behind a `#` trigger inserts `##108`.
+
+## Mentions as chips
+
+A mention is a token `TextNode`, so a theme entry styles it like any text:
+colour, weight, a background. Padding and a rounded corner need a widget, and
+`tokenBuilders` is where one goes:
+
+```dart
+LexicalTheme(
+  baseTextStyle: ...,
+  tokenBuilders: {
+    'mention': (context, node, style) => MentionChip(
+      // Read the node *here*: the builder runs inside the editor's read, the
+      // widget it returns is built later without one.
+      label: node.getTextContent(),
+      kind: (node as MentionNode).mentionType,
+      style: style,
+    ),
+  },
+)
+```
+
+The node stays text in the model — same JSON, same web client, same atomic
+delete — only its presentation changes. `style` is what the mention would have
+been drawn with, so merging it keeps the chip in step with the document's font
+size and the platform's text scale. The cost is a placeholder layout and a
+render object per mention, which is why it is opt-in per type rather than the
+default.
+
 ## Rows are yours
 
 `itemBuilder` builds each row, so avatars, subtitles and highlighting are the

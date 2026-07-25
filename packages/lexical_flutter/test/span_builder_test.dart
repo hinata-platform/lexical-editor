@@ -240,15 +240,120 @@ void main() {
       expect(spans.last.style!.color, const Color(0xFFFF0000));
     });
   });
+  testWidgets('a token text node can render as a widget', (tester) async {
+    // The chip case: a mention wants padding and a rounded corner, and no
+    // TextStyle can express either.
+    final editor = LexicalEditor(
+      nodes: [NodeSpec<_Badge>(type: 'badge', create: _Badge.new)],
+    );
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()
+            ..append($createTextNode('hallo '))
+            ..append($applyNodeReplacement(_Badge('@Ada Lovelace')))
+            ..append($createTextNode('!')),
+        );
+    }, discrete: true);
+
+    final theme = LexicalTheme(
+      baseTextStyle: const TextStyle(fontSize: 14),
+      tokenBuilders: {
+        'badge': (context, node, style) =>
+            Text(node.getTextContent(), style: style),
+      },
+    );
+    await withContext(tester, (context) {
+      final built = editor.read(() {
+        final block = $getRoot().getFirstChild()! as ElementNode;
+        return SpanBuilder(theme: theme, context: context).buildBlock(block);
+      });
+      expect(built.hasDecorators, isTrue);
+      final spans = (built.span as TextSpan).children!;
+      expect(spans[1], isA<WidgetSpan>());
+
+      // One flat position for the whole label, and the surrounding text keeps
+      // laying out around it.
+      expect(built.offsets.flatText, 'hallo ￼!');
+      final segment = built.offsets.segments[1];
+      expect(segment.flatLength, 1);
+      expect(segment.modelLength, '@Ada Lovelace'.length);
+      expect(segment.isIdentity, isFalse);
+
+      // The caret can only land on the chip's edges — the same rule token mode
+      // enforces in the model. Past its end it addresses the whole label.
+      expect(
+        built.offsets.pointFor(7),
+        ResolvedPoint(segment.key, segment.modelLength, PointType.text),
+      );
+      // And a model offset anywhere inside the label maps to an edge rather
+      // than to some arbitrary point inside a widget.
+      expect(built.offsets.flatOffsetFor(segment.key, 0, PointType.text), 6);
+      expect(built.offsets.flatOffsetFor(segment.key, 5, PointType.text), 7);
+      expect(built.offsets.flatOffsetFor(segment.key, 13, PointType.text), 7);
+      expect(built.offsets.segments.last.flatStart, 7);
+    });
+  });
+
+  testWidgets('a builder for an editable text node is refused', (tester) async {
+    // Its widget would occupy one position while the node holds many
+    // characters, so every offset after it in the block would be wrong. In
+    // debug that is an assertion naming the type; in release the builder is
+    // dropped and the node renders as styled text, which loses the least.
+    final editor = LexicalEditor(
+      nodes: [NodeSpec<_Loose>(type: 'loose', create: _Loose.new)],
+    );
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()..append($applyNodeReplacement(_Loose('frei'))),
+        );
+    }, discrete: true);
+
+    final theme = LexicalTheme(
+      baseTextStyle: const TextStyle(fontSize: 14),
+      tokenBuilders: {
+        'loose': (context, node, style) => const SizedBox.shrink(),
+      },
+    );
+    await withContext(tester, (context) {
+      expect(
+        () => editor.read(() {
+          final block = $getRoot().getFirstChild()! as ElementNode;
+          return SpanBuilder(theme: theme, context: context).buildBlock(block);
+        }),
+        throwsA(
+          isA<AssertionError>().having(
+            (error) => error.message,
+            'message',
+            contains('token-mode'),
+          ),
+        ),
+      );
+    });
+  });
 }
 
 /// A text node with its own type, standing in for a mention or a hashtag.
 class _Badge extends TextNode {
-  _Badge([super.text]);
+  _Badge([String text = '']) : super(text, TextMode.token);
 
   @override
   String get type => 'badge';
 
   @override
   _Badge clone() => _Badge(getTextContent());
+}
+
+/// A typed text node that stayed editable — the case a token builder refuses.
+class _Loose extends TextNode {
+  _Loose([super.text]);
+
+  @override
+  String get type => 'loose';
+
+  @override
+  _Loose clone() => _Loose(getTextContent());
 }

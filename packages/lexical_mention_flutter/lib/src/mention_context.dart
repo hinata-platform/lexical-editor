@@ -68,6 +68,11 @@ typedef MentionLabelBuilder =
     String Function(MentionTrigger trigger, MentionSuggestion suggestion);
 
 /// The default label: the trigger character followed by the entity's name.
+///
+/// `MentionSuggestion.label` therefore must **not** include the trigger — a
+/// label of `#108` behind a `#` trigger reads `##108` once inserted. Prepending
+/// unconditionally is deliberate: a channel genuinely named `#general` stays
+/// intact, which a "strip a leading trigger" rule would quietly break.
 String defaultMentionLabel(
   MentionTrigger trigger,
   MentionSuggestion suggestion,

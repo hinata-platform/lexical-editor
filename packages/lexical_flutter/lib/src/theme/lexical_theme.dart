@@ -84,6 +84,8 @@ class BlockMarker {
 /// This is the extension point that keeps list bullets, ordered numbers and
 /// checkboxes out of this package: a feature package's Flutter integration —
 /// or the application — supplies a builder keyed on the type string.
+///
+/// {@macro lexical_flutter.builder_read_scope}
 typedef BlockMarkerBuilder =
     BlockMarker? Function(BuildContext context, ElementNode node);
 
@@ -104,8 +106,51 @@ typedef BlockStyleResolver =
 /// block. Give the returned widget a stable identity — the renderer keys it
 /// on the node key — or Flutter will reuse element state across different
 /// nodes and, for example, keep playing the previous node's video.
+///
+/// {@template lexical_flutter.builder_read_scope}
+/// **Read the node here, hand the widget values.** This builder runs inside
+/// the editor's read, so every node accessor works. The widget it returns is
+/// built later, by Flutter, with no editor state around it — a widget that
+/// stored the node and reads it in its own `build` throws `LexicalStateError`
+/// on the first frame, and again on every hover or animation frame after
+/// that. Passing plain values also makes the widget testable on its own,
+/// which is the same advice from the other direction.
+/// {@endtemplate}
 typedef DecoratorBuilder =
     Widget Function(BuildContext context, DecoratorNode node);
+
+/// Renders a **token-mode text node** as a widget rather than as text.
+///
+/// This is how a mention becomes a rounded chip: a `TextStyle` can change
+/// colour, weight and even paint a rectangular background, but it cannot round
+/// a corner, add padding or put an avatar beside the label. Those need a real
+/// widget, and this is the hook that supplies one while the node stays
+/// ordinary text in the model — still a `TextNode`, still serialized as text,
+/// still readable by a Lexical web client that never heard of chips.
+///
+/// [style] is the style the node would have been drawn with, formats, theme
+/// and CSS already resolved. Merge it into the chip's own text rather than
+/// starting from scratch, or the chip will ignore the document's font size and
+/// stop scaling with the platform's text scale.
+///
+/// **Token mode only.** The widget occupies exactly one position in the laid
+/// out text while the node holds a whole label, so the caret can only sit at
+/// its edges — which is precisely what token mode already guarantees, and
+/// precisely what it does not guarantee for ordinary text. A builder
+/// registered for a non-token type is ignored, with an assertion in debug
+/// builds; the node then renders as styled text instead of vanishing.
+///
+/// {@macro lexical_flutter.builder_read_scope}
+///
+/// ```dart
+/// 'mention': (context, node, style) => MentionChip(
+///   label: node.getTextContent(),                  // read it now …
+///   kind: (node as MentionNode).mentionType,
+///   style: style,
+/// )                                                // … not in MentionChip.
+/// ```
+typedef TokenBuilder =
+    Widget Function(BuildContext context, TextNode node, TextStyle style);
 
 /// The visual configuration of a rendered document.
 ///
@@ -122,6 +167,7 @@ class LexicalTheme {
     this.blockStyles = const {},
     this.blockStyleResolver,
     this.markerBuilders = const {},
+    this.tokenBuilders = const {},
     this.styleResolver = defaultCssStyleResolver,
     this.defaultBlockStyle = const BlockStyle(),
     this.linkStyle,
@@ -149,6 +195,12 @@ class LexicalTheme {
 
   /// Per-node-type marker builders.
   final Map<String, BlockMarkerBuilder> markerBuilders;
+
+  /// Per-node-type widget builders for token text nodes, keyed on type.
+  ///
+  /// The entry point for chip-shaped mentions; see [TokenBuilder] for what a
+  /// builder is handed and why only token-mode nodes qualify.
+  final Map<String, TokenBuilder> tokenBuilders;
 
   /// Interprets a node's raw CSS `style` string.
   final CssStyleResolver styleResolver;

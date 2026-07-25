@@ -60,6 +60,18 @@ knowing about — the packages that define them. List bullets and checkboxes
 come from `markerBuilders`, which the application or an umbrella package
 supplies.
 
+`tokenBuilders` draws a **token text node** — a mention, a chip — as a widget
+instead of as text, which is the only way to get padding, a rounded corner or
+an avatar. The node stays text in the model, so the document is unchanged and a
+web client reads it as before. Token mode only: the widget occupies one
+position while the node holds a whole label, so the caret can sit at its edges
+and nowhere else — exactly the guarantee token mode already makes.
+
+Every builder — token, decorator, marker — runs **inside the editor's read**,
+and the widget it returns is built later, by Flutter, without one. Read the
+node in the builder and hand the widget values; a widget that keeps the node
+and reads it in its own `build` throws on the first frame.
+
 CSS is interpreted at render time by an injectable `styleResolver`; the raw
 `style` string stays verbatim in the model so documents round-trip unchanged.
 The default resolver handles `color`, `background-color`, `font-size`,
