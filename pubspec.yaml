@@ -1,0 +1,16 @@
+name: _lexical_workspace
+description: >-
+  Development-only workspace root for the Dart/Flutter Lexical-compatible editor
+  packages. Not published.
+publish_to: none
+
+environment:
+  sdk: ^3.8.0
+
+workspace:
+  - packages/lexical_core
+  - packages/lexical_history
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

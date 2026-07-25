@@ -1,0 +1,27 @@
+{
+  "generator": "gen_fixtures.mjs",
+  "lexicalVersion": "0.48.0",
+  "generatedAt": "2026-07-25T17:47:29.327Z",
+  "fixtures": [
+    "empty-root.json",
+    "single-paragraph.json",
+    "empty-paragraph.json",
+    "text-format-matrix.json",
+    "text-format-combinations.json",
+    "text-modes-and-style.json",
+    "linebreak-and-tab.json",
+    "derived-textformat.json",
+    "alignment-and-indent.json",
+    "direction-rtl.json",
+    "unicode-edge-cases.json",
+    "headings-and-quote.json",
+    "lists.json",
+    "nested-list.json",
+    "links.json",
+    "code-block.json",
+    "table.json",
+    "mark-and-hashtag.json",
+    "deep-nesting.json",
+    "mixed-document.json"
+  ]
+}

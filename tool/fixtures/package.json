@@ -1,0 +1,24 @@
+{
+  "name": "lexical-fixture-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generates and canonicalizes EditorState fixtures by running real Lexical.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "generate": "node gen_fixtures.mjs --generate ../../packages/lexical_core/test/fixtures",
+    "check": "node gen_fixtures.mjs --check ../../packages/lexical_core/test/fixtures"
+  },
+  "dependencies": {
+    "@lexical/code": "0.48.0",
+    "@lexical/hashtag": "0.48.0",
+    "@lexical/headless": "0.48.0",
+    "@lexical/link": "0.48.0",
+    "@lexical/list": "0.48.0",
+    "@lexical/mark": "0.48.0",
+    "@lexical/overflow": "0.48.0",
+    "@lexical/rich-text": "0.48.0",
+    "@lexical/table": "0.48.0",
+    "lexical": "0.48.0"
+  }
+}

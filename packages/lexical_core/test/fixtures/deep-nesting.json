@@ -1,0 +1,515 @@
+{
+  "root": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "detail": 0,
+                        "format": 0,
+                        "mode": "normal",
+                        "style": "",
+                        "text": "Ebene 0",
+                        "type": "text",
+                        "version": 1
+                      }
+                    ],
+                    "direction": null,
+                    "format": "",
+                    "indent": 1,
+                    "type": "listitem",
+                    "version": 1,
+                    "value": 1
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "detail": 0,
+                                "format": 0,
+                                "mode": "normal",
+                                "style": "",
+                                "text": "Ebene 1",
+                                "type": "text",
+                                "version": 1
+                              }
+                            ],
+                            "direction": null,
+                            "format": "",
+                            "indent": 2,
+                            "type": "listitem",
+                            "version": 1,
+                            "value": 1
+                          },
+                          {
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [
+                                      {
+                                        "detail": 0,
+                                        "format": 0,
+                                        "mode": "normal",
+                                        "style": "",
+                                        "text": "Ebene 2",
+                                        "type": "text",
+                                        "version": 1
+                                      }
+                                    ],
+                                    "direction": null,
+                                    "format": "",
+                                    "indent": 3,
+                                    "type": "listitem",
+                                    "version": 1,
+                                    "value": 1
+                                  },
+                                  {
+                                    "children": [
+                                      {
+                                        "children": [
+                                          {
+                                            "children": [
+                                              {
+                                                "detail": 0,
+                                                "format": 0,
+                                                "mode": "normal",
+                                                "style": "",
+                                                "text": "Ebene 3",
+                                                "type": "text",
+                                                "version": 1
+                                              }
+                                            ],
+                                            "direction": null,
+                                            "format": "",
+                                            "indent": 4,
+                                            "type": "listitem",
+                                            "version": 1,
+                                            "value": 1
+                                          },
+                                          {
+                                            "children": [
+                                              {
+                                                "children": [
+                                                  {
+                                                    "children": [
+                                                      {
+                                                        "detail": 0,
+                                                        "format": 0,
+                                                        "mode": "normal",
+                                                        "style": "",
+                                                        "text": "Ebene 4",
+                                                        "type": "text",
+                                                        "version": 1
+                                                      }
+                                                    ],
+                                                    "direction": null,
+                                                    "format": "",
+                                                    "indent": 5,
+                                                    "type": "listitem",
+                                                    "version": 1,
+                                                    "value": 1
+                                                  },
+                                                  {
+                                                    "children": [
+                                                      {
+                                                        "children": [
+                                                          {
+                                                            "children": [
+                                                              {
+                                                                "detail": 0,
+                                                                "format": 0,
+                                                                "mode": "normal",
+                                                                "style": "",
+                                                                "text": "Ebene 5",
+                                                                "type": "text",
+                                                                "version": 1
+                                                              }
+                                                            ],
+                                                            "direction": null,
+                                                            "format": "",
+                                                            "indent": 6,
+                                                            "type": "listitem",
+                                                            "version": 1,
+                                                            "value": 1
+                                                          },
+                                                          {
+                                                            "children": [
+                                                              {
+                                                                "children": [
+                                                                  {
+                                                                    "children": [
+                                                                      {
+                                                                        "detail": 0,
+                                                                        "format": 0,
+                                                                        "mode": "normal",
+                                                                        "style": "",
+                                                                        "text": "Ebene 6",
+                                                                        "type": "text",
+                                                                        "version": 1
+                                                                      }
+                                                                    ],
+                                                                    "direction": null,
+                                                                    "format": "",
+                                                                    "indent": 7,
+                                                                    "type": "listitem",
+                                                                    "version": 1,
+                                                                    "value": 1
+                                                                  },
+                                                                  {
+                                                                    "children": [
+                                                                      {
+                                                                        "children": [
+                                                                          {
+                                                                            "children": [
+                                                                              {
+                                                                                "detail": 0,
+                                                                                "format": 0,
+                                                                                "mode": "normal",
+                                                                                "style": "",
+                                                                                "text": "Ebene 7",
+                                                                                "type": "text",
+                                                                                "version": 1
+                                                                              }
+                                                                            ],
+                                                                            "direction": null,
+                                                                            "format": "",
+                                                                            "indent": 8,
+                                                                            "type": "listitem",
+                                                                            "version": 1,
+                                                                            "value": 1
+                                                                          },
+                                                                          {
+                                                                            "children": [
+                                                                              {
+                                                                                "children": [
+                                                                                  {
+                                                                                    "children": [
+                                                                                      {
+                                                                                        "detail": 0,
+                                                                                        "format": 0,
+                                                                                        "mode": "normal",
+                                                                                        "style": "",
+                                                                                        "text": "Ebene 8",
+                                                                                        "type": "text",
+                                                                                        "version": 1
+                                                                                      }
+                                                                                    ],
+                                                                                    "direction": null,
+                                                                                    "format": "",
+                                                                                    "indent": 9,
+                                                                                    "type": "listitem",
+                                                                                    "version": 1,
+                                                                                    "value": 1
+                                                                                  },
+                                                                                  {
+                                                                                    "children": [
+                                                                                      {
+                                                                                        "children": [
+                                                                                          {
+                                                                                            "children": [
+                                                                                              {
+                                                                                                "detail": 0,
+                                                                                                "format": 0,
+                                                                                                "mode": "normal",
+                                                                                                "style": "",
+                                                                                                "text": "Ebene 9",
+                                                                                                "type": "text",
+                                                                                                "version": 1
+                                                                                              }
+                                                                                            ],
+                                                                                            "direction": null,
+                                                                                            "format": "",
+                                                                                            "indent": 10,
+                                                                                            "type": "listitem",
+                                                                                            "version": 1,
+                                                                                            "value": 1
+                                                                                          },
+                                                                                          {
+                                                                                            "children": [
+                                                                                              {
+                                                                                                "children": [
+                                                                                                  {
+                                                                                                    "children": [
+                                                                                                      {
+                                                                                                        "detail": 0,
+                                                                                                        "format": 0,
+                                                                                                        "mode": "normal",
+                                                                                                        "style": "",
+                                                                                                        "text": "Ebene 10",
+                                                                                                        "type": "text",
+                                                                                                        "version": 1
+                                                                                                      }
+                                                                                                    ],
+                                                                                                    "direction": null,
+                                                                                                    "format": "",
+                                                                                                    "indent": 11,
+                                                                                                    "type": "listitem",
+                                                                                                    "version": 1,
+                                                                                                    "value": 1
+                                                                                                  },
+                                                                                                  {
+                                                                                                    "children": [
+                                                                                                      {
+                                                                                                        "children": [
+                                                                                                          {
+                                                                                                            "children": [
+                                                                                                              {
+                                                                                                                "detail": 0,
+                                                                                                                "format": 0,
+                                                                                                                "mode": "normal",
+                                                                                                                "style": "",
+                                                                                                                "text": "Ebene 11",
+                                                                                                                "type": "text",
+                                                                                                                "version": 1
+                                                                                                              }
+                                                                                                            ],
+                                                                                                            "direction": null,
+                                                                                                            "format": "",
+                                                                                                            "indent": 12,
+                                                                                                            "type": "listitem",
+                                                                                                            "version": 1,
+                                                                                                            "value": 1
+                                                                                                          }
+                                                                                                        ],
+                                                                                                        "direction": null,
+                                                                                                        "format": "",
+                                                                                                        "indent": 0,
+                                                                                                        "type": "list",
+                                                                                                        "version": 1,
+                                                                                                        "listType": "bullet",
+                                                                                                        "start": 1,
+                                                                                                        "tag": "ul"
+                                                                                                      }
+                                                                                                    ],
+                                                                                                    "direction": null,
+                                                                                                    "format": "",
+                                                                                                    "indent": 11,
+                                                                                                    "type": "listitem",
+                                                                                                    "version": 1,
+                                                                                                    "value": 2
+                                                                                                  }
+                                                                                                ],
+                                                                                                "direction": null,
+                                                                                                "format": "",
+                                                                                                "indent": 0,
+                                                                                                "type": "list",
+                                                                                                "version": 1,
+                                                                                                "listType": "bullet",
+                                                                                                "start": 1,
+                                                                                                "tag": "ul"
+                                                                                              }
+                                                                                            ],
+                                                                                            "direction": null,
+                                                                                            "format": "",
+                                                                                            "indent": 10,
+                                                                                            "type": "listitem",
+                                                                                            "version": 1,
+                                                                                            "value": 2
+                                                                                          }
+                                                                                        ],
+                                                                                        "direction": null,
+                                                                                        "format": "",
+                                                                                        "indent": 0,
+                                                                                        "type": "list",
+                                                                                        "version": 1,
+                                                                                        "listType": "bullet",
+                                                                                        "start": 1,
+                                                                                        "tag": "ul"
+                                                                                      }
+                                                                                    ],
+                                                                                    "direction": null,
+                                                                                    "format": "",
+                                                                                    "indent": 9,
+                                                                                    "type": "listitem",
+                                                                                    "version": 1,
+                                                                                    "value": 2
+                                                                                  }
+                                                                                ],
+                                                                                "direction": null,
+                                                                                "format": "",
+                                                                                "indent": 0,
+                                                                                "type": "list",
+                                                                                "version": 1,
+                                                                                "listType": "bullet",
+                                                                                "start": 1,
+                                                                                "tag": "ul"
+                                                                              }
+                                                                            ],
+                                                                            "direction": null,
+                                                                            "format": "",
+                                                                            "indent": 8,
+                                                                            "type": "listitem",
+                                                                            "version": 1,
+                                                                            "value": 2
+                                                                          }
+                                                                        ],
+                                                                        "direction": null,
+                                                                        "format": "",
+                                                                        "indent": 0,
+                                                                        "type": "list",
+                                                                        "version": 1,
+                                                                        "listType": "bullet",
+                                                                        "start": 1,
+                                                                        "tag": "ul"
+                                                                      }
+                                                                    ],
+                                                                    "direction": null,
+                                                                    "format": "",
+                                                                    "indent": 7,
+                                                                    "type": "listitem",
+                                                                    "version": 1,
+                                                                    "value": 2
+                                                                  }
+                                                                ],
+                                                                "direction": null,
+                                                                "format": "",
+                                                                "indent": 0,
+                                                                "type": "list",
+                                                                "version": 1,
+                                                                "listType": "bullet",
+                                                                "start": 1,
+                                                                "tag": "ul"
+                                                              }
+                                                            ],
+                                                            "direction": null,
+                                                            "format": "",
+                                                            "indent": 6,
+                                                            "type": "listitem",
+                                                            "version": 1,
+                                                            "value": 2
+                                                          }
+                                                        ],
+                                                        "direction": null,
+                                                        "format": "",
+                                                        "indent": 0,
+                                                        "type": "list",
+                                                        "version": 1,
+                                                        "listType": "bullet",
+                                                        "start": 1,
+                                                        "tag": "ul"
+                                                      }
+                                                    ],
+                                                    "direction": null,
+                                                    "format": "",
+                                                    "indent": 5,
+                                                    "type": "listitem",
+                                                    "version": 1,
+                                                    "value": 2
+                                                  }
+                                                ],
+                                                "direction": null,
+                                                "format": "",
+                                                "indent": 0,
+                                                "type": "list",
+                                                "version": 1,
+                                                "listType": "bullet",
+                                                "start": 1,
+                                                "tag": "ul"
+                                              }
+                                            ],
+                                            "direction": null,
+                                            "format": "",
+                                            "indent": 4,
+                                            "type": "listitem",
+                                            "version": 1,
+                                            "value": 2
+                                          }
+                                        ],
+                                        "direction": null,
+                                        "format": "",
+                                        "indent": 0,
+                                        "type": "list",
+                                        "version": 1,
+                                        "listType": "bullet",
+                                        "start": 1,
+                                        "tag": "ul"
+                                      }
+                                    ],
+                                    "direction": null,
+                                    "format": "",
+                                    "indent": 3,
+                                    "type": "listitem",
+                                    "version": 1,
+                                    "value": 2
+                                  }
+                                ],
+                                "direction": null,
+                                "format": "",
+                                "indent": 0,
+                                "type": "list",
+                                "version": 1,
+                                "listType": "bullet",
+                                "start": 1,
+                                "tag": "ul"
+                              }
+                            ],
+                            "direction": null,
+                            "format": "",
+                            "indent": 2,
+                            "type": "listitem",
+                            "version": 1,
+                            "value": 2
+                          }
+                        ],
+                        "direction": null,
+                        "format": "",
+                        "indent": 0,
+                        "type": "list",
+                        "version": 1,
+                        "listType": "bullet",
+                        "start": 1,
+                        "tag": "ul"
+                      }
+                    ],
+                    "direction": null,
+                    "format": "",
+                    "indent": 1,
+                    "type": "listitem",
+                    "version": 1,
+                    "value": 2
+                  }
+                ],
+                "direction": null,
+                "format": "",
+                "indent": 0,
+                "type": "list",
+                "version": 1,
+                "listType": "bullet",
+                "start": 1,
+                "tag": "ul"
+              }
+            ],
+            "direction": null,
+            "format": "",
+            "indent": 0,
+            "type": "listitem",
+            "version": 1,
+            "value": 1
+          }
+        ],
+        "direction": null,
+        "format": "",
+        "indent": 0,
+        "type": "list",
+        "version": 1,
+        "listType": "bullet",
+        "start": 1,
+        "tag": "ul"
+      }
+    ],
+    "direction": null,
+    "format": "",
+    "indent": 0,
+    "type": "root",
+    "version": 1
+  }
+}
