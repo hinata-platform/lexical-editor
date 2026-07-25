@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+Undo and redo with upstream’s coalescing rules, and collaboration-aware
+merging so a peer’s typing never becomes your undo step.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.2
 
 - A commit tagged `collaboration` no longer becomes an undo entry of its own,

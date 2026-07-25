@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+Tables: a resolved grid, merged cells, cell-rectangle selection and every
+structural command.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.2
 
 Table editing: the resolved grid (`TableGrid`), cell-range selection, and the

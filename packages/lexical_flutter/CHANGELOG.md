@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+The Flutter layer: per-block render objects, span and offset map built in one
+walk, IME, selection handles, token widgets and pointer interaction.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.2
 
 - `LexicalInteraction`: hover and tap for links, mentions and hashtags, keyed

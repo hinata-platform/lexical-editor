@@ -9,7 +9,7 @@ Pure Dart, no Flutter dependency.
 
 ```yaml
 dependencies:
-  lexical_history: ^0.1.0
+  lexical_history: ^1.0.0
 ```
 
 ## Use

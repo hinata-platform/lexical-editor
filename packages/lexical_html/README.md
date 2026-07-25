@@ -7,7 +7,7 @@ HTML import and export for
 
 ```yaml
 dependencies:
-  lexical_html: ^0.1.0
+  lexical_html: ^1.0.0
 ```
 
 ```dart

@@ -1,0 +1,93 @@
+name: Publish
+
+# Releases every package to pub.dev from one tag.
+#
+# The packages version in lockstep — they are one library split for
+# pay-for-what-you-use, not sixteen independent projects — so one `v1.0.0` tag
+# releases the set. pub.dev's automated publishing is configured per package
+# with the tag pattern `v{{version}}`, which matches that tag for whichever
+# package is being uploaded.
+#
+# Two things this cannot do for you, both one-time and both on pub.dev:
+#
+#  1. A package's "Automated publishing" settings live on its admin page,
+#     which exists only after the package does. The first upload of each
+#     package is therefore manual — see RELEASING.md.
+#  2. Ownership by the ahmadre.com publisher is granted on pub.dev, not here.
+#
+# Once both are done, pushing a tag is the whole release.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Validate only, publish nothing'
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write   # pub.dev authenticates this run by its OIDC token
+  contents: read
+
+jobs:
+  publish:
+    name: publish to pub.dev
+    runs-on: ubuntu-latest
+    # If "Require GitHub Actions environment" is ever enabled on pub.dev, add
+    # `environment: pub.dev` here and create that environment in the repo.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Resolve workspace
+        run: flutter pub get
+
+      - name: Publish order still covers every package
+        run: dart tool/check_publish_order.dart
+
+      # A tag that disagrees with the pubspecs would publish versions nobody
+      # asked for, and a publish cannot be undone. Refuse before uploading
+      # anything rather than discovering it halfway through the set.
+      - name: Tag and pubspec versions agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          echo "tag version: $tag"
+          fail=0
+          for pubspec in packages/*/pubspec.yaml; do
+            grep -qE '^publish_to:[[:space:]]*none' "$pubspec" && continue
+            version="$(grep -E '^version:' "$pubspec" | head -1 | cut -d' ' -f2)"
+            if [ "$version" != "$tag" ]; then
+              echo "::error file=$pubspec::$pubspec is $version, tag says $tag"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      # Everything is validated before anything is uploaded. Publishing is
+      # irreversible, so a set that fails halfway is the outcome worth
+      # engineering against.
+      - name: Validate every package
+        run: |
+          set -euo pipefail
+          for package in $(grep -v '^#' .github/publish-order.txt); do
+            echo "== $package"
+            (cd "packages/$package" && flutter pub publish --dry-run)
+          done
+
+      - name: Publish
+        if: github.event_name == 'push' || inputs.dry_run == false
+        run: |
+          set -euo pipefail
+          # In dependency order: lexical_flutter cannot resolve until
+          # lexical_core is on pub.dev.
+          for package in $(grep -v '^#' .github/publish-order.txt); do
+            echo "== publishing $package"
+            (cd "packages/$package" && flutter pub publish --force)
+          done

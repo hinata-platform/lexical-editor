@@ -8,7 +8,7 @@ picker widget lives in `lexical_mention_flutter`.
 
 ```yaml
 dependencies:
-  lexical_mention: ^0.1.0
+  lexical_mention: ^1.0.0
 ```
 
 ```dart

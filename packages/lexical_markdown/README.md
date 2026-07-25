@@ -7,7 +7,7 @@ Markdown import and export for
 
 ```yaml
 dependencies:
-  lexical_markdown: ^0.1.0
+  lexical_markdown: ^1.0.0
 ```
 
 ```dart

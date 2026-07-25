@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+Mentions: an atomic token node, bounded trigger detection and a debounced,
+stale-answer-dropping search.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.1
 
 First development release.

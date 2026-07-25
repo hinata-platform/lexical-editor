@@ -7,7 +7,7 @@ already wired up.
 
 ```yaml
 dependencies:
-  lexical_editor_flutter: ^0.1.0
+  lexical_editor_flutter: ^1.0.0
 ```
 
 ```dart

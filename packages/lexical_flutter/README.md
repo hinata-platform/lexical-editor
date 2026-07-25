@@ -6,7 +6,7 @@ Flutter rendering for [`lexical_core`](https://pub.dev/packages/lexical_core).
 
 ```yaml
 dependencies:
-  lexical_flutter: ^0.1.0
+  lexical_flutter: ^1.0.0
 ```
 
 ```dart

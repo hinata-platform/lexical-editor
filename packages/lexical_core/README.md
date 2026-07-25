@@ -14,7 +14,7 @@ packages.
 
 ```yaml
 dependencies:
-  lexical_core: ^0.1.0
+  lexical_core: ^1.0.0
 ```
 
 ## Use

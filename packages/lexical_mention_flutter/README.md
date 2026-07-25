@@ -7,7 +7,7 @@ a caret-anchored popover with debounced async search and keyboard navigation.
 
 ```yaml
 dependencies:
-  lexical_mention_flutter: ^0.1.0
+  lexical_mention_flutter: ^1.0.0
 ```
 
 ```dart

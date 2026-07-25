@@ -3,7 +3,7 @@ description: >-
   Pure-Dart editor state model that is wire-compatible with Meta's Lexical
   editor: node map, sibling-pointer tree, immutable double-buffered state,
   node registry and JSON import/export. No Flutter dependency.
-version: 0.1.0-dev.3
+version: 1.0.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

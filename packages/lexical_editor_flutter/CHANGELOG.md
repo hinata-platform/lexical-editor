@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+The batteries-included editor: every node type, the default theme, history and
+smart-link interaction in one widget.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.2
 
 Seeding an empty document waits for the end of the frame, so a listener that

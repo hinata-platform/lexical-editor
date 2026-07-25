@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+The mention typeahead: a caret-anchored popover with keyboard navigation, and
+chip rendering for the inserted token.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.1
 
 First development release.

@@ -7,7 +7,7 @@ Link and auto-link nodes for
 
 ```yaml
 dependencies:
-  lexical_link: ^0.1.0
+  lexical_link: ^1.0.0
 ```
 
 ```dart

@@ -8,7 +8,7 @@ replicated document, an editor binding and presence awareness. Pure Dart.
 
 ```yaml
 dependencies:
-  lexical_collab: ^0.1.0
+  lexical_collab: ^1.0.0
 ```
 
 ```dart

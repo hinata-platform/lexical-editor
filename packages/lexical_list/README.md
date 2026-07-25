@@ -7,7 +7,7 @@ Bullet, ordered and check-list nodes for
 
 ```yaml
 dependencies:
-  lexical_list: ^0.1.0
+  lexical_list: ^1.0.0
 ```
 
 ```dart

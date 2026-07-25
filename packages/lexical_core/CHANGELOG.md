@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+First stable release; semantic versioning applies from here.
+The model: immutable double-buffered state, sibling-pointer tree, commands,
+transforms, listeners and JSON that is a fixed point against Lexical 0.48.
+
+The entries below record how it got here.
+
 ## 0.1.0-dev.3
 
 `ensureNonEmpty` no longer opens an update when the document already has

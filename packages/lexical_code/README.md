@@ -7,7 +7,7 @@ Code block and syntax-highlight nodes for
 
 ```yaml
 dependencies:
-  lexical_code: ^0.1.0
+  lexical_code: ^1.0.0
 ```
 
 ```dart

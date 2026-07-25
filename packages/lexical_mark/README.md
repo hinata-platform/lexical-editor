@@ -7,7 +7,7 @@ Mark nodes — annotations and comment ranges — for
 
 ```yaml
 dependencies:
-  lexical_mark: ^0.1.0
+  lexical_mark: ^1.0.0
 ```
 
 ```dart

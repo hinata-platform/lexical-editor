@@ -7,7 +7,7 @@ Pure Dart.
 
 ```yaml
 dependencies:
-  lexical_hashtag: ^0.1.0
+  lexical_hashtag: ^1.0.0
 ```
 
 ```dart

@@ -156,6 +156,19 @@ node gen_fixtures.mjs --check ../../packages/lexical_core/test/fixtures
 `--check` is what CI runs on a schedule: it turns a silent compatibility
 drift after an upstream release into a dated build failure.
 
+## Releasing
+
+All sixteen packages version in lockstep, so one tag releases the set:
+
+```sh
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+CI then checks the tag against every pubspec, dry-runs all sixteen, and only
+then publishes — in dependency order, authenticated by GitHub's OIDC token
+rather than by a stored credential. See [RELEASING.md](RELEASING.md) for the
+one-time pub.dev setup.
+
 ## Security posture
 
 An editor document is untrusted input, and this package is meant to be

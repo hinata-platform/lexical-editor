@@ -7,7 +7,7 @@ Table, row and cell nodes for
 
 ```yaml
 dependencies:
-  lexical_table: ^0.1.0
+  lexical_table: ^1.0.0
 ```
 
 ```dart

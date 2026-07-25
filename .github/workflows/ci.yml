@@ -33,6 +33,11 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      # A new package that never reaches the release order is released never,
+      # and nobody notices until someone asks where it is.
+      - name: Publish order and versions
+        run: dart tool/check_publish_order.dart
+
       - name: Test every package
         run: |
           set -e
