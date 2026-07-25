@@ -72,6 +72,8 @@ Unsubscribe registerLexical(LexicalEditor editor, {HistoryState? history}) {
     registerRichText(editor),
     registerList(editor),
     registerCode(editor),
+    registerLink(editor),
+    registerMark(editor),
     registerHistory(editor, state: history),
   ];
   return () {
@@ -114,6 +116,8 @@ class LexicalEditorField extends StatefulWidget {
     this.registerBehaviour = true,
     this.history,
     this.interaction,
+    this.editableKey,
+    this.contextMenuBuilder = defaultLexicalContextMenu,
   });
 
   /// The editor to edit.
@@ -151,6 +155,26 @@ class LexicalEditorField extends StatefulWidget {
 
   /// What the Tab key does.
   final TabBehaviour tabBehaviour;
+
+  /// A key on the editable underneath.
+  ///
+  /// The way to reach `LexicalEditableState` — `selectionRects`, `caretRect`,
+  /// `requestFocus` — which is what anything drawn *around* the selection
+  /// needs: a floating format toolbar, a link editor, a comment marker. This
+  /// widget deliberately draws none of them, so it has to hand over the
+  /// geometry that would make them possible.
+  final GlobalKey<LexicalEditableState>? editableKey;
+
+  /// The selection menu — cut, copy, paste — shown after a selection.
+  ///
+  /// An application that draws its own floating toolbar wants this gone:
+  /// otherwise both appear on the same gesture, one over the other. Return an
+  /// empty widget to suppress it:
+  ///
+  /// ```dart
+  /// contextMenuBuilder: (context, editable) => const SizedBox.shrink(),
+  /// ```
+  final LexicalContextMenuBuilder contextMenuBuilder;
 
   /// Which node types respond to hover and tap.
   ///
@@ -226,6 +250,7 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
           palette: widget.palette,
         );
     return LexicalEditable(
+      key: widget.editableKey,
       editor: widget.editor,
       theme: theme,
       focusNode: widget.focusNode,
@@ -237,6 +262,7 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
       decoratorBuilders: widget.decoratorBuilders,
       tabBehaviour: widget.tabBehaviour,
       interaction: widget.interaction,
+      contextMenuBuilder: widget.contextMenuBuilder,
       cursorColor: theme.caretColor,
       cursorWidth: theme.caretWidth,
       selectionColor: theme.selectionColor,

@@ -75,10 +75,23 @@ your own.
 
 ## What is deliberately not here
 
-Selection handles and a context toolbar. Material and Cupertino disagree about
-what those look like, and so will your design system — so the geometry is
-exposed (`LexicalEditableState.caretRect`, `.selectionRects`) and the design is
-left to the application.
+Selection handles, a context toolbar, and a floating format bar. Material and
+Cupertino disagree about what those look like, and so will your design system —
+so the geometry is exposed and the design is left to the application. Pass
+`editableKey` to reach it:
+
+```dart
+final editableKey = GlobalKey<LexicalEditableState>();
+
+LexicalEditorField(editor: editor, editableKey: editableKey, …);
+
+editableKey.currentState!.selectionRects;   // where the selection is
+editableKey.currentState!.caretRect;        // where the caret is
+```
+
+The example's `selection_toolbar.dart` is a complete floating toolbar with a
+link editor built on exactly that — about a hundred lines, including refusing
+`javascript:` URLs.
 
 ## Licence
 

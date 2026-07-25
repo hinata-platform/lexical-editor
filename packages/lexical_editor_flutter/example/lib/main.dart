@@ -7,9 +7,16 @@
 // The whole editor is `createLexicalEditor()` plus `LexicalEditorField`. The
 // rest of this file is a toolbar and a panel showing the document's markdown
 // and JSON, so that what the model is doing stays visible while you type.
+//
+// Select some text and a second toolbar appears over it, with the link editor
+// behind its link button — see selection_toolbar.dart. Its comment button
+// opens a thread in the right-hand panel — see comments.dart.
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lexical_markdown/lexical_markdown.dart';
+
+import 'comments.dart';
+import 'selection_toolbar.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -38,7 +45,13 @@ class EditorPage extends StatefulWidget {
 class _EditorPageState extends State<EditorPage> {
   // Every node type, the behaviour each of them needs, and undo.
   final LexicalEditor editor = createLexicalEditor();
-  bool _showJson = false;
+
+  /// Reaches `LexicalEditableState` — where the selection's geometry lives,
+  /// which is all a floating toolbar needs.
+  final GlobalKey<LexicalEditableState> _editableKey =
+      GlobalKey<LexicalEditableState>();
+  final CommentStore comments = CommentStore();
+  _Panel _panel = _Panel.markdown;
 
   @override
   void initState() {
@@ -82,6 +95,17 @@ class _EditorPageState extends State<EditorPage> {
 
   void _format(TextFormat format) =>
       editor.dispatchCommand(formatTextCommand, format);
+
+  /// Marks the selection and opens a thread on it.
+  ///
+  /// The id is the only thing that reaches the document; the comment itself
+  /// lives in [comments], which is why writing one does not change the
+  /// document and resolving one does not leave anything behind.
+  void _comment() {
+    final id = comments.startThread();
+    editor.dispatchCommand(addMarkCommand, id);
+    setState(() => _panel = _Panel.comments);
+  }
 
   /// Replaces every block the selection touches with a fresh one.
   void _turnInto(ElementNode Function() create) {
@@ -141,11 +165,35 @@ class _EditorPageState extends State<EditorPage> {
               children: [
                 Expanded(
                   flex: 3,
-                  child: LexicalEditorField(
+                  child: SelectionToolbar(
                     editor: editor,
-                    autofocus: true,
-                    padding: const EdgeInsets.all(24),
-                    baseTextStyle: Theme.of(context).textTheme.bodyLarge!,
+                    editableKey: _editableKey,
+                    onComment: _comment,
+                    child: LexicalEditorField(
+                      editor: editor,
+                      editableKey: _editableKey,
+                      autofocus: true,
+                      padding: const EdgeInsets.all(24),
+                      // This example draws its own toolbar over the
+                      // selection, so the platform's cut/copy/paste menu
+                      // would be a second overlay on the same gesture.
+                      contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+                      baseTextStyle: Theme.of(context).textTheme.bodyLarge!,
+                      // Links are tappable here too; the toolbar is what
+                      // creates them.
+                      interaction: LexicalInteraction(
+                        types: interactiveNodeTypes,
+                        onTap: (hit) =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${hit.type}: '
+                                  '${hit.json['url'] ?? hit.text}',
+                                ),
+                              ),
+                            ),
+                      ),
+                    ),
                   ),
                 ),
                 const VerticalDivider(width: 1),
@@ -156,10 +204,19 @@ class _EditorPageState extends State<EditorPage> {
                   // can land during a build.
                   child: LexicalBuilder(
                     editor: editor,
-                    builder: (context, state, _) => _Inspector(
-                      showJson: _showJson,
-                      onToggle: (value) => setState(() => _showJson = value),
-                      text: _showJson ? editor.toJsonString() : _markdown,
+                    builder: (context, state, _) => _SidePanel(
+                      panel: _panel,
+                      onSelect: (value) => setState(() => _panel = value),
+                      text: switch (_panel) {
+                        _Panel.markdown => _markdown,
+                        _Panel.json => editor.toJsonString(),
+                        _Panel.comments => '',
+                      },
+                      comments: CommentsPanel(
+                        editor: editor,
+                        store: comments,
+                        author: 'Du',
+                      ),
                     ),
                   ),
                 ),
@@ -231,16 +288,21 @@ class _Toolbar extends StatelessWidget {
   );
 }
 
-class _Inspector extends StatelessWidget {
-  const _Inspector({
-    required this.showJson,
-    required this.onToggle,
+/// What the right-hand panel is showing.
+enum _Panel { markdown, json, comments }
+
+class _SidePanel extends StatelessWidget {
+  const _SidePanel({
+    required this.panel,
+    required this.onSelect,
     required this.text,
+    required this.comments,
   });
 
-  final bool showJson;
-  final ValueChanged<bool> onToggle;
+  final _Panel panel;
+  final ValueChanged<_Panel> onSelect;
   final String text;
+  final Widget comments;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -250,23 +312,29 @@ class _Inspector extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: SegmentedButton<bool>(
+          child: SegmentedButton<_Panel>(
             segments: const [
-              ButtonSegment(value: false, label: Text('Markdown')),
-              ButtonSegment(value: true, label: Text('JSON')),
+              ButtonSegment(value: _Panel.markdown, label: Text('Markdown')),
+              ButtonSegment(value: _Panel.json, label: Text('JSON')),
+              ButtonSegment(value: _Panel.comments, label: Text('Kommentare')),
             ],
-            selected: {showJson},
-            onSelectionChanged: (value) => onToggle(value.first),
+            selected: {panel},
+            onSelectionChanged: (value) => onSelect(value.first),
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: SelectableText(
-              text,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
+          child: panel == _Panel.comments
+              ? comments
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    text,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
         ),
       ],
     ),

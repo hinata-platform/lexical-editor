@@ -27,6 +27,8 @@ export 'src/link_node.dart'
         safeUrlSchemes,
         $createAutoLinkNode,
         $createLinkNode;
+export 'src/link_ops.dart'
+    show registerLink, toggleLinkCommand, $getLinkAtSelection, $toggleLink;
 
 /// The node specs this package contributes.
 List<NodeSpec<LexicalNode>> get linkNodes => <NodeSpec<LexicalNode>>[

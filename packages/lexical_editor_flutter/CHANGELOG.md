@@ -4,7 +4,10 @@
 
 First stable release; semantic versioning applies from here.
 The batteries-included editor: every node type, the default theme, history and
-smart-link interaction in one widget.
+smart-link interaction in one widget. `registerLexical` now also registers link and
+mark behaviour; `editableKey` hands over the selection geometry a floating
+toolbar needs, and `contextMenuBuilder` can suppress the platform's own
+selection menu for an application that draws its own.
 
 The entries below record how it got here.
 

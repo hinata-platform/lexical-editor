@@ -53,6 +53,26 @@ automatic link so it is not recreated.
 
 Wire-compatible with `@lexical/link` 0.48.x.
 
+## Making a link
+
+```dart
+registerLink(editor);                                    // once
+editor.dispatchCommand(toggleLinkCommand, 'https://…');  // link the selection
+editor.dispatchCommand(toggleLinkCommand, null);         // unlink it
+```
+
+`$toggleLink` splits the boundary text nodes so the link covers exactly what
+was selected, unwraps links already inside the range so the result is one link
+rather than nested ones, and wraps each run of siblings where it sits — a
+selection crossing a paragraph boundary produces one link per paragraph,
+because an element cannot span two parents and linking only the first half
+loses the gesture.
+
+A selection **inside** an existing link retargets that link instead of nesting
+a second one, which is what someone editing a URL means. `$getLinkAtSelection`
+answers with the link under the caret, so a link editor can open with the
+current URL filled in.
+
 ## Hover and tap
 
 A link that cannot be followed is decoration. `lexical_flutter` resolves the

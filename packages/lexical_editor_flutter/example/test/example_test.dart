@@ -1,5 +1,37 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lexical_editor_flutter_example/main.dart';
+
+/// The editor behind the mounted example page.
+LexicalEditor _editorOf(WidgetTester tester) =>
+    tester.widget<LexicalEditorField>(find.byType(LexicalEditorField)).editor;
+
+/// Selects [word] wherever it first appears in the document.
+Future<void> _select(WidgetTester tester, String word) async {
+  _editorOf(tester).update(() {
+    for (final block in $getRoot().children.whereType<ElementNode>()) {
+      for (final child in block.children.whereType<TextNode>()) {
+        final start = child.getTextContent().indexOf(word);
+        if (start < 0) continue;
+        child.select(start, start + word.length);
+        return;
+      }
+    }
+    throw StateError('no "$word" in the document');
+  }, discrete: true);
+  // The toolbar reads geometry, so it can only appear a frame later.
+  await tester.pump();
+  await tester.pump();
+}
+
+List<LinkNode> _links(WidgetTester tester) => _editorOf(tester).read(
+  () => $getRoot().children
+      .whereType<ElementNode>()
+      .expand((block) => block.children)
+      .whereType<LinkNode>()
+      .toList(),
+);
 
 void main() {
   testWidgets('the example mounts and renders its document as markdown', (
@@ -10,5 +42,168 @@ void main() {
     expect(find.text('lexical_editor_flutter'), findsOneWidget);
     // The inspector shows the same document the editor holds.
     expect(find.textContaining('# Lexical, auf Flutter'), findsOneWidget);
+  });
+
+  testWidgets('the floating toolbar follows a selection', (tester) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    // Nothing selected, nothing floating. The page toolbar has its own bold
+    // button, so count: one before, two while a selection exists.
+    expect(find.byIcon(Icons.format_bold), findsOneWidget);
+
+    await _select(tester, 'Tippe');
+    expect(find.byIcon(Icons.format_bold), findsNWidgets(2));
+
+    // And it sits over the selected text, not somewhere on the page.
+    final editable = tester.state<LexicalEditableState>(
+      find.byType(LexicalEditable),
+    );
+    final selected = editable.selectionRects.first;
+    final toolbar = tester.getRect(find.byIcon(Icons.link));
+    expect((toolbar.center.dx - selected.center.dx).abs(), lessThan(220));
+    expect(toolbar.bottom, lessThanOrEqualTo(selected.top));
+
+    // Collapsing the selection takes it away again.
+    _editorOf(tester).update(() {
+      final selection = $getSelection()! as RangeSelection;
+      selection.focus.set(
+        selection.anchor.key,
+        selection.anchor.offset,
+        selection.anchor.type,
+      );
+    }, discrete: true);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byIcon(Icons.format_bold), findsOneWidget);
+  });
+
+  testWidgets('the platform cut/copy/paste menu stays away', (tester) async {
+    // Two overlays on one gesture: the floating toolbar and the platform's
+    // own selection menu, one over the other. The example draws its own, so
+    // the built-in one is suppressed.
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    await _select(tester, 'Tippe');
+
+    tester
+        .state<LexicalEditableState>(find.byType(LexicalEditable))
+        .showToolbar();
+    await tester.pump();
+
+    expect(find.text('Copy'), findsNothing);
+    expect(find.text('Paste'), findsNothing);
+    // Ours is still there.
+    expect(find.byIcon(Icons.format_bold), findsNWidgets(2));
+  });
+
+  testWidgets('its bold button formats the selection', (tester) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    await _select(tester, 'Tippe');
+
+    await tester.tap(find.byIcon(Icons.format_bold).last);
+    await tester.pump();
+
+    final bold = _editorOf(tester).read(() {
+      final selection = $getSelection()! as RangeSelection;
+      final texts = selection.getNodes().whereType<TextNode>();
+      return texts.isNotEmpty &&
+          texts.every((node) => node.hasFormat(TextFormat.bold));
+    });
+    expect(bold, isTrue);
+  });
+
+  testWidgets('the link button opens an editor and links the selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    await _select(tester, 'Tippe');
+
+    await tester.tap(find.byIcon(Icons.link));
+    await tester.pump();
+
+    // A field, prefilled with the scheme rather than empty.
+    expect(find.widgetWithText(TextField, 'https://'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'https://lexical.dev');
+    await tester.tap(find.byIcon(Icons.check_circle));
+    await tester.pump();
+
+    final links = _links(tester);
+    expect(links, hasLength(1));
+    expect(
+      _editorOf(tester).read(() => _links(tester).single.url),
+      'https://lexical.dev',
+    );
+    expect(
+      _editorOf(tester).read(() => _links(tester).single.getTextContent()),
+      'Tippe',
+    );
+  });
+
+  testWidgets('commenting marks the text and opens a thread', (tester) async {
+    // A desktop-sized window: below 900 logical pixels the example stacks the
+    // panel under the editor, where the default 800x600 test surface leaves
+    // the composer off screen.
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    await _select(tester, 'Tippe');
+
+    await tester.tap(find.byIcon(Icons.add_comment_outlined));
+    await tester.pump();
+
+    // The document records only the mark; the panel quotes what it covers.
+    final ids = _editorOf(tester).read($getMarkIdsAtSelection);
+    expect(ids, hasLength(1));
+    expect(_editorOf(tester).read(() => $getMarkedText(ids.single)), 'Tippe');
+    expect(find.text('Tippe'), findsWidgets);
+
+    // Writing the comment does not touch the document.
+    final before = _editorOf(tester).toJsonString();
+    await tester.enterText(find.byType(TextField).last, 'Sollte klarer sein');
+    await tester.tap(find.byIcon(Icons.send).last);
+    await tester.pump();
+    expect(find.text('Sollte klarer sein'), findsOneWidget);
+    expect(_editorOf(tester).toJsonString(), before);
+
+    // A reply joins the same thread.
+    await tester.enterText(find.byType(TextField).last, 'Stimmt');
+    await tester.tap(find.byIcon(Icons.send).last);
+    await tester.pump();
+    expect(find.text('Sollte klarer sein'), findsOneWidget);
+    expect(find.text('Stimmt'), findsOneWidget);
+
+    // Resolving takes the mark back out, leaving the text.
+    await tester.tap(find.byIcon(Icons.check).last);
+    await tester.pump();
+    expect(_editorOf(tester).read(() => $getMarkedText(ids.single)), isEmpty);
+    expect(
+      _editorOf(tester).read(() => $getRoot().getTextContent()),
+      contains('Tippe hier'),
+    );
+  });
+
+  testWidgets('the link editor refuses a script URL', (tester) async {
+    // A stored `javascript:` URL is an XSS waiting for a tap. The model keeps
+    // what it is given so documents round-trip; refusing belongs here, where
+    // the link is created.
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    await _select(tester, 'Tippe');
+
+    await tester.tap(find.byIcon(Icons.link));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'javascript:alert(1)');
+    await tester.tap(find.byIcon(Icons.check_circle));
+    await tester.pump();
+
+    expect(find.text('Kein erlaubtes Schema'), findsOneWidget);
+    expect(_links(tester), isEmpty);
   });
 }

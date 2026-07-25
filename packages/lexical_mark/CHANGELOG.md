@@ -3,7 +3,10 @@
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.
-Marks: overlapping, id-carrying highlights for comments and suggestions.
+Marks: overlapping, id-carrying highlights for comments and suggestions — plus
+`$markSelection`, `$removeMark`, `$getMarkedText`, `$getMarkIdsAtSelection` and
+the two commands behind them, which is what turns a selection into a comment
+range and back.
 
 The entries below record how it got here.
 

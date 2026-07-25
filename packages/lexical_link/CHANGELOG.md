@@ -3,7 +3,9 @@
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.
-Links and autolinks, wire-compatible with @lexical/link.
+Links and autolinks, wire-compatible with @lexical/link — plus `$toggleLink`,
+`toggleLinkCommand`, `registerLink` and `$getLinkAtSelection`, which is what
+turns a selection into a link and back.
 
 The entries below record how it got here.
 
