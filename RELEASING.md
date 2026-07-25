@@ -40,14 +40,17 @@ is manual, from a clean checkout, **in dependency order** — `lexical_flutter`
 cannot be published before `lexical_core` is on pub.dev to resolve against:
 
 ```sh
-dart pub login          # as rebar.ahmad@gmail.com
-for package in $(grep -v '^#' .github/publish-order.txt); do
-  (cd "packages/$package" && flutter pub publish)
-done
+dart pub login                            # as rebar.ahmad@gmail.com
+tool/publish_first_release.sh --dry-run   # validates all sixteen, uploads none
+tool/publish_first_release.sh
 ```
 
-Expect to confirm each one. If a package fails, fix it and re-run from that
-package onwards — the ones already up are up.
+The script asks once, then publishes without stopping between packages. It is
+safe to re-run: a package already on pub.dev at this version is skipped, so a
+run that dies on number nine is fixed by fixing the cause and running it again.
+It validates every remaining package **before** uploading any of them, and
+waits for each upload to become visible before publishing the package that
+depends on it.
 
 ### 2. Move each package to the ahmadre.com publisher
 
