@@ -17,6 +17,7 @@ workspace:
   - packages/lexical_hashtag
   - packages/lexical_history
   - packages/lexical_html
+  - packages/lexical_image
   - packages/lexical_link
   - packages/lexical_list
   - packages/lexical_mark

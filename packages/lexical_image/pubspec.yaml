@@ -1,0 +1,25 @@
+name: lexical_image
+description: >-
+  Image nodes for lexical_core, with a resizable Flutter widget: drag handles
+  with configurable minimum and maximum size, aspect-ratio preservation and
+  optional captions.
+version: 1.0.0
+repository: https://github.com/hinata-platform/lexical-editor
+issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
+
+environment:
+  sdk: ^3.8.0
+  flutter: ">=3.27.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  lexical_core: ^1.0.0
+  meta: ^1.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
