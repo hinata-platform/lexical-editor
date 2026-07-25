@@ -117,6 +117,57 @@ for package in $PACKAGES; do
 done
 [ -n "$SKIPPED" ] && echo
 
+# ---------------------------------------------------------------------------
+# pub.dev's rate limits on creating packages
+# ---------------------------------------------------------------------------
+#
+# From pub-dev's production config (app/config/dartlang-pub.yaml), the
+# `package-created` operation is limited per user to:
+#
+#     burst 4   in a 2-minute window
+#     daily 12  in a rolling 24-hour window
+#
+# Sixteen packages therefore cannot all be created on one day. That is not a
+# problem to work around; it is a schedule to respect, and the only real
+# question is when the next window opens. Asking pub.dev when the existing
+# packages were created answers it exactly, rather than guessing an hour and
+# hoping.
+DAILY_LIMIT=12
+BURST_LIMIT=4
+
+# Prints: <created in the last 24h> <seconds until the oldest one ages out>
+daily_usage() {
+  local names="$1"
+  {
+    for package in $names; do
+      curl -s --max-time 15 "https://pub.dev/api/packages/$package" || true
+      echo
+    done
+  } | python3 -c '
+import sys, json, datetime
+now = datetime.datetime.now(datetime.timezone.utc)
+stamps = []
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        data = json.loads(line)
+    except ValueError:
+        continue
+    published = (data.get("latest") or {}).get("published")
+    if not published:
+        continue
+    when = datetime.datetime.fromisoformat(published.replace("Z", "+00:00"))
+    age = (now - when).total_seconds()
+    if age < 86400:
+        stamps.append(age)
+stamps.sort(reverse=True)
+wait = int(86400 - stamps[0]) + 60 if stamps else 0
+print(len(stamps), wait)
+'
+}
+
 if [ -z "$TODO" ]; then
   echo "nothing to do — every package is on pub.dev at $VERSION."
   exit 0
@@ -147,8 +198,38 @@ fi
 # Publish
 # ---------------------------------------------------------------------------
 
+# A network hiccup must not turn into an unbound variable and a stack trace.
+USED_TODAY=0
+WAIT_SECONDS=0
+read -r USED_TODAY WAIT_SECONDS <<<"$(daily_usage "$SKIPPED")" || true
+BUDGET=$((DAILY_LIMIT - ${USED_TODAY:-0}))
+[ "$BUDGET" -lt 0 ] && BUDGET=0
+TODO_COUNT=$(echo $TODO | wc -w | tr -d ' ')
+
+echo "pub.dev allows $DAILY_LIMIT new packages per day, $BURST_LIMIT per two minutes."
+echo "  created in the last 24h: $USED_TODAY"
+echo "  left today:              $BUDGET"
+echo "  still to publish:        $TODO_COUNT"
+if [ "$BUDGET" -eq 0 ]; then
+  echo
+  echo "The daily window is full. It reopens in about $((WAIT_SECONDS / 3600))h"
+  echo "$(((WAIT_SECONDS % 3600) / 60))m — re-run then, it continues where it stopped."
+  exit 0
+fi
+if [ "$TODO_COUNT" -gt "$BUDGET" ]; then
+  echo
+  echo "Only $BUDGET of them fit today. The rest is one more run tomorrow;"
+  echo "the order is topological, so stopping partway is safe."
+fi
+echo
+
 echo "About to publish, in this order:"
-for package in $TODO; do echo "  $package $VERSION"; done
+count=0
+for package in $TODO; do
+  count=$((count + 1))
+  [ "$count" -gt "$BUDGET" ] && break
+  echo "  $package $VERSION"
+done
 echo
 echo "This cannot be undone. A published version stays published."
 printf 'Type the version (%s) to continue: ' "$VERSION"
@@ -174,15 +255,89 @@ wait_until_visible() {
 }
 
 DONE=""
+CREATED=0
+REMAINING=""
+
 for package in $TODO; do
+  if [ "$CREATED" -ge "$BUDGET" ]; then
+    REMAINING="$REMAINING $package"
+    continue
+  fi
+
+  # Four per two minutes. Waiting *before* the fifth is politer than being
+  # refused and retrying, and it keeps the run readable.
+  if [ "$CREATED" -gt 0 ] && [ $((CREATED % BURST_LIMIT)) -eq 0 ]; then
+    echo "-- $BURST_LIMIT published; waiting out the two-minute burst window"
+    sleep 125
+    echo
+  fi
+
   echo "== $package"
-  (cd "packages/$package" && "$FLUTTER" pub publish --force)
-  wait_until_visible "$package"
-  DONE="$DONE $package"
-  echo
+  log="/tmp/pub-publish-$package.log"
+  if (cd "packages/$package" && "$FLUTTER" pub publish --force) 2>&1 | tee "$log"; then
+    :
+  fi
+
+  if published_already "$package"; then
+    wait_until_visible "$package"
+    DONE="$DONE $package"
+    CREATED=$((CREATED + 1))
+    echo
+    continue
+  fi
+
+  # Not published. A rate limit is a schedule, not a failure; anything else is
+  # a failure and stopping is right, because the packages after this one
+  # depend on it.
+  if grep -q 'rate limit has been reached' "$log"; then
+    REMAINING="$REMAINING $package"
+    if grep -q 'in the last day' "$log"; then
+      echo
+      echo "-- pub.dev's daily limit of $DAILY_LIMIT new packages is reached."
+      break
+    fi
+    echo "-- burst limit; waiting two minutes and trying $package once more"
+    sleep 125
+    if (cd "packages/$package" && "$FLUTTER" pub publish --force) 2>&1 | tee "$log"; then
+      :
+    fi
+    if published_already "$package"; then
+      REMAINING="${REMAINING% $package}"
+      DONE="$DONE $package"
+      CREATED=$((CREATED + 1))
+      echo
+      continue
+    fi
+    echo
+    echo "-- still refused; stopping here."
+    break
+  fi
+
+  echo >&2
+  echo "error: $package was not published, and not because of a rate limit." >&2
+  echo "       See $log. Nothing after it has been touched." >&2
+  exit 1
 done
 
-echo "published:$DONE"
+# Anything not attempted in this run.
+for package in $TODO; do
+  case " $DONE $REMAINING " in
+    *" $package "*) ;;
+    *) REMAINING="$REMAINING $package" ;;
+  esac
+done
+
+echo "published:${DONE:- nothing}"
+if [ -n "$REMAINING" ]; then
+  WAIT_SECONDS=0
+  read -r _ WAIT_SECONDS <<<"$(daily_usage "$SKIPPED$DONE")" || true
+  WAIT_SECONDS=${WAIT_SECONDS:-0}
+  echo "still to go:$REMAINING"
+  echo
+  echo "The daily window reopens in about $((WAIT_SECONDS / 3600))h $(((WAIT_SECONDS % 3600) / 60))m."
+  echo "Re-run this script then — it skips what is already up."
+  echo
+fi
 echo
 echo "Two things left, both on pub.dev and both once per package:"
 echo "  1. Admin -> Publisher -> ahmadre.com"

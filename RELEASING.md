@@ -52,6 +52,19 @@ It validates every remaining package **before** uploading any of them, and
 waits for each upload to become visible before publishing the package that
 depends on it.
 
+**The first release takes two days, and that is not a bug.** pub.dev limits
+creating *new* packages, per user, to 4 in two minutes and **12 in a rolling
+24 hours** (`package-created` in pub-dev's production config). Sixteen packages
+do not fit in one day. The script knows the limits: it paces itself through the
+burst window, publishes as many as the daily budget allows, and prints when the
+window reopens. Run it again then — the order is topological, so stopping
+partway leaves pub.dev consistent, and the packages already up are skipped.
+
+The limit applies to *creating* a package. Every later release publishes new
+versions of packages that already exist, which is a different, much roomier
+limit — so this is a one-time cost of the first release, not a property of
+releasing.
+
 ### 2. Move each package to the ahmadre.com publisher
 
 A first upload is owned by the account that made it, not by a publisher. On
