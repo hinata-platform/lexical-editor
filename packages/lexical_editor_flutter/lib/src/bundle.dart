@@ -5,9 +5,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
+import 'package:lexical_embed/lexical_embed.dart';
 import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_hashtag/lexical_hashtag.dart';
 import 'package:lexical_history/lexical_history.dart';
+import 'package:lexical_image/lexical_image.dart';
 import 'package:lexical_link/lexical_link.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_mark/lexical_mark.dart';
@@ -32,6 +34,8 @@ List<NodeSpec<LexicalNode>> get lexicalNodes => <NodeSpec<LexicalNode>>[
   ...markNodes,
   ...hashtagNodes,
   ...mentionNodes,
+  ...imageNodes,
+  ...embedNodes,
 ];
 
 /// The node types that can point somewhere: links, mentions, hashtags.
@@ -74,6 +78,8 @@ Unsubscribe registerLexical(LexicalEditor editor, {HistoryState? history}) {
     registerCode(editor),
     registerLink(editor),
     registerMark(editor),
+    registerImage(editor),
+    registerEmbed(editor),
     registerHistory(editor, state: history),
   ];
   return () {
@@ -82,6 +88,49 @@ Unsubscribe registerLexical(LexicalEditor editor, {HistoryState? history}) {
     }
   };
 }
+
+/// Widget builders for every decorator type in this bundle.
+///
+/// A decorator without a builder draws its text stand-in instead of itself, so
+/// an editor that registers the image and embed nodes — as this bundle does —
+/// wants these too:
+///
+/// ```dart
+/// LexicalEditorField(
+///   editor: editor,
+///   baseTextStyle: …,
+///   decoratorBuilders: lexicalDecoratorBuilders(
+///     editor: editor,
+///     onOpenEmbed: (kind, url) => launchUrlString(url),
+///   ),
+/// )
+/// ```
+///
+/// The parameters are the policies that genuinely differ per application: how
+/// large an image may be dragged, which sources may be loaded, and what
+/// tapping a video does. An embed with no [onOpenEmbed] draws a card that is
+/// not tappable, which is the right default for a viewer.
+Map<String, DecoratorBuilder> lexicalDecoratorBuilders({
+  required LexicalEditor editor,
+  ImageSizeLimits imageLimits = const ImageSizeLimits(),
+  ImageResolver imageResolver = defaultImageResolver,
+  bool editable = true,
+  bool captionsEnabled = true,
+  EmbedOpener? onOpenEmbed,
+  EmbedThumbnailResolver embedThumbnails = defaultEmbedThumbnailResolver,
+}) => <String, DecoratorBuilder>{
+  ...imageDecoratorBuilders(
+    editor: editor,
+    limits: imageLimits,
+    resolver: imageResolver,
+    editable: editable,
+    captionsEnabled: captionsEnabled,
+  ),
+  ...embedDecoratorBuilders(
+    onOpen: onOpenEmbed,
+    thumbnailResolver: embedThumbnails,
+  ),
+};
 
 /// A ready-to-use editor: every node type, the default theme, history.
 ///

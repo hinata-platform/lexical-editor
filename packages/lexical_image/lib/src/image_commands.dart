@@ -66,12 +66,13 @@ Unsubscribe registerImage(LexicalEditor editor) =>
       return true;
     }, CommandPriority.editor);
 
-/// Inserts an image at the selection, on its own line.
+/// Inserts an image at the selection, inside a paragraph.
 ///
-/// An image is a block, so it cannot live inside the paragraph the caret is
-/// in: it is placed after that paragraph, and an empty paragraph follows it so
-/// there is somewhere to keep typing. Without that last part an image at the
-/// end of a document is a trap — nothing below it will take the caret.
+/// This mirrors upstream's insert step exactly — put the image where the caret
+/// is, and if that turns out to be the root, wrap it in a paragraph. An image
+/// is an *inline* decorator (see [ImageNode.isInline]), so a document written
+/// here has the same shape as one written on the web: `paragraph > image`,
+/// never `root > image`.
 void $insertImage(ImageAttributes attributes) {
   final image = $createImageNode(
     src: attributes.src,
@@ -83,34 +84,23 @@ void $insertImage(ImageAttributes attributes) {
   if (attributes.caption != null) image.setCaptionText(attributes.caption);
 
   final selection = $getSelection();
-  final block = selection is RangeSelection
-      ? _topLevelBlockOf(selection.focus.getNode())
-      : null;
+  if (selection is RangeSelection) selection.insertNodes([image]);
 
-  if (block == null) {
-    $getRoot()
-      ..append(image)
-      ..append($createParagraphNode());
-    image.selectNext();
-    return;
+  // The caret can sit on the root itself — an empty document, or no selection
+  // at all — and an inline node there would be a tree nothing else writes.
+  final parent = image.getParent();
+  if (parent != null && parent is! RootNode) return;
+
+  final paragraph = $createParagraphNode();
+  if (parent == null) {
+    $getRoot().append(paragraph);
+  } else {
+    image.insertBefore(paragraph);
   }
-
-  final after = $createParagraphNode();
-  block.insertAfter(image);
-  image.insertAfter(after);
-  after.selectStart();
-}
-
-/// The top-level block [node] sits in, or `null`.
-LexicalNode? _topLevelBlockOf(LexicalNode? node) {
-  var current = node;
-  while (current != null) {
-    final parent = current.getParent();
-    if (parent == null) return null;
-    if (parent is RootNode) return current;
-    current = parent;
-  }
-  return null;
+  // `append` reparents, so this both moves the image and empties its old slot.
+  paragraph
+    ..append(image)
+    ..selectEnd();
 }
 
 /// A decorator builder for `image`, ready to hand to the renderer.

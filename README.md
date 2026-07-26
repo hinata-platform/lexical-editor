@@ -36,8 +36,11 @@ native scrolling and native performance to keep code no user ever sees.
 | [`lexical_mark`](packages/lexical_mark) | Annotation and comment ranges |
 | [`lexical_hashtag`](packages/lexical_hashtag) | Hashtags |
 | [`lexical_mention`](packages/lexical_mention) | Typed `@mentions`: atomic nodes, bounded trigger matching, debounced search |
+| [`lexical_image`](packages/lexical_image) | Images and GIFs: the playground's wire format, drag-resize with min/max, captions |
+| [`lexical_embed`](packages/lexical_embed) | The three embeds Lexical has — YouTube, tweets, Figma — with upstream's URL matching |
 | [`lexical_markdown`](packages/lexical_markdown) | Markdown in and out, from transformers that describe both directions at once |
 | [`lexical_html`](packages/lexical_html) | HTML in and out, for text that has to leave the editor |
+| [`lexical_file`](packages/lexical_file) | The `.lexical` document envelope, wire-compatible with `@lexical/file` |
 | [`lexical_flutter`](packages/lexical_flutter) | Dirty-set reconciler, one render object per block, spans, offset map, theme, IME, selection, caret, keyboard, drag handles, context menu |
 | [`lexical_mention_flutter`](packages/lexical_mention_flutter) | Caret-anchored typeahead popover with keyboard navigation |
 | [`lexical_editor_flutter`](packages/lexical_editor_flutter) | Batteries included: every node type, a theme presenting all of them, undo, one widget |
@@ -118,6 +121,7 @@ programs that narrate what they do:
 ```sh
 cd packages/lexical_collab && dart run example/main.dart
 cd packages/lexical_table  && dart run example/main.dart
+cd packages/lexical_file   && dart run example/main.dart
 ```
 
 The three Flutter packages ship an app, with the web target checked in so it
@@ -158,13 +162,13 @@ drift after an upstream release into a dated build failure.
 
 ## Releasing
 
-All sixteen packages version in lockstep, so one tag releases the set:
+Every package versions in lockstep, so one tag releases the set:
 
 ```sh
 git tag v1.0.1 && git push origin v1.0.1
 ```
 
-CI then checks the tag against every pubspec, dry-runs all sixteen, and only
+CI then checks the tag against every pubspec, dry-runs them all, and only
 then publishes — in dependency order, authenticated by GitHub's OIDC token
 rather than by a stored credential. See [RELEASING.md](RELEASING.md) for the
 one-time pub.dev setup.

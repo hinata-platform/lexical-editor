@@ -23,9 +23,11 @@ library;
 
 export 'package:lexical_code/lexical_code.dart';
 export 'package:lexical_core/lexical_core.dart';
+export 'package:lexical_embed/lexical_embed.dart';
 export 'package:lexical_flutter/lexical_flutter.dart';
 export 'package:lexical_hashtag/lexical_hashtag.dart';
 export 'package:lexical_history/lexical_history.dart';
+export 'package:lexical_image/lexical_image.dart';
 export 'package:lexical_link/lexical_link.dart';
 export 'package:lexical_list/lexical_list.dart';
 export 'package:lexical_mark/lexical_mark.dart';
@@ -38,6 +40,7 @@ export 'src/bundle.dart'
         LexicalEditorField,
         createLexicalEditor,
         interactiveNodeTypes,
+        lexicalDecoratorBuilders,
         lexicalNodes,
         registerLexical;
 export 'src/default_theme.dart'

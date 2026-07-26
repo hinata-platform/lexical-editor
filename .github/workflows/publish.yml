@@ -3,7 +3,7 @@ name: Publish
 # Releases every package to pub.dev from one tag.
 #
 # The packages version in lockstep — they are one library split for
-# pay-for-what-you-use, not sixteen independent projects — so one `v1.0.0` tag
+# pay-for-what-you-use, not a set of independent projects — so one `v1.0.0` tag
 # releases the set. pub.dev's automated publishing is configured per package
 # with the tag pattern `v{{version}}`, which matches that tag for whichever
 # package is being uploaded.

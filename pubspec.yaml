@@ -13,6 +13,8 @@ workspace:
   - packages/lexical_conformance
   - packages/lexical_core
   - packages/lexical_editor_flutter
+  - packages/lexical_embed
+  - packages/lexical_file
   - packages/lexical_flutter
   - packages/lexical_hashtag
   - packages/lexical_history

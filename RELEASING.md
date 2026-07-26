@@ -3,7 +3,7 @@
 Sixteen packages, one version, one tag.
 
 They are one library split so that an application pays only for what it uses —
-not sixteen independent projects — so they version in lockstep. `v1.0.0`
+not a set of independent projects — so they version in lockstep. `v1.0.0`
 releases the set, and CI refuses a tag that disagrees with the pubspecs.
 
 ## The steady state
@@ -17,7 +17,7 @@ git push origin v1.0.1
 
 1. checks the tag against every pubspec version,
 2. checks `.github/publish-order.txt` still covers every publishable package,
-3. runs `pub publish --dry-run` over **all sixteen**,
+3. runs `pub publish --dry-run` over **every package**,
 4. publishes them, in dependency order.
 
 Steps 1–3 exist because publishing cannot be undone. A set that fails halfway
@@ -41,7 +41,7 @@ cannot be published before `lexical_core` is on pub.dev to resolve against:
 
 ```sh
 dart pub login                            # as rebar.ahmad@gmail.com
-tool/publish_first_release.sh --dry-run   # validates all sixteen, uploads none
+tool/publish_first_release.sh --dry-run   # validates every one, uploads none
 tool/publish_first_release.sh
 ```
 
@@ -86,7 +86,7 @@ GitHub Actions**, then
 
 The tag pattern is what makes one tag release the set: pub.dev checks that the
 pushed tag matches the pattern with the version of the package being uploaded,
-and with lockstep versions `v1.0.0` matches for all sixteen.
+and with lockstep versions `v1.0.0` matches for every package.
 
 Leave "Require GitHub Actions environment" off, or set it to `pub.dev` and add
 `environment: pub.dev` to the job in `publish.yml`. Enabling it on pub.dev

@@ -20,7 +20,6 @@ String $convertToMarkdown({
 }
 
 String? _exportBlock(LexicalNode node, MarkdownTransformers transformers) {
-  if (node is! ElementNode) return null;
   String exportChildren(ElementNode element) =>
       _exportInline(element, transformers);
 
@@ -28,9 +27,10 @@ String? _exportBlock(LexicalNode node, MarkdownTransformers transformers) {
   // nested list. Rendering only the node a rule claimed would silently drop
   // every level below the first.
   final nested = <String>[
-    for (final child in node.children)
-      if (child is ElementNode && !child.isInline)
-        ?_exportBlock(child, transformers),
+    if (node is ElementNode)
+      for (final child in node.children)
+        if (child is ElementNode && !child.isInline)
+          ?_exportBlock(child, transformers),
   ];
 
   for (final transformer in transformers.elements) {
@@ -41,7 +41,9 @@ String? _exportBlock(LexicalNode node, MarkdownTransformers transformers) {
   }
 
   if (nested.isNotEmpty) return nested.join('\n');
-  return exportChildren(node);
+  // A block that is not an element has no children to fall back on — a
+  // decorator either has a rule that names it or has no markdown spelling.
+  return node is ElementNode ? exportChildren(node) : null;
 }
 
 /// Renders an element's inline children.

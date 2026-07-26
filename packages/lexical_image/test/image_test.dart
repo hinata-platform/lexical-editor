@@ -1,5 +1,4 @@
-import 'dart:ui';
-
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_core/lexical_core.dart';
 import 'package:lexical_image/lexical_image.dart';
@@ -12,11 +11,59 @@ LexicalEditor _editor() => LexicalEditor(nodes: imageNodes);
 /// generated: `image` is not in any published `@lexical/*` package, so
 /// `gen_fixtures.mjs` cannot produce it. Writing it out in full is what makes
 /// a drift in either direction visible.
+///
+/// Note where the image sits. `DecoratorNode.isInline()` is `true` upstream
+/// and `ImageNode` does not override it, so the playground's insert wraps the
+/// image in a paragraph. `root > image` is not a shape Lexical writes.
 const Map<String, Object?> _playgroundImage = <String, Object?>{
   'root': <String, Object?>{
     'children': <Object?>[
       <String, Object?>{
-        'children': <Object?>[],
+        'children': <Object?>[
+          {
+            'altText': 'Ringelblumen',
+            'caption': {
+              'editorState': {
+                'root': {
+                  'children': [
+                    {
+                      'children': [
+                        {
+                          'detail': 0,
+                          'format': 0,
+                          'mode': 'normal',
+                          'style': '',
+                          'text': 'Aufgenommen im Juli',
+                          'type': 'text',
+                          'version': 1,
+                        },
+                      ],
+                      'direction': 'ltr',
+                      'format': '',
+                      'indent': 0,
+                      'type': 'paragraph',
+                      'version': 1,
+                      'textFormat': 0,
+                      'textStyle': '',
+                    },
+                  ],
+                  'direction': 'ltr',
+                  'format': '',
+                  'indent': 0,
+                  'type': 'root',
+                  'version': 1,
+                },
+              },
+            },
+            'height': 320,
+            'maxWidth': 500,
+            'showCaption': true,
+            'src': 'https://example.org/flowers.jpg',
+            'type': 'image',
+            'version': 1,
+            'width': 480,
+          },
+        ],
         'direction': null,
         'format': '',
         'indent': 0,
@@ -24,49 +71,6 @@ const Map<String, Object?> _playgroundImage = <String, Object?>{
         'version': 1,
         'textFormat': 0,
         'textStyle': '',
-      },
-      {
-        'altText': 'Ringelblumen',
-        'caption': {
-          'editorState': {
-            'root': {
-              'children': [
-                {
-                  'children': [
-                    {
-                      'detail': 0,
-                      'format': 0,
-                      'mode': 'normal',
-                      'style': '',
-                      'text': 'Aufgenommen im Juli',
-                      'type': 'text',
-                      'version': 1,
-                    },
-                  ],
-                  'direction': 'ltr',
-                  'format': '',
-                  'indent': 0,
-                  'type': 'paragraph',
-                  'version': 1,
-                  'textFormat': 0,
-                  'textStyle': '',
-                },
-              ],
-              'direction': 'ltr',
-              'format': '',
-              'indent': 0,
-              'type': 'root',
-              'version': 1,
-            },
-          },
-        },
-        'height': 320,
-        'maxWidth': 500,
-        'showCaption': true,
-        'src': 'https://example.org/flowers.jpg',
-        'type': 'image',
-        'version': 1,
-        'width': 480,
       },
     ],
     'direction': null,
@@ -89,7 +93,7 @@ void main() {
       final editor = _editor();
       editor.setEditorState(editor.parseEditorState(_playgroundImage));
       editor.read(() {
-        final image = $getRoot().getLastChild()! as ImageNode;
+        final image = _theImage();
         expect(image.src, 'https://example.org/flowers.jpg');
         expect(image.altText, 'Ringelblumen');
         expect(image.width, 480);
@@ -107,7 +111,7 @@ void main() {
       final editor = _editor();
       editor.setEditorState(editor.parseEditorState(_playgroundImage));
       editor.update(() {
-        ($getRoot().getLastChild()! as ImageNode).setSize(240, 160);
+        _theImage().setSize(240, 160);
       }, discrete: true);
 
       expect(
@@ -121,7 +125,9 @@ void main() {
       editor.update(() {
         $getRoot()
           ..clear()
-          ..append($createImageNode(src: 'a.png'));
+          ..append(
+            $createParagraphNode()..append($createImageNode(src: 'a.png')),
+          );
       }, discrete: true);
 
       final image = _imageJson(editor.editorState.toJson());
@@ -169,7 +175,7 @@ void main() {
   });
 
   group('editing', () {
-    test('inserting puts the image in its own block, with a way out', () {
+    test('inserting puts the image inside the paragraph, as upstream does', () {
       final editor = _editor();
       registerRichText(editor);
       registerImage(editor);
@@ -185,24 +191,44 @@ void main() {
         const ImageAttributes(src: 'a.png', altText: 'A'),
       );
 
-      final types = editor.read(
-        () => $getRoot().children.map((node) => node.type).toList(),
+      editor.read(() {
+        final root = $getRoot();
+        expect(root.children.map((node) => node.type), ['paragraph']);
+        final paragraph = root.getFirstChild()! as ElementNode;
+        expect(paragraph.children.map((node) => node.type), ['text', 'image']);
+        assertTreeIntegrity(root);
+      });
+    });
+
+    test('inserting with no selection still lands in a paragraph', () {
+      // The caret sits on the root in an empty document, and an inline node
+      // there is a tree no other Lexical client writes.
+      final editor = _editor();
+      registerImage(editor);
+      editor.update(() => $getRoot().clear(), discrete: true);
+
+      editor.dispatchCommand(
+        insertImageCommand,
+        const ImageAttributes(src: 'a.png'),
       );
-      // An image at the end with nothing after it is a trap: no block below
-      // would take the caret.
-      expect(types, ['paragraph', 'image', 'paragraph']);
-      editor.read(() => assertTreeIntegrity($getRoot()));
+
+      editor.read(() {
+        final root = $getRoot();
+        expect(root.children.map((node) => node.type), ['paragraph']);
+        expect(_theImage().src, 'a.png');
+        assertTreeIntegrity(root);
+      });
     });
 
     test('editing the caption replaces it with plain text', () {
       final editor = _editor();
       editor.setEditorState(editor.parseEditorState(_playgroundImage));
       editor.update(() {
-        ($getRoot().getLastChild()! as ImageNode).setCaptionText('Neu');
+        _theImage().setCaptionText('Neu');
       }, discrete: true);
 
       editor.read(() {
-        final image = $getRoot().getLastChild()! as ImageNode;
+        final image = _theImage();
         expect(image.captionText, 'Neu');
         expect(image.showCaption, isTrue);
       });
@@ -217,10 +243,10 @@ void main() {
       final editor = _editor();
       editor.setEditorState(editor.parseEditorState(_playgroundImage));
       editor.update(() {
-        ($getRoot().getLastChild()! as ImageNode).setCaptionText(null);
+        _theImage().setCaptionText(null);
       }, discrete: true);
       editor.read(() {
-        expect(($getRoot().getLastChild()! as ImageNode).showCaption, isFalse);
+        expect(_theImage().showCaption, isFalse);
       });
     });
 
@@ -235,7 +261,7 @@ void main() {
         const ImageAttributes(src: 'cat-typing.gif', altText: 'Katze'),
       );
       editor.read(() {
-        final image = $getRoot().children.whereType<ImageNode>().single;
+        final image = _theImage();
         expect(image.type, 'image');
         expect(image.src, endsWith('.gif'));
       });
@@ -347,11 +373,91 @@ void main() {
       expect(defaultImageResolver(''), isNull);
     });
   });
+
+  group('drawing', () {
+    // A 1x1 transparent GIF: real enough to decode, small enough to inline.
+    const pixel =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAAB'
+        'AAEAAAIBRAA7';
+
+    Future<void> pump(WidgetTester tester, double width) async {
+      final editor = _editor();
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width,
+              child: LexicalImageView(
+                editor: editor,
+                nodeKey: const NodeKey('1'),
+                src: pixel,
+                width: 900,
+                height: 600,
+                captionsEnabled: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('a stored size wider than the column is scaled to fit', (
+      tester,
+    ) async {
+      // The same document opened on a phone: the image was sized on someone
+      // else's screen, and it must not push past the edge of this one.
+      await pump(tester, 300);
+      expect(tester.takeException(), isNull);
+
+      final image = tester.getSize(find.byType(Image));
+      expect(image.width, 300);
+      // Scaled, not squashed: 900x600 is 3:2, and so is what is drawn.
+      expect(image.height, 200);
+    });
+
+    testWidgets('a column with room draws the size the document asked for', (
+      tester,
+    ) async {
+      // The default test surface is 800 wide, which the clamp would reach.
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await pump(tester, 1000);
+      expect(tester.getSize(find.byType(Image)), const Size(900, 600));
+    });
+  });
 }
 
-/// The one image node inside a serialized document.
+/// The one image node in the document, wherever it sits. Read scope only.
+ImageNode _theImage() {
+  ImageNode? found;
+  void visit(LexicalNode node) {
+    if (node is ImageNode) found ??= node;
+    if (node is ElementNode) node.children.forEach(visit);
+  }
+
+  visit($getRoot());
+  return found!;
+}
+
+/// The one image node inside a serialized document, wherever it sits.
 Map<String, Object?> _imageJson(Map<String, Object?> document) {
-  final root = document['root']! as Map<String, Object?>;
-  final children = (root['children']! as List).cast<Map<String, Object?>>();
-  return children.firstWhere((child) => child['type'] == 'image');
+  Map<String, Object?>? find(Map<String, Object?> node) {
+    if (node['type'] == 'image') return node;
+    final children = node['children'];
+    if (children is! List) return null;
+    for (final child in children) {
+      if (child is Map<String, Object?>) {
+        final hit = find(child);
+        if (hit != null) return hit;
+      }
+    }
+    return null;
+  }
+
+  return find(document['root']! as Map<String, Object?>)!;
 }

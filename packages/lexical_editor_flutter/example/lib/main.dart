@@ -10,12 +10,16 @@
 //
 // Select some text and a second toolbar appears over it, with the link editor
 // behind its link button — see selection_toolbar.dart. Its comment button
-// opens a thread in the right-hand panel — see comments.dart.
+// opens a thread in the right-hand panel — see comments.dart. The image and
+// media buttons are in insert_media.dart, and the panel can show the document
+// as markdown, as JSON, or as a .lexical file.
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
+import 'package:lexical_file/lexical_file.dart';
 import 'package:lexical_markdown/lexical_markdown.dart';
 
 import 'comments.dart';
+import 'insert_media.dart';
 import 'selection_toolbar.dart';
 
 void main() => runApp(const ExampleApp());
@@ -89,6 +93,21 @@ class _EditorPageState extends State<EditorPage> {
           $createQuoteNode()
             ..append($createTextNode('Ein Zitat, mit ⌘Z rückgängig.')),
         )
+        // An image lives *inside* a paragraph, because upstream's is inline.
+        // Drag its corners; the size is written once, when the drag ends.
+        ..append(
+          $createParagraphNode()..append(
+            $createImageNode(
+              src: 'https://picsum.photos/seed/lexical/900/600',
+              altText: 'Ein Beispielbild',
+              width: 420,
+              height: 280,
+            )..setCaptionText('Ziehbar an den Ecken'),
+          ),
+        )
+        // A video is a block of its own — and in Lexical, "video" means
+        // YouTube. See insert_media.dart for what happens to anything else.
+        ..append($createYouTubeNode('dQw4w9WgXcQ'))
         ..append($createParagraphNode());
     }, discrete: true);
   }
@@ -118,9 +137,24 @@ class _EditorPageState extends State<EditorPage> {
     });
   }
 
-  String get _markdown => editor.read(
-    () => $convertToMarkdown(transformers: defaultMarkdownTransformers),
+  /// Markdown with the rules images and embeds bring along.
+  ///
+  /// Neither is part of the default set, and neither is upstream: the
+  /// playground adds its own the same way. Without them an image and a video
+  /// simply do not appear in the markdown.
+  MarkdownTransformers get _transformers => defaultMarkdownTransformers.extend(
+    elements: embedTransformers,
+    textMatches: [imageTransformer],
   );
+
+  String get _markdown =>
+      editor.read(() => $convertToMarkdown(transformers: _transformers));
+
+  /// The document as a `.lexical` file — what the playground's Export writes.
+  String get _lexicalFile => serializedDocumentFromEditorState(
+    editor.editorState,
+    source: 'lexical_editor_flutter example',
+  ).encode();
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +191,8 @@ class _EditorPageState extends State<EditorPage> {
               insertTableCommand,
               const TableShape(rows: 3, columns: 3),
             ),
+            onImage: () => showInsertImageDialog(context, editor),
+            onEmbed: () => showInsertEmbedDialog(context, editor),
           ),
           const Divider(height: 1),
           Expanded(
@@ -179,6 +215,21 @@ class _EditorPageState extends State<EditorPage> {
                       // would be a second overlay on the same gesture.
                       contextMenuBuilder: (_, _) => const SizedBox.shrink(),
                       baseTextStyle: Theme.of(context).textTheme.bodyLarge!,
+                      // Images and embeds are decorators: without a builder
+                      // they draw their text stand-in instead of themselves.
+                      decoratorBuilders: lexicalDecoratorBuilders(
+                        editor: editor,
+                        imageLimits: const ImageSizeLimits(
+                          minWidth: 120,
+                          maxWidth: 720,
+                        ),
+                        // No url_launcher in an example; a real application
+                        // opens the video here.
+                        onOpenEmbed: (kind, url) =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${kind.name}: $url')),
+                            ),
+                      ),
                       // Links are tappable here too; the toolbar is what
                       // creates them.
                       interaction: LexicalInteraction(
@@ -210,6 +261,7 @@ class _EditorPageState extends State<EditorPage> {
                       text: switch (_panel) {
                         _Panel.markdown => _markdown,
                         _Panel.json => editor.toJsonString(),
+                        _Panel.file => _lexicalFile,
                         _Panel.comments => '',
                       },
                       comments: CommentsPanel(
@@ -235,12 +287,16 @@ class _Toolbar extends StatelessWidget {
     required this.onTurnInto,
     required this.onList,
     required this.onTable,
+    required this.onImage,
+    required this.onEmbed,
   });
 
   final void Function(TextFormat) onFormat;
   final void Function(ElementNode Function()) onTurnInto;
   final void Function(ListType) onList;
   final VoidCallback onTable;
+  final VoidCallback onImage;
+  final VoidCallback onEmbed;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -282,6 +338,17 @@ class _Toolbar extends StatelessWidget {
             icon: const Icon(Icons.checklist),
           ),
           IconButton(onPressed: onTable, icon: const Icon(Icons.grid_on)),
+          const VerticalDivider(width: 16),
+          IconButton(
+            tooltip: 'Bild oder GIF',
+            onPressed: onImage,
+            icon: const Icon(Icons.image_outlined),
+          ),
+          IconButton(
+            tooltip: 'Video, Tweet oder Figma',
+            onPressed: onEmbed,
+            icon: const Icon(Icons.play_circle_outline),
+          ),
         ],
       ),
     ),
@@ -289,7 +356,7 @@ class _Toolbar extends StatelessWidget {
 }
 
 /// What the right-hand panel is showing.
-enum _Panel { markdown, json, comments }
+enum _Panel { markdown, json, file, comments }
 
 class _SidePanel extends StatelessWidget {
   const _SidePanel({
@@ -312,14 +379,21 @@ class _SidePanel extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: SegmentedButton<_Panel>(
-            segments: const [
-              ButtonSegment(value: _Panel.markdown, label: Text('Markdown')),
-              ButtonSegment(value: _Panel.json, label: Text('JSON')),
-              ButtonSegment(value: _Panel.comments, label: Text('Kommentare')),
-            ],
-            selected: {panel},
-            onSelectionChanged: (value) => onSelect(value.first),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<_Panel>(
+              segments: const [
+                ButtonSegment(value: _Panel.markdown, label: Text('Markdown')),
+                ButtonSegment(value: _Panel.json, label: Text('JSON')),
+                ButtonSegment(value: _Panel.file, label: Text('.lexical')),
+                ButtonSegment(
+                  value: _Panel.comments,
+                  label: Text('Kommentare'),
+                ),
+              ],
+              selected: {panel},
+              onSelectionChanged: (value) => onSelect(value.first),
+            ),
           ),
         ),
         Expanded(

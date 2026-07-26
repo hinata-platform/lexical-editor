@@ -148,8 +148,8 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     return null;
   }
 
-  void _onDragStart(ImageHandle handle) {
-    final current = _size ?? _intrinsic;
+  void _onDragStart(Size? displayed) {
+    final current = displayed ?? _size ?? _intrinsic;
     if (current == null) return;
     setState(() {
       _dragStart = current;
@@ -191,40 +191,56 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     setState(() => _editingCaption = false);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final size = _size;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: () => setState(() => _touched = !_touched),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              children: [
-                SizedBox(
-                  width: size?.width,
-                  height: size?.height,
-                  child: _image(context),
-                ),
-                if (_showHandles && size != null)
-                  ..._handles(context, size)
-                else if (_showHandles)
-                  // Before the image has reported its own size there is
-                  // nothing to drag from; the frame still says it is
-                  // selected.
-                  Positioned.fill(child: _outline(context)),
-              ],
-            ),
-            if (widget.captionsEnabled) _caption(context),
-          ],
-        ),
-      ),
-    );
+  /// [size] brought inside [maxWidth], keeping its shape.
+  ///
+  /// A stored size is a size somebody chose on *their* screen. The same
+  /// document opened on a phone must not push its image past the edge — and
+  /// clamping only the width would squash the picture, so the height follows.
+  ///
+  /// Display only: the document keeps the size it was given, so the image is
+  /// full size again on a screen with room for it.
+  static Size? _fitted(Size? size, double maxWidth) {
+    if (size == null || !maxWidth.isFinite || maxWidth <= 0) return size;
+    if (size.width <= maxWidth || size.width <= 0) return size;
+    return Size(maxWidth, size.height * maxWidth / size.width);
   }
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: () => setState(() => _touched = !_touched),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = _fitted(_size, constraints.maxWidth);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                children: [
+                  SizedBox(
+                    width: size?.width,
+                    height: size?.height,
+                    child: _image(context),
+                  ),
+                  if (_showHandles && size != null)
+                    ..._handles(context, size)
+                  else if (_showHandles)
+                    // Before the image has reported its own size there is
+                    // nothing to drag from; the frame still says it is
+                    // selected.
+                    Positioned.fill(child: _outline(context)),
+                ],
+              ),
+              if (widget.captionsEnabled) _caption(context),
+            ],
+          );
+        },
+      ),
+    ),
+  );
 
   Widget _image(BuildContext context) {
     final provider = widget.resolver(widget.src);
@@ -280,7 +296,10 @@ class _LexicalImageViewState extends State<LexicalImageView> {
       _HandleDot(
         handle: handle,
         size: size,
-        onStart: () => _onDragStart(handle),
+        // The drag starts from what is on screen, not from what is stored:
+        // grabbing a corner of an image that is being shown smaller than its
+        // stored size would otherwise jump to that larger size first.
+        onStart: () => _onDragStart(size),
         onUpdate: (delta) => _onDragUpdate(handle, delta),
         onEnd: _onDragEnd,
       ),

@@ -24,8 +24,13 @@ typedef ElementReplace =
     );
 
 /// Renders a block to markdown, or returns `null` to decline it.
+///
+/// Takes a [LexicalNode] rather than an [ElementNode] because not every block
+/// is an element: a video embed is a block-level *decorator* with no children
+/// at all, and a signature that could not name it would drop it from every
+/// export without a word.
 typedef ElementExport =
-    String? Function(ElementNode node, ExportChildren exportChildren);
+    String? Function(LexicalNode node, ExportChildren exportChildren);
 
 /// A block-level markdown rule.
 @immutable

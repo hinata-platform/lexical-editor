@@ -42,6 +42,10 @@ void main() {
         'mark',
         'hashtag',
         'mention',
+        'image',
+        'youtube',
+        'tweet',
+        'figma',
       ]) {
         expect(
           editor.registry.knows(type),
@@ -246,6 +250,92 @@ void main() {
         jsonFirstDifference(json, editor.parseEditorState(json).toJson()),
         isNull,
       );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('media', () {
+    // The inline image is the part worth pinning: upstream's ImageNode is an
+    // inline decorator inside a paragraph, so it renders as a WidgetSpan in
+    // the middle of a text run rather than as a block of its own. Getting
+    // that wrong produces either a layout error or a document shape no other
+    // Lexical client writes.
+    const transparentPixel =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAAB'
+        'AAEAAAIBRAA7';
+
+    Future<void> pumpMedia(WidgetTester tester, LexicalEditor editor) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LexicalEditorField(
+              editor: editor,
+              baseTextStyle: _base,
+              scrollable: false,
+              decoratorBuilders: lexicalDecoratorBuilders(
+                editor: editor,
+                // A thumbnail would be an HTTP request the test binding
+                // refuses; the card is the thing under test either way.
+                embedThumbnails: (kind, id) => null,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('an image and a video render without a layout error', (
+      tester,
+    ) async {
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createTextNode('davor '))
+              ..append(
+                $createImageNode(
+                  src: transparentPixel,
+                  altText: 'Ein Bild',
+                  width: 160,
+                  height: 120,
+                )..setCaptionText('Eine Unterschrift'),
+              )
+              ..append($createTextNode(' danach')),
+          )
+          ..append($createYouTubeNode('dQw4w9WgXcQ'))
+          ..append($createParagraphNode());
+      }, discrete: true);
+
+      await pumpMedia(tester, editor);
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(LexicalImageView), findsOneWidget);
+      expect(find.byType(LexicalEmbedView), findsOneWidget);
+      expect(find.text('Eine Unterschrift'), findsOneWidget);
+    });
+
+    testWidgets('a narrow viewport does not overflow', (tester) async {
+      // An image wider than the column is the ordinary case, not an edge one.
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()..append(
+              $createImageNode(src: transparentPixel, width: 900, height: 600),
+            ),
+          )
+          ..append($createYouTubeNode('dQw4w9WgXcQ'));
+      }, discrete: true);
+
+      await pumpMedia(tester, editor);
       expect(tester.takeException(), isNull);
     });
   });

@@ -18,9 +18,11 @@ dependencies:
     sdk: flutter
   lexical_code: ^1.0.0
   lexical_core: ^1.0.0
+  lexical_embed: ^1.0.0
   lexical_flutter: ^1.0.0
   lexical_hashtag: ^1.0.0
   lexical_history: ^1.0.0
+  lexical_image: ^1.0.0
   lexical_link: ^1.0.0
   lexical_list: ^1.0.0
   lexical_mark: ^1.0.0

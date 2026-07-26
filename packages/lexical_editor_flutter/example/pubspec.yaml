@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   lexical_editor_flutter:
     path: ../
+  lexical_file:
+    path: ../../lexical_file
   lexical_markdown:
     path: ../../lexical_markdown
 
@@ -36,6 +38,10 @@ dependency_overrides:
     path: ../../lexical_core
   lexical_editor_flutter:
     path: ../../lexical_editor_flutter
+  lexical_embed:
+    path: ../../lexical_embed
+  lexical_file:
+    path: ../../lexical_file
   lexical_flutter:
     path: ../../lexical_flutter
   lexical_hashtag:
@@ -44,6 +50,8 @@ dependency_overrides:
     path: ../../lexical_history
   lexical_html:
     path: ../../lexical_html
+  lexical_image:
+    path: ../../lexical_image
   lexical_link:
     path: ../../lexical_link
   lexical_list:

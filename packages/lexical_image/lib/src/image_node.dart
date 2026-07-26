@@ -83,9 +83,20 @@ class ImageNode extends DecoratorNode {
   @override
   String get type => 'image';
 
-  /// An image is its own block; it is not part of a line of text.
+  /// An image is **inline**, and sits inside a paragraph.
+  ///
+  /// This looks wrong and is not: upstream's `DecoratorNode.isInline()`
+  /// returns `true` by default and the playground's `ImageNode` never
+  /// overrides it, so every image the web editor writes is a child of a
+  /// paragraph — `$insertNodes([image])` followed by
+  /// `$wrapNodeInElement(image, $createParagraphNode)` when it would otherwise
+  /// land on the root.
+  ///
+  /// Making it a block here would produce `root > image`, a tree no Lexical
+  /// client ever writes, which is exactly the kind of difference that only
+  /// shows up once a document crosses platforms.
   @override
-  bool get isInline => false;
+  bool get isInline => true;
 
   @override
   ImageNode clone() => ImageNode(

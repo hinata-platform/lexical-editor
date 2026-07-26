@@ -28,6 +28,15 @@
 /// The minimum and maximum size live with the widget, not in the document:
 /// they are a policy of the application showing it, and storing them would
 /// freeze one app's layout into everyone else's copy of the file.
+///
+/// Markdown exchange is opt-in, exactly as it is upstream — `@lexical/markdown`
+/// ships no image rule and the playground adds its own:
+///
+/// ```dart
+/// final transformers = defaultMarkdownTransformers.extend(
+///   textMatches: [imageTransformer],
+/// );
+/// ```
 library;
 
 import 'package:lexical_core/lexical_core.dart';
@@ -41,6 +50,7 @@ export 'src/image_commands.dart'
         insertImageCommand,
         registerImage,
         $insertImage;
+export 'src/image_markdown.dart' show imageTransformer, markdownImageMaxWidth;
 export 'src/image_node.dart' show ImageNode, $createImageNode;
 export 'src/image_resize.dart' show ImageHandle, ImageSizeLimits, resizeImage;
 export 'src/image_view.dart'

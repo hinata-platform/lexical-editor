@@ -78,6 +78,33 @@ that goes wrong, not the gesture:
 A drag writes to the document **once, when it ends**. Resizing has to be one
 undo step, not one per pointer move.
 
+A stored size is a size somebody chose on *their* screen, so an image wider
+than the column it lands in is drawn scaled down — proportionally, and for
+display only. The document keeps what it was given, and the image is full size
+again on a screen with room for it.
+
+## Where an image sits
+
+Inside a paragraph. `DecoratorNode.isInline()` is `true` upstream and the
+playground's `ImageNode` does not override it, so `root > paragraph > image` is
+the shape every Lexical client writes and `root > image` is not one. The insert
+command mirrors upstream's: put the image at the caret, and wrap it in a
+paragraph if that turns out to be the root.
+
+## Markdown
+
+```dart
+final transformers = defaultMarkdownTransformers.extend(
+  textMatches: [imageTransformer],
+);
+```
+
+Opt-in, exactly as upstream: `@lexical/markdown` ships no image rule and the
+playground adds its own to the list it passes in. Only the alt text and the
+source survive `![alt](src)` — size, caption and `maxWidth` have no markdown
+spelling, and upstream loses the same fields. Use the JSON wire format or
+`lexical_file` to move a document without losing anything.
+
 ## Sources are untrusted
 
 `defaultImageResolver` accepts `http(s):`, `data:` and asset paths, and returns
