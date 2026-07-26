@@ -45,3 +45,4 @@ export 'src/bundle.dart'
         registerLexical;
 export 'src/default_theme.dart'
     show LexicalPalette, defaultHeadingStyles, defaultLexicalTheme;
+export 'src/table_layout.dart' show tableBlockLayouts;

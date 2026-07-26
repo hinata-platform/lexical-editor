@@ -34,6 +34,8 @@ export 'src/input/lexical_input.dart'
     show LexicalInput, imeUpdateTag, inputActionCommand;
 export 'src/render/block_offset_map.dart'
     show BlockOffsetMap, OffsetSegment, ResolvedPoint, buildModelOffsets;
+export 'src/render/lexical_grid.dart'
+    show GridCell, GridPlacement, LexicalGrid, RenderLexicalGrid;
 export 'src/render/render_lexical_block.dart'
     show BlockCaret, ForeignSelection, RenderLexicalBlock;
 export 'src/render/span_builder.dart'
@@ -63,6 +65,7 @@ export 'src/theme/css_style.dart'
         parseCssTextDecoration;
 export 'src/theme/lexical_theme.dart'
     show
+        BlockLayoutBuilder,
         BlockMarker,
         BlockMarkerBuilder,
         BlockStyle,
@@ -73,8 +76,7 @@ export 'src/theme/lexical_theme.dart'
         applyCaseTransform;
 export 'src/widgets/block_registry.dart'
     show BlockRegistry, BlockRegistryScope, MountedBlock, RegisteredBlock;
-export 'src/widgets/build_phase.dart'
-    show isBuildingWidgets, whenBuildIsDone;
+export 'src/widgets/build_phase.dart' show isBuildingWidgets, whenBuildIsDone;
 export 'src/widgets/lexical_builder.dart' show LexicalBuilder;
 export 'src/widgets/lexical_document.dart'
     show LexicalDocument, LexicalDocumentState, LexicalRenderStats;

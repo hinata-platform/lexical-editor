@@ -91,6 +91,21 @@ final Map<String, LexicalCommand<Object?>> _commands = {
   'insertFigma': insertFigmaCommand,
 };
 
+/// Whether anything claims [command] on [editor].
+///
+/// Asked of the registry rather than by dispatching, because a handler is
+/// allowed to decline: `insertTableRowCommand` returns `false` when the caret
+/// is not in a table, and that is not the same thing as no handler at all —
+/// which is the distinction this whole file exists to make.
+///
+/// `commands` is internal to `lexical_core` and staying that way is right:
+/// applications dispatch, they do not inspect. A test that guards the wiring
+/// is the one caller with a reason to look.
+// ignore: invalid_use_of_internal_member
+bool _hasHandler(LexicalEditor editor, LexicalCommand<Object?> command) =>
+    // ignore: invalid_use_of_internal_member
+    editor.commands.hasHandlers(command);
+
 void main() {
   test('every node type its packages publish is registered', () {
     final registered = {
@@ -136,7 +151,7 @@ void main() {
 
     final unclaimed = [
       for (final entry in _commands.entries)
-        if (!editor.commands.hasHandlers(entry.value)) entry.key,
+        if (!_hasHandler(editor, entry.value)) entry.key,
     ];
     expect(
       unclaimed,
@@ -155,11 +170,37 @@ void main() {
     registerLexical(editor);
     for (final entry in _outbound.entries) {
       expect(
-        editor.commands.hasHandlers(entry.key),
+        _hasHandler(editor, entry.key),
         isFalse,
         reason: '${entry.key.label} is ${entry.value}',
       );
     }
+  });
+
+  test('the transforms that detect as you type are registered', () {
+    // Not every package works through commands: a hashtag is found by a node
+    // transform, so `hasHandlers` would report it wired when it is not. The
+    // check for those is to type and look.
+    final editor = createLexicalEditor();
+    registerLexical(editor);
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()..append($createTextNode('siehe #flutter')),
+        );
+    }, discrete: true);
+
+    final types = editor.read(
+      () => ($getRoot().getFirstChild()! as ElementNode).children
+          .map((node) => node.type)
+          .toList(),
+    );
+    expect(
+      types,
+      contains('hashtag'),
+      reason: 'registerHashtag is not part of registerLexical',
+    );
   });
 
   test('every decorator type in the bundle has a widget builder', () {
@@ -167,12 +208,17 @@ void main() {
     // image shows its alt text and a video shows a URL. Silent, and wrong.
     final editor = createLexicalEditor();
     final builders = lexicalDecoratorBuilders(editor: editor);
-    final missing = [
-      for (final spec in lexicalNodes)
+    final missing = <String>[];
+    // Instantiating a node needs a writable scope: every node takes its key
+    // from the active editor state.
+    editor.update(() {
+      for (final spec in lexicalNodes) {
         if (spec.instantiate() is DecoratorNode &&
-            !builders.containsKey(spec.type))
-          spec.type,
-    ];
+            !builders.containsKey(spec.type)) {
+          missing.add(spec.type);
+        }
+      }
+    }, discrete: true);
     expect(
       missing,
       isEmpty,
@@ -192,16 +238,15 @@ void main() {
       $getRoot()
         ..clear()
         ..append(
-          $createParagraphNode()
-            ..append(
-              $createImageNode(
-                src:
-                    'data:image/gif;base64,'
-                    'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-                width: 40,
-                height: 40,
-              ),
+          $createParagraphNode()..append(
+            $createImageNode(
+              src:
+                  'data:image/gif;base64,'
+                  'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+              width: 40,
+              height: 40,
             ),
+          ),
         )
         ..append($createYouTubeNode('dQw4w9WgXcQ'));
     }, discrete: true);

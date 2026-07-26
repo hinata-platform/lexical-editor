@@ -152,6 +152,17 @@ typedef DecoratorBuilder =
 typedef TokenBuilder =
     Widget Function(BuildContext context, TextNode node, TextStyle style);
 
+/// Lays out a block whose children are not simply stacked.
+///
+/// [buildChild] builds any node in the subtree, applying the theme and
+/// registering the block for selection exactly as the default path does.
+typedef BlockLayoutBuilder =
+    Widget Function(
+      BuildContext context,
+      ElementNode element,
+      Widget Function(LexicalNode node) buildChild,
+    );
+
 /// The visual configuration of a rendered document.
 ///
 /// Upstream themes are CSS class names; this is the Dart analogue. There is
@@ -167,6 +178,7 @@ class LexicalTheme {
     this.blockStyles = const {},
     this.blockStyleResolver,
     this.markerBuilders = const {},
+    this.blockLayouts = const {},
     this.tokenBuilders = const {},
     this.styleResolver = defaultCssStyleResolver,
     this.defaultBlockStyle = const BlockStyle(),
@@ -195,6 +207,18 @@ class LexicalTheme {
 
   /// Per-node-type marker builders.
   final Map<String, BlockMarkerBuilder> markerBuilders;
+
+  /// Per-node-type layouts for blocks whose children are not a column.
+  ///
+  /// The escape hatch for a structure the default stack cannot express — a
+  /// table being the one that matters: its rows and cells are ordinary blocks
+  /// in the model, but stacking them vertically turns a three-column table
+  /// into a list of every cell, one under the other.
+  ///
+  /// The builder is handed the element and a function that builds any of its
+  /// descendants, so a layout can reach past its immediate children — a table
+  /// arranges *cells*, which are two levels down.
+  final Map<String, BlockLayoutBuilder> blockLayouts;
 
   /// Per-node-type widget builders for token text nodes, keyed on type.
   ///

@@ -249,7 +249,14 @@ class LexicalDocumentState extends State<LexicalDocument> {
     final direction = _resolveDirection(element);
 
     final children = element.children.toList();
-    final content = _buildContent(context, element, children, depth: depth);
+    final layout = theme.blockLayouts[element.type];
+    final content = layout != null
+        ? layout(
+            context,
+            element,
+            (node) => _buildNode(context, node, depth: depth + 1),
+          )
+        : _buildContent(context, element, children, depth: depth);
 
     var block = content;
 

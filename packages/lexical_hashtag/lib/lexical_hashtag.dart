@@ -7,31 +7,20 @@
 ///
 /// ```dart
 /// final editor = LexicalEditor(nodes: hashtagNodes);
-/// editor.update(() {
-///   $getRoot().append(
-///     $createParagraphNode()..append($createHashtagNode('#flutter')),
-///   );
-/// }, discrete: true);
+/// registerHashtag(editor);   // detects `#flutter` as it is typed
 /// ```
+///
+/// Detection is a pair of transforms, and registering them is what makes the
+/// package do anything without being asked: text that becomes a tag turns
+/// into one, and a tag that stops looking like a tag turns back into text.
 library;
 
 import 'package:lexical_core/lexical_core.dart';
 
-/// A tag such as `#flutter`.
-class HashtagNode extends TextNode {
-  /// Creates a hashtag holding [text].
-  HashtagNode([super.text]);
+import 'src/hashtag_node.dart';
 
-  @override
-  String get type => 'hashtag';
-
-  @override
-  HashtagNode clone() => HashtagNode(getTextContent());
-}
-
-/// Creates a hashtag, applying any registered node replacement.
-HashtagNode $createHashtagNode([String text = '']) =>
-    $applyNodeReplacement(HashtagNode(text));
+export 'src/hashtag_node.dart' show HashtagNode, $createHashtagNode;
+export 'src/hashtag_transform.dart' show defaultHashtagPattern, registerHashtag;
 
 /// The node specs this package contributes.
 List<NodeSpec<LexicalNode>> get hashtagNodes => <NodeSpec<LexicalNode>>[

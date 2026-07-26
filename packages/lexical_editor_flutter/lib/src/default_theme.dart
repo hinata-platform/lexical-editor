@@ -7,6 +7,8 @@ import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_rich_text/lexical_rich_text.dart';
 
+import 'table_layout.dart';
+
 /// The colours a document is drawn with.
 ///
 /// Deliberately not Material's `ColorScheme`: this package must work in a
@@ -91,6 +93,7 @@ LexicalTheme defaultLexicalTheme({
       TextFormat.highlight: (style) =>
           style.copyWith(backgroundColor: palette.highlight),
     },
+    blockLayouts: tableBlockLayouts(),
     blockStyles: {
       'paragraph': BlockStyle(spacing: blockSpacing),
       'heading': BlockStyle(spacing: blockSpacing * 1.6),

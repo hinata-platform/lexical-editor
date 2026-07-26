@@ -20,6 +20,17 @@ editor.update(() {
 }, discrete: true);
 ```
 
+```dart
+final editor = LexicalEditor(nodes: hashtagNodes);
+registerHashtag(editor);   // finds `#flutter` as it is typed
+```
+
+Detection is a pair of transforms and both directions matter: text that
+becomes a tag turns into one, and a tag that stops looking like one — the `#`
+deleted, a word typed onto the end — turns back into text. A `#` only counts
+at the start of a word, so `a#b` and the fragment in a URL are left alone, and
+so is anything inside a code block.
+
 A hashtag is a `TextNode` subclass with no extra fields — only its type string
 differs on the wire. That alone makes it non-mergeable with the text around it,
 which is exactly what a tag needs: it stays one addressable run instead of

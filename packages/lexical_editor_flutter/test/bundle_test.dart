@@ -310,6 +310,138 @@ void main() {
     });
   });
 
+  group('table layout', () {
+    // The reported bug, and it was never in the commands: a table drawn as
+    // ordinary nested blocks is a vertical list of every cell, so inserting
+    // one row looks like three lines appearing and inserting a column looks
+    // like rows sprouting all over the table.
+    Future<LexicalEditor> pumpTable(
+      WidgetTester tester, {
+      int rows = 2,
+      int columns = 3,
+    }) async {
+      tester.view.physicalSize = const Size(900, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createTableNodeWithDimensions(rows, columns))
+          ..append($createParagraphNode());
+      }, discrete: true);
+
+      await _pump(tester, editor);
+      return editor;
+    }
+
+    /// Where the cell at [row], [column] was drawn.
+    ///
+    /// Found by node key: the document is drawn with render objects rather
+    /// than `Text` widgets, so there is no string to look for.
+    Rect cellRect(WidgetTester tester, LexicalEditor editor, int row, int col) {
+      final key = editor.read(() {
+        final table = $getRoot().getFirstChild()! as TableNode;
+        return $computeTableGrid(table).at(row, col)!.cell.key.value;
+      });
+      return tester.getRect(find.byKey(ValueKey<String>('lexical-cell-$key')));
+    }
+
+    void placeCaret(LexicalEditor editor, int row, int col) {
+      editor.update(() {
+        final table = $getRoot().getFirstChild()! as TableNode;
+        final cell = $computeTableGrid(table).at(row, col)!.cell;
+        (cell.getFirstChild()! as ElementNode).selectStart();
+      }, discrete: true);
+    }
+
+    testWidgets('cells of a row share a top edge, side by side', (
+      tester,
+    ) async {
+      final editor = await pumpTable(tester);
+
+      final first = cellRect(tester, editor, 0, 0);
+      final second = cellRect(tester, editor, 0, 1);
+      final third = cellRect(tester, editor, 0, 2);
+      expect(second.left, greaterThan(first.left));
+      expect(third.left, greaterThan(second.left));
+      expect(second.top, first.top);
+      expect(third.top, first.top);
+
+      // And the second row is below the first, not beside it.
+      final below = cellRect(tester, editor, 1, 0);
+      expect(below.top, greaterThanOrEqualTo(first.bottom));
+      expect(below.left, first.left);
+    });
+
+    testWidgets('inserting one row adds one row, not one line per cell', (
+      tester,
+    ) async {
+      final editor = await pumpTable(tester);
+      final rowHeight =
+          cellRect(tester, editor, 1, 0).top -
+          cellRect(tester, editor, 0, 0).top;
+
+      placeCaret(editor, 0, 0);
+      editor.dispatchCommand(insertTableRowCommand, true);
+      await tester.pump();
+
+      // Three cells arrived and they are one row: what used to be the second
+      // row is now the third, one row lower — not three lines lower.
+      expect(
+        cellRect(tester, editor, 2, 0).top - cellRect(tester, editor, 0, 0).top,
+        closeTo(rowHeight * 2, 1),
+      );
+      expect(
+        cellRect(tester, editor, 1, 1).top,
+        cellRect(tester, editor, 1, 0).top,
+      );
+    });
+
+    testWidgets('inserting a column widens the table instead of stacking', (
+      tester,
+    ) async {
+      final editor = await pumpTable(tester);
+      final widthBefore = cellRect(tester, editor, 0, 0).width;
+
+      placeCaret(editor, 0, 0);
+      editor.dispatchCommand(insertTableColumnCommand, true);
+      await tester.pump();
+
+      // Four columns now share the width, and every row still has one top
+      // edge — nothing dropped into a line of its own.
+      expect(cellRect(tester, editor, 0, 0).width, lessThan(widthBefore));
+      expect(
+        cellRect(tester, editor, 0, 3).top,
+        cellRect(tester, editor, 0, 0).top,
+      );
+      expect(
+        cellRect(tester, editor, 1, 3).top,
+        cellRect(tester, editor, 1, 0).top,
+      );
+    });
+
+    testWidgets('a merged cell covers the columns it spans', (tester) async {
+      final editor = await pumpTable(tester);
+      final single = cellRect(tester, editor, 0, 0).width;
+
+      editor.update(() {
+        final table = $getRoot().getFirstChild()! as TableNode;
+        final grid = $computeTableGrid(table);
+        $mergeTableCells(grid, TableCellRange(0, 0, 0, 1));
+      }, discrete: true);
+      await tester.pump();
+
+      expect(cellRect(tester, editor, 0, 0).width, greaterThan(single * 1.5));
+      // The row below is untouched and still starts at the left edge.
+      expect(
+        cellRect(tester, editor, 1, 0).left,
+        closeTo(cellRect(tester, editor, 0, 0).left, 1),
+      );
+    });
+  });
+
   group('media', () {
     // The inline image is the part worth pinning: upstream's ImageNode is an
     // inline decorator inside a paragraph, so it renders as a WidgetSpan in
