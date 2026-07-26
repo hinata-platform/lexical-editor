@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -429,6 +430,148 @@ void main() {
       await pump(tester, 1000);
       expect(tester.getSize(find.byType(Image)), const Size(900, 600));
     });
+  });
+
+  group('dragging a handle', () {
+    const pixel =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAAB'
+        'AAEAAAIBRAA7';
+
+    /// An editor holding one 200x100 image, shown by a host that follows it.
+    Future<LexicalEditor> pumpImage(WidgetTester tester) async {
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createImageNode(src: pixel, width: 200, height: 100)),
+          );
+      }, discrete: true);
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(width: 900, child: _ImageHost(editor: editor)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The handles only exist while the pointer is over the image, and the
+      // hover has to be established once and kept: adding a second mouse
+      // pointer while the first is still there trips the mouse tracker's own
+      // assertions.
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(
+        location: tester.getRect(find.byType(Image)).center,
+      );
+      addTearDown(mouse.removePointer);
+      await tester.pump();
+      return editor;
+    }
+
+    /// Drags the image's right-edge handle by [by].
+    Future<void> dragRightEdge(WidgetTester tester, Offset by) async {
+      final image = tester.getRect(find.byType(Image));
+      // Two pixels inside the edge: the dot straddles it, and the half
+      // outside is clipped away by the stack.
+      final drag = await tester.startGesture(
+        image.centerRight - const Offset(2, 0),
+      );
+      // Two moves rather than one: an origin that is only wrong on the first
+      // update would be invisible to a drag that jumps straight to its
+      // destination.
+      await drag.moveBy(by / 2);
+      await tester.pump();
+      await drag.moveBy(by / 2);
+      await tester.pump();
+      await drag.up();
+      await tester.pump();
+    }
+
+    testWidgets('the right edge follows the pointer', (tester) async {
+      // The bug this pins: the origin the distance was measured from used to
+      // live in the handle's own `build`, which every update rebuilds. The
+      // first update then measured from (0, 0) — the pointer's absolute
+      // position — and the image jumped to its widest allowed size at once.
+      final editor = await pumpImage(tester);
+      await dragRightEdge(tester, const Offset(60, 0));
+
+      expect(_storedWidth(editor), 260);
+    });
+
+    testWidgets('dragging back in shrinks it again', (tester) async {
+      // The other half of the report: after the first drag, nothing worked.
+      final editor = await pumpImage(tester);
+      await dragRightEdge(tester, const Offset(60, 0));
+      await dragRightEdge(tester, const Offset(-100, 0));
+
+      expect(_storedWidth(editor), 160);
+    });
+
+    testWidgets('the document is written once, at the end of the drag', (
+      tester,
+    ) async {
+      // Resizing has to be one undo step, not one per pointer move.
+      final editor = await pumpImage(tester);
+      var commits = 0;
+      final unsubscribe = editor.registerUpdateListener((_) => commits++);
+      addTearDown(unsubscribe);
+
+      await dragRightEdge(tester, const Offset(60, 0));
+
+      expect(commits, 1);
+    });
+  });
+}
+
+/// The stored width of the one image in [editor].
+double _storedWidth(LexicalEditor editor) => editor.read(() {
+  final paragraph = $getRoot().getFirstChild()! as ElementNode;
+  return (paragraph.getFirstChild()! as ImageNode).width;
+});
+
+/// Shows the image in [editor] and follows it, the way a decorator builder
+/// does: the node is read here, and the widget is handed values.
+class _ImageHost extends StatefulWidget {
+  const _ImageHost({required this.editor});
+
+  final LexicalEditor editor;
+
+  @override
+  State<_ImageHost> createState() => _ImageHostState();
+}
+
+class _ImageHostState extends State<_ImageHost> {
+  Unsubscribe? _unsubscribe;
+
+  @override
+  void initState() {
+    super.initState();
+    _unsubscribe = widget.editor.registerUpdateListener((_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _unsubscribe?.call();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.editor.read(() {
+    final paragraph = $getRoot().getFirstChild()! as ElementNode;
+    final image = paragraph.getFirstChild()! as ImageNode;
+    return LexicalImageView(
+      editor: widget.editor,
+      nodeKey: image.key,
+      src: image.src,
+      width: image.width == 0 ? null : image.width,
+      height: image.height == 0 ? null : image.height,
+      captionsEnabled: false,
+    );
   });
 }
 

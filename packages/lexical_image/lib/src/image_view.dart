@@ -115,6 +115,9 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   /// The size being dragged, in logical pixels — not yet in the document.
   Size? _dragging;
   Size? _dragStart;
+
+  /// Where the pointer went down, in global coordinates.
+  Offset _origin = Offset.zero;
   bool _hovered = false;
   bool _touched = false;
   bool _editingCaption = false;
@@ -148,22 +151,31 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     return null;
   }
 
-  void _onDragStart(Size? displayed) {
+  void _onDragStart(Size? displayed, Offset origin) {
     final current = displayed ?? _size ?? _intrinsic;
     if (current == null) return;
     setState(() {
+      _origin = origin;
       _dragStart = current;
       _dragging = current;
     });
   }
 
-  void _onDragUpdate(ImageHandle handle, Offset delta) {
+  /// [position] is where the pointer is now, in global coordinates.
+  ///
+  /// The handle reports the position rather than a delta, and the origin it
+  /// is measured from lives **here**. That is not a detail: every update calls
+  /// `setState`, so anything the handle kept in its own `build` would be reset
+  /// to its initial value between the drag starting and the first update — the
+  /// pointer's absolute position would then be read as the distance dragged,
+  /// and one pixel of movement would resize the image by half the screen.
+  void _onDragUpdate(ImageHandle handle, Offset position) {
     final start = _dragStart;
     if (start == null) return;
     setState(() {
       _dragging = resizeImage(
         start: start,
-        delta: delta,
+        delta: position - _origin,
         handle: handle,
         limits: widget.limits,
         aspectRatio: _aspectRatio,
@@ -176,10 +188,14 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     final size = _dragging;
     _dragStart = null;
     if (size == null) return;
+    // Discrete, so the document has the new size *before* the dragged size is
+    // dropped. A scheduled commit would leave one frame in which neither is
+    // in effect, and the image would snap back to its old size and forward
+    // again.
     widget.editor.update(() {
       final node = $getNodeByKey(widget.nodeKey);
       if (node is ImageNode) node.setSize(size.width, size.height);
-    });
+    }, discrete: true);
     setState(() => _dragging = null);
   }
 
@@ -299,8 +315,8 @@ class _LexicalImageViewState extends State<LexicalImageView> {
         // The drag starts from what is on screen, not from what is stored:
         // grabbing a corner of an image that is being shown smaller than its
         // stored size would otherwise jump to that larger size first.
-        onStart: () => _onDragStart(size),
-        onUpdate: (delta) => _onDragUpdate(handle, delta),
+        onStart: (position) => _onDragStart(size, position),
+        onUpdate: (position) => _onDragUpdate(handle, position),
         onEnd: _onDragEnd,
       ),
   ];
@@ -348,7 +364,12 @@ class _HandleDot extends StatelessWidget {
 
   final ImageHandle handle;
   final Size size;
-  final VoidCallback onStart;
+
+  /// Both report the pointer's **global position**, not a distance.
+  ///
+  /// A handle is rebuilt on every frame of the drag, so it cannot remember
+  /// where the drag began; only the state above it can.
+  final ValueChanged<Offset> onStart;
   final ValueChanged<Offset> onUpdate;
   final VoidCallback onEnd;
 
@@ -366,7 +387,6 @@ class _HandleDot extends StatelessWidget {
       > 0 => size.height - _dot / 2,
       _ => size.height / 2 - _dot / 2,
     };
-    var origin = Offset.zero;
     return Positioned(
       left: x,
       top: y,
@@ -385,11 +405,8 @@ class _HandleDot extends StatelessWidget {
           // claiming the drag here keeps the two from fighting.
           behavior: HitTestBehavior.opaque,
           dragStartBehavior: DragStartBehavior.down,
-          onPanStart: (details) {
-            origin = details.globalPosition;
-            onStart();
-          },
-          onPanUpdate: (details) => onUpdate(details.globalPosition - origin),
+          onPanStart: (details) => onStart(details.globalPosition),
+          onPanUpdate: (details) => onUpdate(details.globalPosition),
           onPanEnd: (_) => onEnd(),
           child: Container(
             width: _dot,

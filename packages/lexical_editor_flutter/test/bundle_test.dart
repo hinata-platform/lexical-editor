@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -315,6 +316,59 @@ void main() {
       expect(find.byType(LexicalImageView), findsOneWidget);
       expect(find.byType(LexicalEmbedView), findsOneWidget);
       expect(find.text('Eine Unterschrift'), findsOneWidget);
+    });
+
+    testWidgets('an image resizes by its handle inside the editable', (
+      tester,
+    ) async {
+      // The image is a WidgetSpan in the middle of a text run, inside a
+      // scrollable that has drag recognizers of its own. If the editor won
+      // that arena the handle would never see the drag, and resizing would
+      // be dead in exactly the place it matters.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createTextNode('davor '))
+              ..append(
+                $createImageNode(
+                  src: transparentPixel,
+                  width: 200,
+                  height: 100,
+                ),
+              ),
+          );
+      }, discrete: true);
+
+      await pumpMedia(tester, editor);
+
+      final image = tester.getRect(find.byType(Image));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: image.center);
+      addTearDown(mouse.removePointer);
+      await tester.pump();
+
+      final drag = await tester.startGesture(
+        image.centerRight - const Offset(2, 0),
+      );
+      await drag.moveBy(const Offset(30, 0));
+      await tester.pump();
+      await drag.moveBy(const Offset(30, 0));
+      await tester.pump();
+      await drag.up();
+      // The editable's double-tap recognizer starts a countdown on every
+      // pointer down; letting it expire is what keeps the test from ending
+      // with a timer still pending.
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final width = editor.read(() {
+        final paragraph = $getRoot().getFirstChild()! as ElementNode;
+        return paragraph.children.whereType<ImageNode>().single.width;
+      });
+      expect(width, 260);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a narrow viewport does not overflow', (tester) async {
