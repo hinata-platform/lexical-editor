@@ -12,6 +12,8 @@
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 
+import 'app_theme.dart';
+
 /// One message in a thread.
 class Comment {
   const Comment({required this.author, required this.text, required this.at});
@@ -134,8 +136,13 @@ class _ThreadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        borderRadius: Radii.control,
+        border: Border.all(color: Palette.line),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -149,7 +156,10 @@ class _ThreadCard extends StatelessWidget {
                       horizontal: 6,
                       vertical: 2,
                     ),
-                    color: theme.colorScheme.tertiaryContainer,
+                    decoration: BoxDecoration(
+                      color: Palette.accent.withValues(alpha: 0.09),
+                      borderRadius: const BorderRadius.all(Radius.circular(4)),
+                    ),
                     child: Text(
                       quote.isEmpty ? '(text deleted)' : quote,
                       maxLines: 2,
@@ -231,7 +241,16 @@ class _ComposerState extends State<_Composer> {
           decoration: InputDecoration(
             isDense: true,
             hintText: widget.hint,
-            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: Palette.bar,
+            border: const OutlineInputBorder(
+              borderRadius: Radii.control,
+              borderSide: BorderSide(color: Palette.line),
+            ),
+            enabledBorder: const OutlineInputBorder(
+              borderRadius: Radii.control,
+              borderSide: BorderSide(color: Palette.line),
+            ),
           ),
           onSubmitted: (_) => _submit(),
         ),

@@ -21,10 +21,14 @@ import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lexical_file/lexical_file.dart';
 import 'package:lexical_markdown/lexical_markdown.dart';
 
+import 'app_theme.dart';
 import 'brand_header.dart';
 import 'comments.dart';
+import 'editor_card.dart';
+import 'editor_toolbar.dart';
 import 'insert_media.dart';
 import 'selection_toolbar.dart';
+import 'side_panel.dart';
 import 'table_actions.dart';
 
 void main() => runApp(const ExampleApp());
@@ -35,11 +39,8 @@ class ExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'lexical_editor_flutter',
-    theme: ThemeData(
-      colorSchemeSeed: const Color(0xFF4DA3FF),
-      brightness: Brightness.light,
-      useMaterial3: true,
-    ),
+    debugShowCheckedModeBanner: false,
+    theme: demoTheme(),
     home: const EditorPage(),
   );
 }
@@ -60,7 +61,7 @@ class _EditorPageState extends State<EditorPage> {
   final GlobalKey<LexicalEditableState> _editableKey =
       GlobalKey<LexicalEditableState>();
   final CommentStore comments = CommentStore();
-  _Panel _panel = _Panel.markdown;
+  Panel _panel = Panel.markdown;
 
   @override
   void initState() {
@@ -145,9 +146,6 @@ class _EditorPageState extends State<EditorPage> {
     return table;
   }
 
-  void _format(TextFormat format) =>
-      editor.dispatchCommand(formatTextCommand, format);
-
   /// Marks the selection and opens a thread on it.
   ///
   /// The id is the only thing that reaches the document; the comment itself
@@ -156,19 +154,67 @@ class _EditorPageState extends State<EditorPage> {
   void _comment() {
     final id = comments.startThread();
     editor.dispatchCommand(addMarkCommand, id);
-    setState(() => _panel = _Panel.comments);
+    setState(() => _panel = Panel.comments);
   }
 
-  /// Replaces every block the selection touches with a fresh one.
-  void _turnInto(ElementNode Function() create) {
+  /// Turns every block the selection touches into [kind].
+  ///
+  /// Lists are the case worth reading: a list *item* is the block, so leaving
+  /// a list replaces the list around it, and switching between bullet and
+  /// numbered only changes the list's type. Replacing the item itself would
+  /// leave a paragraph inside a list, which is not a shape any Lexical client
+  /// knows what to do with.
+  void _turnInto(BlockKind kind) {
     editor.update(() {
       final selection = $getSelection();
       if (selection is! RangeSelection) return;
+      final wantedList = _listTypeOf(kind);
+
       for (final block in selection.getBlocks()) {
-        block.replace(create()..appendAll(block.children.toList()));
+        final parent = block.getParent();
+        final children = block.children.toList();
+
+        if (block is ListItemNode && parent is ListNode) {
+          if (wantedList != null) {
+            parent.setListType(wantedList);
+          } else {
+            parent.replace(_createBlock(kind)..appendAll(children));
+          }
+          continue;
+        }
+
+        if (wantedList != null) {
+          block.replace(
+            $createListNode(wantedList)..append(
+              $createListItemNode(wantedList == ListType.check ? false : null)
+                ..appendAll(children),
+            ),
+          );
+          continue;
+        }
+
+        block.replace(_createBlock(kind)..appendAll(children));
       }
     });
   }
+
+  /// The list a block kind stands for, or `null` when it is not a list.
+  ListType? _listTypeOf(BlockKind kind) => switch (kind) {
+    BlockKind.bullet => ListType.bullet,
+    BlockKind.numbered => ListType.number,
+    BlockKind.check => ListType.check,
+    _ => null,
+  };
+
+  /// Must be called inside an update.
+  ElementNode _createBlock(BlockKind kind) => switch (kind) {
+    BlockKind.h1 => $createHeadingNode(HeadingTag.h1),
+    BlockKind.h2 => $createHeadingNode(HeadingTag.h2),
+    BlockKind.h3 => $createHeadingNode(HeadingTag.h3),
+    BlockKind.quote => $createQuoteNode(),
+    BlockKind.code => $createCodeNode(),
+    _ => $createParagraphNode(),
+  };
 
   /// Markdown with the rules tables, images and embeds bring along.
   ///
@@ -192,268 +238,125 @@ class _EditorPageState extends State<EditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width > 900;
-    return Scaffold(
-      appBar: BrandAppBar(
-        actions: [
-          IconButton(
-            tooltip: 'Undo',
-            onPressed: () => editor.dispatchCommand(undoCommand, null),
-            icon: const Icon(Icons.undo),
-          ),
-          IconButton(
-            tooltip: 'Redo',
-            onPressed: () => editor.dispatchCommand(redoCommand, null),
-            icon: const Icon(Icons.redo),
-          ),
-          const SizedBox(width: 8),
-        ],
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width > 1040;
+    final editorCard = EditorCard(
+      editor: editor,
+      toolbar: EditorToolbar(
+        editor: editor,
+        onBlock: _turnInto,
+        onTable: () => editor.dispatchCommand(
+          insertTableCommand,
+          const TableShape(rows: 3, columns: 3),
+        ),
+        onImage: () => showInsertImageDialog(context, editor),
+        onEmbed: () => showInsertEmbedDialog(context, editor),
       ),
-      body: Column(
-        children: [
-          _Toolbar(
-            onFormat: _format,
-            onTurnInto: _turnInto,
-            onList: (type) => _turnInto(
-              () => $createListNode(type)
-                ..append(
-                  $createListItemNode(type == ListType.check ? false : null),
-                ),
-            ),
-            onTable: () => editor.dispatchCommand(
-              insertTableCommand,
-              const TableShape(rows: 3, columns: 3),
-            ),
-            onImage: () => showInsertImageDialog(context, editor),
-            onEmbed: () => showInsertEmbedDialog(context, editor),
+      // Appears only while the caret is in a table — see table_actions.dart.
+      contextBar: TableActions(editor: editor),
+      child: SelectionToolbar(
+        editor: editor,
+        editableKey: _editableKey,
+        onComment: _comment,
+        child: LexicalEditorField(
+          editor: editor,
+          editableKey: _editableKey,
+          autofocus: true,
+          padding: const EdgeInsets.fromLTRB(26, 22, 26, 40),
+          palette: const LexicalPalette(
+            text: Palette.text,
+            muted: Palette.muted,
+            accent: Palette.accent,
+            border: Palette.line,
+            surface: Color(0xFFF6F8FB),
           ),
-          TableActions(editor: editor),
-          const Divider(height: 1),
-          Expanded(
-            child: Flex(
-              direction: wide ? Axis.horizontal : Axis.vertical,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: SelectionToolbar(
-                    editor: editor,
-                    editableKey: _editableKey,
-                    onComment: _comment,
-                    child: LexicalEditorField(
-                      editor: editor,
-                      editableKey: _editableKey,
-                      autofocus: true,
-                      padding: const EdgeInsets.all(24),
-                      // This example draws its own toolbar over the
-                      // selection, so the platform's cut/copy/paste menu
-                      // would be a second overlay on the same gesture.
-                      contextMenuBuilder: (_, _) => const SizedBox.shrink(),
-                      baseTextStyle: Theme.of(context).textTheme.bodyLarge!,
-                      // Images and embeds are decorators: without a builder
-                      // they draw their text stand-in instead of themselves.
-                      decoratorBuilders: lexicalDecoratorBuilders(
-                        editor: editor,
-                        imageLimits: const ImageSizeLimits(
-                          minWidth: 120,
-                          maxWidth: 720,
-                        ),
-                        // No url_launcher in an example; a real application
-                        // opens the video here.
-                        onOpenEmbed: (kind, url) =>
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${kind.name}: $url')),
-                            ),
-                      ),
-                      // Type `@` and the picker opens. A source is the only
-                      // thing mentions cannot have a default for: nothing but
-                      // the application knows who can be mentioned.
-                      mentions: LexicalMentions(
-                        source: CallbackMentionSource(_people),
-                      ),
-                      // Links are tappable here too; the toolbar is what
-                      // creates them.
-                      interaction: LexicalInteraction(
-                        types: interactiveNodeTypes,
-                        onTap: (hit) =>
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${hit.type}: '
-                                  '${hit.json['url'] ?? hit.text}',
-                                ),
-                              ),
-                            ),
-                      ),
-                    ),
-                  ),
-                ),
-                const VerticalDivider(width: 1),
-                Expanded(
-                  flex: 2,
-                  // Rebuilds after every commit — and safely, which a bare
-                  // update listener calling setState would not be: a commit
-                  // can land during a build.
-                  child: LexicalBuilder(
-                    editor: editor,
-                    builder: (context, state, _) => _SidePanel(
-                      panel: _panel,
-                      onSelect: (value) => setState(() => _panel = value),
-                      text: switch (_panel) {
-                        _Panel.markdown => _markdown,
-                        _Panel.json => editor.toJsonString(),
-                        _Panel.file => _lexicalFile,
-                        _Panel.comments => '',
-                      },
-                      comments: CommentsPanel(
-                        editor: editor,
-                        store: comments,
-                        author: 'You',
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+          // This example draws its own toolbar over the selection, so the
+          // platform's cut/copy/paste menu would be a second overlay on the
+          // same gesture.
+          contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+          baseTextStyle: const TextStyle(
+            fontSize: 16,
+            height: 1.65,
+            color: Palette.text,
+          ),
+          // Images and embeds are decorators: without a builder they draw
+          // their text stand-in instead of themselves.
+          decoratorBuilders: lexicalDecoratorBuilders(
+            editor: editor,
+            imageLimits: const ImageSizeLimits(minWidth: 120, maxWidth: 720),
+            // No url_launcher in an example; a real application opens the
+            // video here.
+            onOpenEmbed: (kind, url) => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('${kind.name}: $url'))),
+          ),
+          // Type `@` and the picker opens. A source is the only thing
+          // mentions cannot have a default for: nothing but the application
+          // knows who can be mentioned.
+          mentions: LexicalMentions(source: CallbackMentionSource(_people)),
+          // Links are tappable here too; the toolbar is what creates them.
+          interaction: LexicalInteraction(
+            types: interactiveNodeTypes,
+            onTap: (hit) => ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${hit.type}: ${hit.json['url'] ?? hit.text}'),
+              ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+
+    // Rebuilt after every commit — and safely, which a bare update listener
+    // calling setState would not be: a commit can land during a build.
+    final panel = LexicalBuilder(
+      editor: editor,
+      builder: (context, state, _) => SidePanel(
+        panel: _panel,
+        onSelect: (value) => setState(() => _panel = value),
+        text: switch (_panel) {
+          Panel.markdown => _markdown,
+          Panel.json => editor.toJsonString(),
+          Panel.file => _lexicalFile,
+          Panel.comments => '',
+        },
+        comments: CommentsPanel(editor: editor, store: comments, author: 'You'),
+      ),
+    );
+
+    return Scaffold(
+      appBar: const BrandAppBar(),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1320),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: width > 720 ? 24 : 12,
+              vertical: 20,
+            ),
+            child: wide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(flex: 7, child: editorCard),
+                      const SizedBox(width: 20),
+                      Expanded(flex: 4, child: panel),
+                    ],
+                  )
+                // Under a laptop's width the panel goes below the editor,
+                // where it is still readable rather than 200 pixels wide.
+                : Column(
+                    children: [
+                      Expanded(flex: 3, child: editorCard),
+                      const SizedBox(height: 16),
+                      Expanded(flex: 2, child: panel),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }
-}
-
-class _Toolbar extends StatelessWidget {
-  const _Toolbar({
-    required this.onFormat,
-    required this.onTurnInto,
-    required this.onList,
-    required this.onTable,
-    required this.onImage,
-    required this.onEmbed,
-  });
-
-  final void Function(TextFormat) onFormat;
-  final void Function(ElementNode Function()) onTurnInto;
-  final void Function(ListType) onList;
-  final VoidCallback onTable;
-  final VoidCallback onImage;
-  final VoidCallback onEmbed;
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        children: [
-          for (final (icon, format) in const [
-            (Icons.format_bold, TextFormat.bold),
-            (Icons.format_italic, TextFormat.italic),
-            (Icons.format_underlined, TextFormat.underline),
-            (Icons.strikethrough_s, TextFormat.strikethrough),
-            (Icons.code, TextFormat.code),
-          ])
-            IconButton(onPressed: () => onFormat(format), icon: Icon(icon)),
-          const VerticalDivider(width: 16),
-          for (final (label, create) in <(String, ElementNode Function())>[
-            ('H1', () => $createHeadingNode(HeadingTag.h1)),
-            ('H2', () => $createHeadingNode(HeadingTag.h2)),
-            ('¶', $createParagraphNode),
-          ])
-            TextButton(onPressed: () => onTurnInto(create), child: Text(label)),
-          IconButton(
-            onPressed: () => onTurnInto($createQuoteNode),
-            icon: const Icon(Icons.format_quote),
-          ),
-          const VerticalDivider(width: 16),
-          IconButton(
-            onPressed: () => onList(ListType.bullet),
-            icon: const Icon(Icons.format_list_bulleted),
-          ),
-          IconButton(
-            onPressed: () => onList(ListType.number),
-            icon: const Icon(Icons.format_list_numbered),
-          ),
-          IconButton(
-            onPressed: () => onList(ListType.check),
-            icon: const Icon(Icons.checklist),
-          ),
-          IconButton(
-            tooltip: 'Table',
-            onPressed: onTable,
-            icon: const Icon(Icons.grid_on),
-          ),
-          const VerticalDivider(width: 16),
-          IconButton(
-            tooltip: 'Image or GIF',
-            onPressed: onImage,
-            icon: const Icon(Icons.image_outlined),
-          ),
-          IconButton(
-            tooltip: 'Video, tweet or Figma',
-            onPressed: onEmbed,
-            icon: const Icon(Icons.play_circle_outline),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// What the right-hand panel is showing.
-enum _Panel { markdown, json, file, comments }
-
-class _SidePanel extends StatelessWidget {
-  const _SidePanel({
-    required this.panel,
-    required this.onSelect,
-    required this.text,
-    required this.comments,
-  });
-
-  final _Panel panel;
-  final ValueChanged<_Panel> onSelect;
-  final String text;
-  final Widget comments;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    color: Theme.of(context).colorScheme.surfaceContainerLowest,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<_Panel>(
-              segments: const [
-                ButtonSegment(value: _Panel.markdown, label: Text('Markdown')),
-                ButtonSegment(value: _Panel.json, label: Text('JSON')),
-                ButtonSegment(value: _Panel.file, label: Text('.lexical')),
-                ButtonSegment(value: _Panel.comments, label: Text('Comments')),
-              ],
-              selected: {panel},
-              onSelectionChanged: (value) => onSelect(value.first),
-            ),
-          ),
-        ),
-        Expanded(
-          child: panel == _Panel.comments
-              ? comments
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(12),
-                  child: SelectableText(
-                    text,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-        ),
-      ],
-    ),
-  );
 }
 
 /// The people `@` can find, standing in for a backend.

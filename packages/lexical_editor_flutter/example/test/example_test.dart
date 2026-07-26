@@ -167,18 +167,18 @@ void main() {
 
     // Writing the comment does not touch the document.
     final before = _editorOf(tester).toJsonString();
-    await tester.enterText(find.byType(TextField).last, 'Sollte klarer sein');
+    await tester.enterText(find.byType(TextField).last, 'Should be clearer');
     await tester.tap(find.byIcon(Icons.send).last);
     await tester.pump();
-    expect(find.text('Sollte klarer sein'), findsOneWidget);
+    expect(find.text('Should be clearer'), findsOneWidget);
     expect(_editorOf(tester).toJsonString(), before);
 
     // A reply joins the same thread.
-    await tester.enterText(find.byType(TextField).last, 'Stimmt');
+    await tester.enterText(find.byType(TextField).last, 'Agreed');
     await tester.tap(find.byIcon(Icons.send).last);
     await tester.pump();
-    expect(find.text('Sollte klarer sein'), findsOneWidget);
-    expect(find.text('Stimmt'), findsOneWidget);
+    expect(find.text('Should be clearer'), findsOneWidget);
+    expect(find.text('Agreed'), findsOneWidget);
 
     // Resolving takes the mark back out, leaving the text.
     await tester.tap(find.byIcon(Icons.check).last);
@@ -240,27 +240,29 @@ void main() {
     });
     expect(shape(), [3, 3]);
 
-    await tester.tap(find.text('Row below'));
-    await tester.pump();
+    // The bar scrolls: inside the editor's card only the first few buttons
+    // are on screen, so each one is brought into view before it is pressed.
+    Future<void> press(String label) async {
+      await tester.ensureVisible(find.text(label));
+      await tester.pump();
+      await tester.tap(find.text(label));
+      await tester.pump();
+    }
+
+    await press('Row below');
     expect(shape(), [4, 3]);
 
-    await tester.tap(find.text('Column right'));
-    await tester.pump();
+    await press('Column right');
     expect(shape(), [4, 4]);
 
     // Deleting the row the caret is in must not lose the selection — the
     // core refuses a selection pointing at nodes that no longer exist.
-    await tester.tap(find.text('Delete row'));
-    await tester.pump();
+    await press('Delete row');
     expect(shape(), [3, 4]);
     expect(tester.takeException(), isNull);
 
-    // And deleting the table itself leaves a caret behind. The bar scrolls;
-    // the last button is past the right edge on this surface.
-    await tester.ensureVisible(find.text('Delete table'));
-    await tester.pump();
-    await tester.tap(find.text('Delete table'));
-    await tester.pump();
+    // And deleting the table itself leaves a caret behind.
+    await press('Delete table');
     expect(tester.takeException(), isNull);
     expect(find.text('Table'), findsNothing);
   });
@@ -306,5 +308,74 @@ void main() {
       () => (logo.image as AssetImage).obtainKey(ImageConfiguration.empty),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the block menu names the block the caret is in', (tester) async {
+    // The toolbar reads the document rather than remembering what was
+    // pressed, which is the difference between a toolbar and a row of
+    // buttons — and the only way it survives undo.
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    void caretIn(String word) {
+      _editorOf(tester).update(() {
+        for (final block in $getRoot().children.whereType<ElementNode>()) {
+          for (final text in block.children.whereType<TextNode>()) {
+            if (!text.getTextContent().contains(word)) continue;
+            text.selectEnd();
+            return;
+          }
+        }
+        throw StateError('no "$word" in the document');
+      }, discrete: true);
+    }
+
+    caretIn('Lexical, on Flutter');
+    await tester.pump();
+    expect(find.text('Heading 1'), findsOneWidget);
+
+    caretIn('Type here');
+    await tester.pump();
+    expect(find.text('Normal'), findsOneWidget);
+    expect(find.text('Heading 1'), findsNothing);
+  });
+
+  testWidgets('the block menu turns a paragraph into a list', (tester) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    await _select(tester, 'Type');
+
+    await tester.tap(find.text('Normal'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bullet list').last);
+    await tester.pumpAndSettle();
+
+    // The text moved into the item, not beside it: a list holding a bare
+    // paragraph is a shape no Lexical client knows what to do with.
+    _editorOf(tester).read(() {
+      final list = $getRoot().children.whereType<ListNode>().first;
+      expect(list.listType, ListType.bullet);
+      final item = list.getFirstChild()! as ListItemNode;
+      expect(item.getTextContent(), contains('Type here'));
+    });
+    expect(find.text('Bullet list'), findsOneWidget);
+  });
+
+  testWidgets('the placeholder shows only while the document is empty', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+    expect(find.text('Enter some text…'), findsNothing);
+
+    _editorOf(tester).update(() {
+      $getRoot()
+        ..clear()
+        ..append($createParagraphNode());
+    }, discrete: true);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Enter some text…'), findsOneWidget);
   });
 }

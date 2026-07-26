@@ -8,6 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 
+import 'app_theme.dart';
+
 /// Shows a floating toolbar whenever [editor] has a non-empty selection.
 class SelectionToolbar extends StatefulWidget {
   const SelectionToolbar({
@@ -155,8 +157,13 @@ class _SelectionToolbarState extends State<SelectionToolbar> {
       child: CustomSingleChildLayout(
         delegate: _ToolbarLayout(anchor),
         child: Material(
-          elevation: 6,
-          borderRadius: BorderRadius.circular(10),
+          elevation: 3,
+          color: Palette.surface,
+          shadowColor: const Color(0x33101828),
+          shape: const RoundedRectangleBorder(
+            borderRadius: Radii.control,
+            side: BorderSide(color: Palette.line),
+          ),
           child: _editingLink
               ? _LinkField(
                   initial: _currentLink ?? 'https://',
@@ -169,7 +176,6 @@ class _SelectionToolbarState extends State<SelectionToolbar> {
   }
 
   Widget _formatRow(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     Widget button(
       IconData icon,
       String tooltip,
@@ -181,7 +187,7 @@ class _SelectionToolbarState extends State<SelectionToolbar> {
       isSelected: active,
       iconSize: 18,
       visualDensity: VisualDensity.compact,
-      icon: Icon(icon, color: active ? scheme.primary : null),
+      icon: Icon(icon, color: active ? Palette.accent : Palette.muted),
     );
 
     // The buttons must not take focus: the editor would lose the selection
