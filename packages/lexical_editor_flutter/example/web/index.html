@@ -1,46 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+  <!-- Replaced by `flutter build web --base-href`. On Pages the site lives
+       under /lexical-editor/, so nothing here may assume the root. -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Live-Demo des Lexical-Editors für Flutter: Rich Text, Listen, Tabellen, Bilder, Videos, Erwähnungen und Kommentare — mit Markdown und JSON daneben.">
+  <meta name="theme-color" content="#0B1220">
 
-  <!-- iOS meta tags & icons -->
+  <!-- Link previews. Absolute, because a preview is fetched without a base. -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="lexical_editor_flutter — Live-Demo">
+  <meta property="og:description" content="Lexical, portiert auf Dart und Flutter. Tippen, formatieren, Tabellen bauen — und daneben zusehen, was das Dokument wird.">
+  <meta property="og:url" content="https://hinata.ahmadre.com/lexical-editor/">
+  <meta property="og:image" content="https://hinata.ahmadre.com/lexical-editor/banner.png">
+  <meta name="twitter:card" content="summary_large_image">
+
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="lexical_editor_flutter_example">
+  <meta name="apple-mobile-web-app-title" content="lexical_editor_flutter">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>lexical_editor_flutter_example</title>
+  <title>lexical_editor_flutter — Live-Demo</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #0B1220; }
+
+    /* Shown until Flutter paints. Without it the first seconds of a cold
+       load are a white page, which reads as a broken link rather than as a
+       download. */
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: linear-gradient(120deg, #0B1220, #16233A);
+      color: #E8EAED;
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+            Helvetica, Arial, sans-serif;
+      transition: opacity .25s ease;
+    }
+    #splash img { width: 76px; height: 76px; border-radius: 20px; }
+    #splash .name { font-weight: 700; letter-spacing: -.2px; }
+    #splash .hint { color: rgba(232, 234, 237, .6); font-size: 13px; }
+    #splash .bar {
+      width: 168px; height: 3px; border-radius: 999px;
+      background: rgba(255, 255, 255, .12); overflow: hidden;
+    }
+    #splash .bar i {
+      display: block; width: 40%; height: 100%; border-radius: 999px;
+      background: #4DA3FF; animation: slide 1.1s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(250%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #splash .bar i { animation: none; width: 100%; }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <div id="splash">
+    <img src="icons/Icon-192.png" alt="">
+    <div class="name">lexical_editor_flutter</div>
+    <div class="bar"><i></i></div>
+    <div class="hint">Editor wird geladen …</div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // Flutter fires this once it has painted; the splash is in the way from
+    // that moment on.
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('splash');
+      if (!splash) return;
+      splash.style.opacity = '0';
+      setTimeout(function () { splash.remove(); }, 300);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

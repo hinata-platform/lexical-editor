@@ -21,6 +21,7 @@ import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lexical_file/lexical_file.dart';
 import 'package:lexical_markdown/lexical_markdown.dart';
 
+import 'brand_header.dart';
 import 'comments.dart';
 import 'insert_media.dart';
 import 'selection_toolbar.dart';
@@ -194,8 +195,7 @@ class _EditorPageState extends State<EditorPage> {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width > 900;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('lexical_editor_flutter'),
+      appBar: BrandAppBar(
         actions: [
           IconButton(
             tooltip: 'Rückgängig',

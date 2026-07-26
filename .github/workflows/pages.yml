@@ -1,0 +1,79 @@
+name: Demo
+
+# The example, built for the web and published to GitHub Pages:
+#   https://hinata.ahmadre.com/lexical-editor/
+#
+# The organisation's Pages site carries a custom domain, so the canonical URL
+# is that one; https://hinata-platform.github.io/lexical-editor/ redirects to
+# it. `--base-href` is the same path either way.
+#
+# It is the example app rather than a separate demo on purpose. A demo that is
+# its own project drifts from the package it advertises; this one is the same
+# code the repository tests on every push, so it cannot show something the
+# packages no longer do.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one half-way: an interrupted
+# deployment leaves the site on the previous build, but a cancelled *queued*
+# run silently skips a change.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the example for the web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # The workspace resolves from the repository root; the example's own
+      # path dependencies then point at this checkout rather than at pub.dev.
+      - name: Resolve workspace
+        run: flutter pub get
+
+      - name: Build
+        working-directory: packages/lexical_editor_flutter/example
+        # `--base-href` because Pages serves the repository under a path, not
+        # at the root. `--pwa-strategy=none` because a service worker keeps
+        # serving the build it cached: with Pages there is no way to send a
+        # no-cache header, so a visitor would sit on an old demo until they
+        # cleared their storage.
+        run: |
+          flutter build web \
+            --release \
+            --base-href /lexical-editor/ \
+            --pwa-strategy=none
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/lexical_editor_flutter/example/build/web
+
+  deploy:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

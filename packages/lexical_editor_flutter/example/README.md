@@ -1,6 +1,8 @@
 # Example — lexical_editor_flutter
 
-A small runnable app.
+A small runnable app — and the published demo:
+**<https://hinata.ahmadre.com/lexical-editor/>**, rebuilt from `main`
+on every push by `.github/workflows/pages.yml`.
 
 ```sh
 cd packages/lexical_editor_flutter/example

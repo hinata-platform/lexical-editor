@@ -22,6 +22,13 @@ LexicalEditorField(
 That is the whole setup: every node type registered, the editing behaviour each
 of them needs, undo, and a theme that presents all of them.
 
+## Try it
+
+**[▶ Live demo](https://hinata.ahmadre.com/lexical-editor/)** — this
+package's [example app](https://github.com/hinata-platform/lexical-editor/tree/main/packages/lexical_editor_flutter/example),
+built for the web from `main` on every push. Type in it, build a table, drag
+an image, mention someone, and watch the markdown and JSON beside it change.
+
 ## What it assembles
 
 Headings, quotes, bullet / ordered / check lists with nesting, links, code

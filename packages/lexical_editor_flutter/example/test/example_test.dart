@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
+import 'package:lexical_editor_flutter_example/brand_header.dart';
 import 'package:lexical_editor_flutter_example/main.dart';
 
 /// The editor behind the mounted example page.
@@ -280,5 +281,30 @@ void main() {
 
     expect(find.text('Kein erlaubtes Schema'), findsOneWidget);
     expect(_links(tester), isEmpty);
+  });
+
+  testWidgets('the header carries the mark, and the mark loads', (
+    tester,
+  ) async {
+    // The example is also the published demo, so its header is the first
+    // thing a visitor sees. An asset that is declared in the wrong place
+    // fails only at runtime — in the browser, as a broken image.
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    expect(find.byType(BrandAppBar), findsOneWidget);
+    expect(find.text('lexical_editor_flutter'), findsOneWidget);
+
+    final logo = tester.widget<Image>(
+      find.descendant(
+        of: find.byType(BrandAppBar),
+        matching: find.byType(Image),
+      ),
+    );
+    expect((logo.image as AssetImage).assetName, 'assets/logo.png');
+    await tester.runAsync(
+      () => (logo.image as AssetImage).obtainKey(ImageConfiguration.empty),
+    );
+    expect(tester.takeException(), isNull);
   });
 }

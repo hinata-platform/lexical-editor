@@ -9,6 +9,11 @@ open losslessly in Flutter and go back unchanged.
 > Compatible with **Lexical 0.48.x**. This project is not affiliated with or
 > endorsed by Meta Platforms, Inc. See [NOTICE](NOTICE).
 
+**[▶ Live demo](https://hinata.ahmadre.com/lexical-editor/)** — the
+example app of `lexical_editor_flutter`, running in the browser. It is built
+from `main` on every push, so it shows what the packages do today rather than
+what a screenshot did once.
+
 ## Why a port and not a wrapper
 
 Lexical's core is a dependency-free, DOM-free state machine; only its
