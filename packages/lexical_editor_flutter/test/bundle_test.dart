@@ -135,6 +135,43 @@ void main() {
       expect(theme.markerBuilders.containsKey('listitem'), isTrue);
     });
 
+    test('colours a code run by what the tokenizer called it', () {
+      final theme = defaultLexicalTheme(baseTextStyle: _base);
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createCodeNode('dart')
+              ..append($createCodeHighlightNode('void', 'keyword'))
+              ..append($createCodeHighlightNode(' name', null))
+              // What a block highlighted by @lexical/code-shiki looks like:
+              // no classification at all, the colour baked into the style.
+              ..append(
+                $createCodeHighlightNode('shiki')..setStyle('color: #ff0000'),
+              ),
+          );
+      }, discrete: true);
+
+      final styles = editor.read(() {
+        final code = $getRoot().getFirstChild()! as ElementNode;
+        return [
+          for (final run in code.children.cast<TextNode>())
+            theme
+                .resolveTextStyle(
+                  base: theme.textStyleResolver!(run, theme.baseTextStyle),
+                  format: run.getFormat(),
+                  style: run.getStyle(),
+                )
+                .color,
+        ];
+      });
+
+      expect(styles[0], isNot(styles[1]), reason: 'a keyword looks like text');
+      expect(styles[1], theme.baseTextStyle.color);
+      expect(styles[2], const Color(0xFFFF0000));
+    });
+
     test('a dark palette changes the colours, not the metrics', () {
       final light = defaultLexicalTheme(baseTextStyle: _base);
       final dark = defaultLexicalTheme(

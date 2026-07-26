@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Syntax highlighting, in the package rather than left to the application:
+  `tokenizeCode` classifies source for fifteen languages, and
+  `registerCodeHighlighting` keeps a block's runs in step with its text as it
+  is typed, pasted and undone. No dependencies — a table of rules per
+  language, extensible with `CodeLanguage.register`.
+- The runs it produces are upstream's shape: a flat list of highlight runs,
+  line breaks and tabs, classified with Prism's token names, so a block
+  highlighted here is coloured by Lexical web's stylesheet and one highlighted
+  there is coloured by a Flutter theme.
+- A code block whose language is unknown is left untouched rather than
+  flattened, so a document classified by another client survives opening here.
+- A highlight run that leaves a code block — when the block is turned into a
+  paragraph — becomes ordinary text instead of keeping its code colours.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

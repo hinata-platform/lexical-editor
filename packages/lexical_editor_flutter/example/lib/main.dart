@@ -14,6 +14,8 @@
 // media buttons are in insert_media.dart. Put the caret in a table cell and a
 // bar of table actions appears — see table_actions.dart. Type `@` and the
 // mention picker opens, over the list of people at the bottom of this file.
+// Put it in a code block and the bar offers the language it is written in —
+// see code_actions.dart.
 // The panel on the right shows the document as markdown, as JSON, or as a
 // .lexical file.
 import 'package:flutter/material.dart';
@@ -23,6 +25,7 @@ import 'package:lexical_markdown/lexical_markdown.dart';
 
 import 'app_theme.dart';
 import 'brand_header.dart';
+import 'code_actions.dart';
 import 'comments.dart';
 import 'editor_card.dart';
 import 'editor_toolbar.dart';
@@ -108,6 +111,20 @@ class _EditorPageState extends State<EditorPage> {
               width: 420,
               height: 280,
             )..setCaptionText('Drag it by the corners'),
+          ),
+        )
+        // The runs inside this are not written here: the text goes in, and a
+        // transform splits it into classified runs on every commit. Put the
+        // caret in it and the bar over the document offers the other fourteen
+        // languages — the same text, re-coloured.
+        ..append(
+          $createCodeNode('dart')..append(
+            $createTextNode(r'''void main() {
+  final editor = createLexicalEditor();
+  editor.update(() {
+    $getRoot().append($createParagraphNode());
+  }); // type in here — the colours follow
+}'''),
           ),
         )
         // A video is a block of its own — and in Lexical, "video" means
@@ -212,7 +229,9 @@ class _EditorPageState extends State<EditorPage> {
     BlockKind.h2 => $createHeadingNode(HeadingTag.h2),
     BlockKind.h3 => $createHeadingNode(HeadingTag.h3),
     BlockKind.quote => $createQuoteNode(),
-    BlockKind.code => $createCodeNode(),
+    // With a language, because a block without one is not highlighted at all
+    // — and the bar over the document is where it gets changed.
+    BlockKind.code => $createCodeNode('dart'),
     _ => $createParagraphNode(),
   };
 
@@ -252,8 +271,15 @@ class _EditorPageState extends State<EditorPage> {
         onImage: () => showInsertImageDialog(context, editor),
         onEmbed: () => showInsertEmbedDialog(context, editor),
       ),
-      // Appears only while the caret is in a table — see table_actions.dart.
-      contextBar: TableActions(editor: editor),
+      // Each appears only while the caret is inside what it acts on, so at
+      // most one of them is ever visible.
+      contextBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TableActions(editor: editor),
+          CodeActions(editor: editor),
+        ],
+      ),
       child: SelectionToolbar(
         editor: editor,
         editableKey: _editableKey,

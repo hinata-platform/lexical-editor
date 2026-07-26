@@ -1,6 +1,6 @@
 name: lexical_code
 description: >-
-  Code block and syntax-highlight nodes for lexical_core, wire-compatible with Lexical's @lexical/code. Pure Dart.
+  Code blocks and syntax highlighting for lexical_core: 15 languages, wire-compatible with Lexical's @lexical/code. Pure Dart.
 version: 1.0.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues

@@ -361,6 +361,83 @@ void main() {
     expect(find.text('Bullet list'), findsOneWidget);
   });
 
+  testWidgets('the sample code block comes up highlighted', (tester) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    final blocks = _editorOf(tester).read(
+      () => [
+        for (final code in $getRoot().children.whereType<CodeNode>())
+          (
+            code.language,
+            code.children
+                .whereType<CodeHighlightNode>()
+                .map((run) => run.highlightType)
+                .whereType<String>()
+                .toSet(),
+          ),
+      ],
+    );
+
+    expect(blocks, isNotEmpty, reason: 'the demo lost its code block');
+    for (final (language, types) in blocks) {
+      expect(
+        types,
+        containsAll(['keyword', 'function', 'comment']),
+        reason: '$language came up with nothing classified',
+      );
+    }
+  });
+
+  testWidgets('the code bar switches the language and the colours follow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    /// What each run of the first code block is classified as, by its text.
+    Map<String, String?> classified() => _editorOf(tester).read(() {
+      final code = $getRoot().children.whereType<CodeNode>().first;
+      return {
+        for (final run in code.children.whereType<CodeHighlightNode>())
+          if (run.highlightType != null)
+            run.getTextContent(): run.highlightType,
+      };
+    });
+
+    // Nothing to say until the caret is in a code block.
+    expect(find.text('Code'), findsNothing);
+    final asDart = classified();
+
+    _editorOf(tester).update(() {
+      final code = $getRoot().children.whereType<CodeNode>().first;
+      (code.getFirstChild()! as TextNode).selectEnd();
+    }, discrete: true);
+    await tester.pump();
+
+    expect(find.text('Code'), findsOneWidget);
+    expect(find.text('dart'), findsOneWidget);
+
+    await tester.tap(find.text('dart'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('python').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      _editorOf(
+        tester,
+      ).read(() => $getRoot().children.whereType<CodeNode>().first.language),
+      'python',
+    );
+    // The same text, read by different rules: `void` is a keyword in Dart and
+    // an ordinary word in Python. Nothing is cached and nothing is stale.
+    final asPython = classified();
+    expect(asDart['void'], 'keyword');
+    expect(asPython['void'], isNull);
+    expect(asPython, isNotEmpty);
+    expect(find.text('python'), findsOneWidget);
+  });
+
   testWidgets('the placeholder shows only while the document is empty', (
     tester,
   ) async {

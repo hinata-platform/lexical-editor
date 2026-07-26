@@ -36,7 +36,7 @@ native scrolling and native performance to keep code no user ever sees.
 | [`lexical_rich_text`](packages/lexical_rich_text) | Heading, quote |
 | [`lexical_list`](packages/lexical_list) | Bullet, ordered and check lists; nesting, numbering, Enter and Tab behaviour |
 | [`lexical_link`](packages/lexical_link) | Link and auto-link, with URL scheme validation at the point of use |
-| [`lexical_code`](packages/lexical_code) | Code blocks, syntax-highlight runs, and code-shaped Enter and Tab |
+| [`lexical_code`](packages/lexical_code) | Code blocks, syntax highlighting for 15 languages, code-shaped Enter and Tab |
 | [`lexical_table`](packages/lexical_table) | Table, row, cell; the grid, spans, cell-range selection and the structural commands |
 | [`lexical_mark`](packages/lexical_mark) | Annotation and comment ranges |
 | [`lexical_hashtag`](packages/lexical_hashtag) | Hashtags |
