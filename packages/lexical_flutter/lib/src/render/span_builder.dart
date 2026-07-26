@@ -72,8 +72,16 @@ final class SpanBuilder {
             // different from ordinary text without carrying a format bit or a
             // style string, and their theme entry would otherwise do nothing.
             final typeStyle = theme.blockStyleFor(text.type).textStyle;
+            var runStyle = typeStyle == null
+                ? inherited
+                : inherited.merge(typeStyle);
+            // What the type string cannot express: a syntax-highlighted run
+            // is a `code-highlight` node whether it is a keyword or a string,
+            // and only the node knows which.
+            final resolver = theme.textStyleResolver;
+            if (resolver != null) runStyle = resolver(text, runStyle);
             final style = theme.resolveTextStyle(
-              base: typeStyle == null ? inherited : inherited.merge(typeStyle),
+              base: runStyle,
               format: format,
               style: text.getStyle(),
             );

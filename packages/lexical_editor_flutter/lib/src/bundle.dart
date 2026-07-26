@@ -83,6 +83,7 @@ Unsubscribe registerLexical(LexicalEditor editor, {HistoryState? history}) {
     registerTable(editor),
     registerList(editor),
     registerCode(editor),
+    registerCodeHighlighting(editor),
     registerLink(editor),
     registerMark(editor),
     registerHashtag(editor),

@@ -240,6 +240,44 @@ void main() {
       expect(spans.last.style!.color, const Color(0xFFFF0000));
     });
   });
+  testWidgets('a text node is styled by its own fields, not only its type', (
+    tester,
+  ) async {
+    // What the type string cannot express: every run in a code block is a
+    // `code-highlight` node, and a *field* on it says whether it is a keyword
+    // or a string. The node hook is the only thing that can reach that.
+    final editor = LexicalEditor(
+      nodes: [NodeSpec<_Badge>(type: 'badge', create: _Badge.new)],
+    );
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append(
+          $createParagraphNode()
+            ..append($applyNodeReplacement(_Badge('keyword')))
+            ..append(_Badge('own')..setStyle('color: #00ff00')),
+        );
+    }, discrete: true);
+
+    final theme = LexicalTheme(
+      baseTextStyle: const TextStyle(fontSize: 14),
+      textStyleResolver: (node, style) => node.getTextContent() == 'keyword'
+          ? style.copyWith(color: const Color(0xFFFF0000))
+          : style,
+    );
+    await withContext(tester, (context) {
+      final built = editor.read(() {
+        final block = $getRoot().getFirstChild()! as ElementNode;
+        return SpanBuilder(theme: theme, context: context).buildBlock(block);
+      });
+      final spans = (built.span as TextSpan).children!.cast<TextSpan>();
+      expect(spans.first.style!.color, const Color(0xFFFF0000));
+      // The resolver refines the *inherited* style, so a node that says what
+      // colour it is still wins — otherwise a theme would overrule a document.
+      expect(spans.last.style!.color, const Color(0xFF00FF00));
+    });
+  });
+
   testWidgets('a token text node can render as a widget', (tester) async {
     // The chip case: a mention wants padding and a rounded corner, and no
     // TextStyle can express either.

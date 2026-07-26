@@ -100,6 +100,17 @@ typedef BlockMarkerBuilder =
 typedef BlockStyleResolver =
     BlockStyle Function(ElementNode node, BlockStyle base);
 
+/// Refines an inline run's style using the node itself.
+///
+/// The text counterpart of [BlockStyleResolver], and it exists for the same
+/// reason: a syntax-highlighted run is a `code-highlight` node like every
+/// other one in the block, and what tells a keyword from a string is a *field*
+/// on it. Keying on the type string cannot reach that.
+///
+/// Applied to the inherited style before the node's own formats and CSS, so a
+/// bolded keyword is still bold and an explicit `style` still wins.
+typedef TextStyleResolver = TextStyle Function(TextNode node, TextStyle style);
+
 /// Renders a decorator node.
 ///
 /// Inline decorators become `WidgetSpan`s; block decorators become their own
@@ -177,6 +188,7 @@ class LexicalTheme {
     this.textFormatStyles = const {},
     this.blockStyles = const {},
     this.blockStyleResolver,
+    this.textStyleResolver,
     this.markerBuilders = const {},
     this.blockLayouts = const {},
     this.tokenBuilders = const {},
@@ -204,6 +216,10 @@ class LexicalTheme {
   /// Refines a block style using the node, for types whose presentation
   /// depends on a field rather than only on their type.
   final BlockStyleResolver? blockStyleResolver;
+
+  /// Refines an inline run's style using the node — syntax highlighting's
+  /// entry point, and anything else a type string cannot express.
+  final TextStyleResolver? textStyleResolver;
 
   /// Per-node-type marker builders.
   final Map<String, BlockMarkerBuilder> markerBuilders;

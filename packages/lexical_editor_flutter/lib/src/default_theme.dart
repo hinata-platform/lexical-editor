@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/widgets.dart';
+import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
 import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_list/lexical_list.dart';
@@ -65,7 +66,9 @@ LexicalTheme defaultLexicalTheme({
   double blockSpacing = 10,
   String monospaceFamily = 'monospace',
   List<String> monospaceFallback = const ['Menlo', 'Consolas', 'Courier New'],
+  Map<String, TextStyle>? codeHighlightStyles,
 }) {
+  final tokens = codeHighlightStyles ?? defaultCodeHighlightStyles(palette);
   final size = baseTextStyle.fontSize ?? 16;
   final body = baseTextStyle.copyWith(
     color: baseTextStyle.color ?? palette.text,
@@ -145,10 +148,75 @@ LexicalTheme defaultLexicalTheme({
     blockStyleResolver: (node, base) => node is HeadingNode
         ? base.copyWith(textStyle: headings[node.tag])
         : base,
+    // The same problem one level down: every run in a code block is a
+    // `code-highlight` node, and only its `highlightType` says whether it is a
+    // keyword or a string.
+    textStyleResolver: (node, style) {
+      if (node is! CodeHighlightNode) return style;
+      final token = tokens[node.highlightType];
+      return token == null ? style : style.merge(token);
+    },
     markerBuilders: {
       'listitem': (context, node) => _listMarker(context, node, palette, body),
     },
   );
+}
+
+/// Colours for the syntax-highlight token classes, chosen for [palette].
+///
+/// The keys are Prism's token names, which is what both Lexical highlighters
+/// write into `highlightType` — so this table colours a block highlighted by
+/// this package and one highlighted on the web equally well.
+///
+/// Not every class needs an entry: operators and punctuation deliberately keep
+/// the body colour, because colouring every bracket is what makes a code block
+/// look like confetti. Anything unlisted simply inherits.
+Map<String, TextStyle> defaultCodeHighlightStyles(LexicalPalette palette) {
+  // The palette carries no brightness flag, so the text colour answers the
+  // only question that matters: light text means a dark surface behind it.
+  final dark = palette.text.computeLuminance() > 0.5;
+
+  final comment = Color(dark ? 0xFF8B949E : 0xFF6E7781);
+  final keyword = Color(dark ? 0xFFFF7B72 : 0xFFCF222E);
+  final string = Color(dark ? 0xFFA5D6FF : 0xFF0A3069);
+  final value = Color(dark ? 0xFF79C0FF : 0xFF0550AE);
+  final name = Color(dark ? 0xFFD2A8FF : 0xFF8250DF);
+  final builtin = Color(dark ? 0xFFFFA657 : 0xFF953800);
+
+  return {
+    for (final type in ['comment', 'prolog', 'doctype', 'cdata'])
+      type: TextStyle(color: comment, fontStyle: FontStyle.italic),
+    for (final type in ['keyword', 'attr', 'atrule', 'attr-name'])
+      type: TextStyle(color: keyword),
+    for (final type in [
+      'string',
+      'char',
+      'attr-value',
+      'selector',
+      'regex',
+      'url',
+      'inserted',
+    ])
+      type: TextStyle(color: string),
+    for (final type in [
+      'number',
+      'boolean',
+      'constant',
+      'property',
+      'symbol',
+      'tag',
+      'entity',
+    ])
+      type: TextStyle(color: value),
+    for (final type in ['function', 'class-name', 'class'])
+      type: TextStyle(color: name),
+    for (final type in ['builtin', 'variable', 'important', 'namespace'])
+      type: TextStyle(color: builtin),
+    'deleted': TextStyle(
+      color: keyword,
+      decoration: TextDecoration.lineThrough,
+    ),
+  };
 }
 
 /// The bullet, number or checkbox before a list item.

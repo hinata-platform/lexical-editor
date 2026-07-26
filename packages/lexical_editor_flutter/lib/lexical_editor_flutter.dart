@@ -45,6 +45,10 @@ export 'src/bundle.dart'
         lexicalNodes,
         registerLexical;
 export 'src/default_theme.dart'
-    show LexicalPalette, defaultHeadingStyles, defaultLexicalTheme;
+    show
+        LexicalPalette,
+        defaultCodeHighlightStyles,
+        defaultHeadingStyles,
+        defaultLexicalTheme;
 export 'src/mentions.dart' show LexicalMentions;
 export 'src/table_layout.dart' show tableBlockLayouts;
