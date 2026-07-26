@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - `$parseMarkdownInline`, for a rule whose text is not the last captured
   group — a table row, where every cell is its own inline run.

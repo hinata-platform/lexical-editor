@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - Syntax highlighting, in the package rather than left to the application:
   `tokenizeCode` classifies source for fifteen languages, and

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - Fixed: the picker could open empty. Its overlay was built in the frame the
   caret's block first mounts in, when the block has not registered its render

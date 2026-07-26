@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - Fixed: a press that lands inside a block's padding — a cell's, or the empty
   area below the last block — now places the caret in the nearest block

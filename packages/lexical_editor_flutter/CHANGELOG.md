@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - `LexicalEditorField.mentions`: the `@` typeahead, given a source. Mentions
   are the one feature that cannot have a default — only the application knows

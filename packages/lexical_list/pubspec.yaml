@@ -1,7 +1,7 @@
 name: lexical_list
 description: >-
   List and list-item nodes for lexical_core, including check lists, wire-compatible with Lexical's @lexical/list. Pure Dart.
-version: 1.0.0
+version: 1.1.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -11,7 +11,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_core: ^1.0.0
+  lexical_core: ^1.1.0
   meta: ^1.15.0
 
 dev_dependencies:

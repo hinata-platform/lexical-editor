@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+No library changes. The packages version in lockstep — they are one library
+split for pay-for-what-you-use, not a set of independent projects — so this
+release keeps the set on one version. The bundled example is now in English.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

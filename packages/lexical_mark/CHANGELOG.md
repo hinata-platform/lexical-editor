@@ -1,12 +1,18 @@
 # Changelog
 
+## 1.1.0
+
+Turning a selection into a comment range and back: `$markSelection`,
+`$removeMark`, `$getMarkedText`, `$getMarkIdsAtSelection` and the two commands
+behind them. Marking a range that already carries a mark adds the identifier to
+the mark that is there rather than stacking a second one, so the common case
+stays flat; a mark left with no identifiers is unwrapped, because otherwise
+every resolved comment would leave an element in the document forever.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.
-Marks: overlapping, id-carrying highlights for comments and suggestions — plus
-`$markSelection`, `$removeMark`, `$getMarkedText`, `$getMarkIdsAtSelection` and
-the two commands behind them, which is what turns a selection into a comment
-range and back.
+Marks: overlapping, id-carrying highlights for comments and suggestions.
 
 The entries below record how it got here.
 

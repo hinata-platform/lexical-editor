@@ -110,7 +110,8 @@ web.
 | **M5** | Markdown and HTML conversion, mention typeahead, the batteries-included bundle | done |
 | **M6** | Table editing, selection handles and the context menu, collaboration | done |
 
-Versioning stays pre-1.0 while the API settles.
+Every milestone is done, so semantic versioning applies: the packages are at
+1.x and version in lockstep — one tag releases the set.
 
 Handles and the context menu come from Flutter's own `TextSelectionControls`
 and `AdaptiveTextSelectionToolbar`, so they look native everywhere without
