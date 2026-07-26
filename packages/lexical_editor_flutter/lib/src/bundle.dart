@@ -14,10 +14,12 @@ import 'package:lexical_link/lexical_link.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_mark/lexical_mark.dart';
 import 'package:lexical_mention/lexical_mention.dart';
+import 'package:lexical_mention_flutter/lexical_mention_flutter.dart';
 import 'package:lexical_rich_text/lexical_rich_text.dart';
 import 'package:lexical_table/lexical_table.dart';
 
 import 'default_theme.dart';
+import 'mentions.dart';
 
 /// Every node type this bundle knows, on top of the core types.
 ///
@@ -172,6 +174,7 @@ class LexicalEditorField extends StatefulWidget {
     this.history,
     this.interaction,
     this.editableKey,
+    this.mentions,
     this.contextMenuBuilder = defaultLexicalContextMenu,
   });
 
@@ -224,6 +227,20 @@ class LexicalEditorField extends StatefulWidget {
   /// widget deliberately draws none of them, so it has to hand over the
   /// geometry that would make them possible.
   final GlobalKey<LexicalEditableState>? editableKey;
+
+  /// The `@mention` typeahead, and where its suggestions come from.
+  ///
+  /// Left null the mention *node* still works — it is registered, styled,
+  /// round-trips and deletes as one unit, so a document written elsewhere
+  /// opens correctly. What is missing is the picker, and it is missing
+  /// because only the application knows who can be mentioned.
+  ///
+  /// ```dart
+  /// mentions: LexicalMentions(
+  ///   source: CallbackMentionSource((query) async => search(query.text)),
+  /// )
+  /// ```
+  final LexicalMentions? mentions;
 
   /// The selection menu — cut, copy, paste — shown after a selection.
   ///
@@ -309,8 +326,39 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
           baseTextStyle: widget.baseTextStyle,
           palette: widget.palette,
         );
+    final mentions = widget.mentions;
+    if (mentions == null) return _editable(theme, widget.editableKey);
+    // The picker anchors itself to the editable's caret, and reaches it
+    // through the key it hands to the builder.
+    return MentionScope(
+      editor: widget.editor,
+      triggers: mentions.triggers,
+      source: mentions.source,
+      editableKey: widget.editableKey,
+      itemBuilder: mentions.resolveItemBuilder(
+        widget.baseTextStyle,
+        widget.palette,
+      ),
+      decoration: mentions.resolveDecoration(widget.palette),
+      emptyBuilder: mentions.emptyBuilder,
+      loadingBuilder: mentions.loadingBuilder,
+      debounce: mentions.debounce,
+      limit: mentions.limit,
+      width: mentions.width,
+      maxHeight: mentions.maxHeight,
+      label: mentions.label,
+      trailingSpace: mentions.trailingSpace,
+      onInserted: mentions.onInserted,
+      builder: (context, key) => _editable(theme, key),
+    );
+  }
+
+  Widget _editable(
+    LexicalTheme theme,
+    GlobalKey<LexicalEditableState>? editableKey,
+  ) {
     return LexicalEditable(
-      key: widget.editableKey,
+      key: editableKey,
       editor: widget.editor,
       theme: theme,
       focusNode: widget.focusNode,

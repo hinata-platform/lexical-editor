@@ -77,6 +77,7 @@ export 'src/theme/lexical_theme.dart'
 export 'src/widgets/block_registry.dart'
     show BlockRegistry, BlockRegistryScope, MountedBlock, RegisteredBlock;
 export 'src/widgets/build_phase.dart' show isBuildingWidgets, whenBuildIsDone;
+export 'src/widgets/editor_scope.dart' show LexicalEditorScope;
 export 'src/widgets/lexical_builder.dart' show LexicalBuilder;
 export 'src/widgets/lexical_document.dart'
     show LexicalDocument, LexicalDocumentState, LexicalRenderStats;

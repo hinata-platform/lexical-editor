@@ -9,6 +9,7 @@ import '../render/span_builder.dart';
 import '../theme/lexical_theme.dart';
 import 'block_registry.dart';
 import 'build_phase.dart';
+import 'editor_scope.dart';
 import 'lexical_inline_block.dart';
 import 'lexical_interaction.dart';
 
@@ -416,16 +417,19 @@ class LexicalDocumentState extends State<LexicalDocument> {
     final interaction = widget.interaction;
     return Directionality(
       textDirection: direction,
-      child: BlockRegistryScope(
-        registry: _registry,
-        child: interaction == null
-            ? body
-            : LexicalInteractionRegion(
-                editor: widget.editor,
-                registry: _registry,
-                interaction: interaction,
-                child: body,
-              ),
+      child: LexicalEditorScope(
+        editor: widget.editor,
+        child: BlockRegistryScope(
+          registry: _registry,
+          child: interaction == null
+              ? body
+              : LexicalInteractionRegion(
+                  editor: widget.editor,
+                  registry: _registry,
+                  interaction: interaction,
+                  child: body,
+                ),
+        ),
       ),
     );
   }

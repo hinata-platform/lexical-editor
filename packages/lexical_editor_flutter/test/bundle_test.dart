@@ -440,6 +440,162 @@ void main() {
         closeTo(cellRect(tester, editor, 0, 0).left, 1),
       );
     });
+
+    group('selecting cells', () {
+      // The reported bug, and the cause was nowhere near the table: a cell is
+      // taller than the line of text in it — padding, and a cell stretched to
+      // its row — and a press on that part of it used to resolve to no block
+      // at all. Doing nothing is not neutral here, because the selection
+      // keeps the anchor it already had: the next drag then spans from
+      // wherever the user last clicked, and a merge swallows rows they never
+      // pointed at.
+      Future<LexicalEditor> pumpFilled(WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1200, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        final editor = createLexicalEditor();
+        editor.update(() {
+          const text = [
+            ['Paket', 'Was es kann', 'Rein Dart'],
+            ['lexical_table', 'Zeilen und Spalten', 'ja'],
+            ['lexical_embed', 'YouTube und Figma', 'nein'],
+          ];
+          final table = $createTableNodeWithDimensions(
+            3,
+            3,
+            includeHeaders: true,
+          );
+          final grid = $computeTableGrid(table);
+          for (var row = 0; row < 3; row++) {
+            for (var column = 0; column < 3; column++) {
+              (grid.at(row, column)!.cell.getFirstChild()! as ElementNode)
+                  .append($createTextNode(text[row][column]));
+            }
+          }
+          $getRoot()
+            ..clear()
+            ..append(table)
+            ..append($createParagraphNode());
+        }, discrete: true);
+
+        await _pump(tester, editor);
+        return editor;
+      }
+
+      /// The cells the selection resolves to, by their text.
+      List<String> selectedCells(LexicalEditor editor) => editor.read(() {
+        final selection = $tableSelectionOf();
+        return selection == null
+            ? const <String>[]
+            : selection.cells.map((cell) => cell.getTextContent()).toList();
+      });
+
+      testWidgets("a drag starting in a cell's padding selects that cell", (
+        tester,
+      ) async {
+        final editor = await pumpFilled(tester);
+
+        // The caret is somewhere else entirely to begin with.
+        await tester.tapAt(cellRect(tester, editor, 2, 1).center);
+        await tester.pump(const Duration(milliseconds: 400));
+
+        // Press below the text of a header cell — inside the cell, outside
+        // its line — and drag to the cell beside it.
+        final head = cellRect(tester, editor, 0, 1);
+        final press = Offset(head.center.dx, head.bottom - 2);
+        final gesture = await tester.startGesture(
+          press,
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pump(const Duration(milliseconds: 30));
+        await gesture.moveTo(Offset(press.dx + 20, press.dy));
+        await tester.pump();
+        await gesture.moveTo(cellRect(tester, editor, 0, 2).center);
+        await tester.pump();
+        await gesture.up();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(selectedCells(editor), ['Was es kann', 'Rein Dart']);
+
+        // And merging takes exactly those two: one row, two columns.
+        editor.dispatchCommand(mergeTableCellsCommand, null);
+        await tester.pump();
+        await tester.pump();
+
+        editor.read(() {
+          final grid = $computeTableGrid(
+            $getRoot().getFirstChild()! as TableNode,
+          );
+          final merged = grid.at(0, 1)!;
+          expect(merged.rowSpan, 1);
+          expect(merged.colSpan, 2);
+          expect(grid.rowCount, 3);
+          // The row below kept its own three cells.
+          expect(grid.cellsInRow(1).length, 3);
+        });
+      });
+
+      testWidgets('a press below the last block still places the caret', (
+        tester,
+      ) async {
+        // The same rule, outside a table: the empty area under a document
+        // belongs to the document.
+        final editor = await pumpFilled(tester);
+        final table = tester.getRect(find.byType(LexicalGrid));
+
+        await tester.tapAt(Offset(table.center.dx, table.bottom + 40));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          editor.read($getSelection),
+          isA<RangeSelection>(),
+          reason: 'a tap in the document must always land somewhere',
+        );
+      });
+
+      testWidgets('the cells that would be merged are tinted', (tester) async {
+        final editor = await pumpFilled(tester);
+
+        /// Whether the cell at [row], [column] draws the selection tint.
+        bool tinted(int row, int column) {
+          final key = editor.read(() {
+            final grid = $computeTableGrid(
+              $getRoot().getFirstChild()! as TableNode,
+            );
+            return grid.at(row, column)!.cell.key.value;
+          });
+          final boxes = tester.widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byKey(ValueKey<String>('lexical-cell-$key')),
+              matching: find.byType(DecoratedBox),
+              matchRoot: true,
+            ),
+          );
+          return boxes.any(
+            (box) =>
+                box.position == DecorationPosition.foreground &&
+                (box.decoration as BoxDecoration).color != null,
+          );
+        }
+
+        expect(tinted(0, 1), isFalse);
+
+        editor.update(() {
+          final grid = $computeTableGrid(
+            $getRoot().getFirstChild()! as TableNode,
+          );
+          $selectTableCells(grid.at(0, 1)!.cell, grid.at(0, 2)!.cell);
+        }, discrete: true);
+        await tester.pump();
+        await tester.pump();
+
+        expect(tinted(0, 1), isTrue);
+        expect(tinted(0, 2), isTrue);
+        expect(tinted(0, 0), isFalse);
+        expect(tinted(1, 1), isFalse);
+      });
+    });
   });
 
   group('media', () {

@@ -52,6 +52,28 @@ six-colour `LexicalPalette`, so an app gets its own typography by passing its
 body style in and changing nothing else. `LexicalPalette.dark()` is provided;
 any `LexicalTheme` can be passed instead.
 
+## Mentions
+
+The one feature that cannot have a default: only the application knows who can
+be mentioned. Give it a source and the picker, the trigger, the insertion and
+the node are handled here.
+
+```dart
+LexicalEditorField(
+  editor: editor,
+  baseTextStyle: Theme.of(context).textTheme.bodyMedium!,
+  mentions: LexicalMentions(
+    source: CallbackMentionSource((query) async => search(query.text)),
+  ),
+)
+```
+
+`@` for people by default; a `#` for issues is a second `MentionTrigger` and
+needs nothing else, because the kind is data on the node rather than a node
+type. Without `mentions` the mention *node* still works — registered, styled,
+round-tripping — so a document written elsewhere opens correctly. What is
+missing is the picker.
+
 ## Smart links
 
 Everything in the bundle that can point somewhere — links, autolinks, mentions,

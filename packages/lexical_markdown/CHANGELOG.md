@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `$parseMarkdownInline`, for a rule whose text is not the last captured
+  group — a table row, where every cell is its own inline run.
+- `ElementTransformer.exportsSubtree`, for a block that renders its own
+  children. Without it a table's cells are appended a second time under the
+  table.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

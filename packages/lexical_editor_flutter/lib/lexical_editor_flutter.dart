@@ -32,6 +32,7 @@ export 'package:lexical_link/lexical_link.dart';
 export 'package:lexical_list/lexical_list.dart';
 export 'package:lexical_mark/lexical_mark.dart';
 export 'package:lexical_mention/lexical_mention.dart';
+export 'package:lexical_mention_flutter/lexical_mention_flutter.dart';
 export 'package:lexical_rich_text/lexical_rich_text.dart';
 export 'package:lexical_table/lexical_table.dart';
 
@@ -45,4 +46,5 @@ export 'src/bundle.dart'
         registerLexical;
 export 'src/default_theme.dart'
     show LexicalPalette, defaultHeadingStyles, defaultLexicalTheme;
+export 'src/mentions.dart' show LexicalMentions;
 export 'src/table_layout.dart' show tableBlockLayouts;

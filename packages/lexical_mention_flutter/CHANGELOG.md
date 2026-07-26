@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: the picker could open empty. Its overlay was built in the frame the
+  caret's block first mounts in, when the block has not registered its render
+  object yet, and nothing asked again afterwards.
+- `MentionScope.editableKey`, so a host can have both the picker and the
+  editable's geometry — two `GlobalKey`s cannot sit on one widget.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

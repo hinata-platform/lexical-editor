@@ -12,8 +12,10 @@
 // behind its link button — see selection_toolbar.dart. Its comment button
 // opens a thread in the right-hand panel — see comments.dart. The image and
 // media buttons are in insert_media.dart. Put the caret in a table cell and a
-// bar of table actions appears — see table_actions.dart. The panel on the
-// right shows the document as markdown, as JSON, or as a .lexical file.
+// bar of table actions appears — see table_actions.dart. Type `@` and the
+// mention picker opens, over the list of people at the bottom of this file.
+// The panel on the right shows the document as markdown, as JSON, or as a
+// .lexical file.
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lexical_file/lexical_file.dart';
@@ -168,13 +170,14 @@ class _EditorPageState extends State<EditorPage> {
     });
   }
 
-  /// Markdown with the rules images and embeds bring along.
+  /// Markdown with the rules tables, images and embeds bring along.
   ///
-  /// Neither is part of the default set, and neither is upstream: the
-  /// playground adds its own the same way. Without them an image and a video
-  /// simply do not appear in the markdown.
+  /// None of the three is part of the default set, and none is upstream
+  /// either: the playground adds its own the same way. Without them an image
+  /// and a video simply do not appear in the markdown — and a table appears
+  /// as its cells, one per line, which reads like a document and is not one.
   MarkdownTransformers get _transformers => defaultMarkdownTransformers.extend(
-    elements: embedTransformers,
+    elements: [tableTransformer, ...embedTransformers],
     textMatches: [imageTransformer],
   );
 
@@ -261,6 +264,12 @@ class _EditorPageState extends State<EditorPage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('${kind.name}: $url')),
                             ),
+                      ),
+                      // Type `@` and the picker opens. A source is the only
+                      // thing mentions cannot have a default for: nothing but
+                      // the application knows who can be mentioned.
+                      mentions: LexicalMentions(
+                        source: CallbackMentionSource(_people),
                       ),
                       // Links are tappable here too; the toolbar is what
                       // creates them.
@@ -449,4 +458,29 @@ class _SidePanel extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// The people `@` can find, standing in for a backend.
+///
+/// A real source calls one — that is why [MentionSource] is asynchronous and
+/// why the controller debounces, drops stale answers and caches. Here it is a
+/// list, so the example has no network to explain.
+Future<List<MentionSuggestion>> _people(MentionQuery query) async {
+  const everyone = [
+    ('u_1', 'Rebar Ahmad', 'rebar@example.dev'),
+    ('u_2', 'Mira Sørensen', 'mira@example.dev'),
+    ('u_3', 'Jonas Weber', 'jonas@example.dev'),
+    ('u_4', 'Aylin Kaya', 'aylin@example.dev'),
+  ];
+  final needle = query.text.toLowerCase();
+  return [
+    for (final (id, name, email) in everyone)
+      if (name.toLowerCase().contains(needle))
+        MentionSuggestion(
+          id: id,
+          label: name,
+          mentionType: query.mentionType,
+          subtitle: email,
+        ),
+  ].take(query.limit).toList();
 }

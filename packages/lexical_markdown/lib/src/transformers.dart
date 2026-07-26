@@ -40,6 +40,7 @@ final class ElementTransformer {
     required this.regExp,
     required this.replace,
     required this.export,
+    this.exportsSubtree = false,
   });
 
   /// Matched against one line of markdown, anchored at its start.
@@ -50,6 +51,19 @@ final class ElementTransformer {
 
   /// Renders a block of the type this rule produces.
   final ElementExport export;
+
+  /// Whether [export] renders the block's child blocks as well.
+  ///
+  /// Normally it does not, and it should not: a list item renders its own
+  /// line, and the nested list inside it is rendered by the same rule one
+  /// level down. Appending the children afterwards is what makes nesting work
+  /// without every rule having to walk a subtree.
+  ///
+  /// A table is the exception. Its rows and cells have no markdown spelling
+  /// of their own — a row is only meaningful as a line of the table it is in —
+  /// so the rule renders the whole thing at once. Without this flag the cells
+  /// are then appended a second time, one per line, under the table.
+  final bool exportsSubtree;
 }
 
 /// A paired inline delimiter, such as `**` for bold.

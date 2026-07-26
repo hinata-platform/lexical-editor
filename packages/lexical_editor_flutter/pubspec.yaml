@@ -27,6 +27,7 @@ dependencies:
   lexical_list: ^1.0.0
   lexical_mark: ^1.0.0
   lexical_mention: ^1.0.0
+  lexical_mention_flutter: ^1.0.0
   lexical_rich_text: ^1.0.0
   lexical_table: ^1.0.0
   meta: ^1.15.0

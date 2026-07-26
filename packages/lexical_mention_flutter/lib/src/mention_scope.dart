@@ -62,6 +62,7 @@ class MentionScope extends StatefulWidget {
     this.label = defaultMentionLabel,
     this.trailingSpace = true,
     this.onInserted,
+    this.editableKey,
   });
 
   /// The editor mentions are inserted into.
@@ -112,14 +113,24 @@ class MentionScope extends StatefulWidget {
   /// Called after a suggestion was inserted.
   final void Function(MentionSuggestion suggestion)? onInserted;
 
+  /// The key to hand to [builder], instead of the one created here.
+  ///
+  /// For a host that needs the editable's state as well — the caret and
+  /// selection geometry a floating toolbar is drawn from. Two `GlobalKey`s
+  /// cannot both be on one widget, so without this a host has to choose
+  /// between its own toolbar and the picker.
+  final GlobalKey<LexicalEditableState>? editableKey;
+
   @override
   State<MentionScope> createState() => MentionScopeState();
 }
 
 /// State of a [MentionScope]; exposed so a host can drive it programmatically.
 class MentionScopeState extends State<MentionScope> {
-  final GlobalKey<LexicalEditableState> _editableKey =
+  final GlobalKey<LexicalEditableState> _ownKey =
       GlobalKey<LexicalEditableState>();
+  GlobalKey<LexicalEditableState> get _editableKey =>
+      widget.editableKey ?? _ownKey;
   late MentionSearchController _controller;
   late int _lookback;
   StreamSubscription<MentionSearchState>? _subscription;
@@ -288,6 +299,15 @@ class MentionScopeState extends State<MentionScope> {
     if (overlay == null) return;
     _entry = OverlayEntry(builder: _buildOverlay);
     overlay.insert(_entry!);
+    // The caret's geometry does not exist yet in the frame the picker opens
+    // in: a block registers its render object at the end of the frame it
+    // mounts in, and the paragraph the caret is in may have just been built.
+    // Asking again once this frame is over costs one rebuild of a list that
+    // is already on screen, and is the difference between a picker that is
+    // open and a picker that is open and empty.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _entry?.markNeedsBuild(),
+    );
   }
 
   void _removeOverlay() {

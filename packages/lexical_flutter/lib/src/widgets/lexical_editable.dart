@@ -711,8 +711,13 @@ class LexicalEditableState extends State<LexicalEditable> {
   // -------------------------------------------------------------------
 
   /// The model point under [globalPosition], or `null`.
+  ///
+  /// Resolved against the nearest block rather than only the one the point is
+  /// inside — see [BlockRegistry.blockNear]. A press that resolves to nothing
+  /// leaves the previous anchor in place, which turns the next drag into a
+  /// selection from somewhere the user never pointed at.
   ({NodeKey block, ResolvedPoint point})? pointAt(Offset globalPosition) {
-    final block = _registry.blockAt(globalPosition);
+    final block = _registry.blockNear(globalPosition);
     if (block == null || !block.render.hasSize) return null;
     final local = block.render.globalToLocal(globalPosition);
     final position = block.render.getPositionForOffset(local);

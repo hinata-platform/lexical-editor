@@ -52,6 +52,7 @@ export 'src/table_grid.dart'
         $computeTableGrid,
         $getTableCellForNode,
         $getTableForNode;
+export 'src/table_markdown.dart' show tableTransformer;
 export 'src/table_nodes.dart'
     show
         TableCellHeaderState,

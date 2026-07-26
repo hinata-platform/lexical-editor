@@ -35,7 +35,7 @@ export 'src/default_transformers.dart'
         orderedListTransformer,
         quoteTransformer;
 export 'src/export.dart' show $convertToMarkdown;
-export 'src/import.dart' show $convertFromMarkdown;
+export 'src/import.dart' show $convertFromMarkdown, $parseMarkdownInline;
 export 'src/transformers.dart'
     show
         ElementExport,

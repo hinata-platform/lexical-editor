@@ -72,6 +72,9 @@ class BlockRegistry extends ChangeNotifier {
   }
 
   /// The mounted block under [globalPosition], or `null`.
+  ///
+  /// Strictly the block the point is *inside*. That is what deciding whether
+  /// a link was clicked needs: a tap beside a link is not a tap on it.
   MountedBlock? blockAt(Offset globalPosition) {
     for (final block in _blocks.values) {
       final render = block.render;
@@ -80,6 +83,54 @@ class BlockRegistry extends ChangeNotifier {
       if ((Offset.zero & render.size).contains(local)) return block;
     }
     return null;
+  }
+
+  /// The mounted block at [globalPosition], or the nearest one to it.
+  ///
+  /// What **placing the caret** needs, and the difference matters more than
+  /// it sounds: a block covers its text, not the space around it. Block
+  /// padding, a table cell's padding, a cell stretched to the height of its
+  /// row, the area below the last paragraph — all of that belongs to the
+  /// document as far as the user is concerned, and none of it is inside a
+  /// block.
+  ///
+  /// Ignoring those points is worse than it looks, because a press that
+  /// lands on one does not just do nothing: the selection keeps the anchor it
+  /// had, so the next drag builds a range from wherever the user last
+  /// clicked. In a table that shows up as a merge swallowing rows nobody
+  /// selected.
+  ///
+  /// Nearest is measured vertically first and horizontally second, which is
+  /// what reading order makes it mean: a point in the margin belongs to the
+  /// line beside it, not to a nearer block one line up.
+  MountedBlock? blockNear(Offset globalPosition) {
+    final inside = blockAt(globalPosition);
+    if (inside != null) return inside;
+
+    MountedBlock? best;
+    var bestVertical = double.infinity;
+    var bestHorizontal = double.infinity;
+    for (final block in _blocks.values) {
+      final render = block.render;
+      if (!render.attached || !render.hasSize) continue;
+      final local = render.globalToLocal(globalPosition);
+      final bounds = Offset.zero & render.size;
+      final vertical = _distance(local.dy, bounds.top, bounds.bottom);
+      final horizontal = _distance(local.dx, bounds.left, bounds.right);
+      if (vertical < bestVertical ||
+          (vertical == bestVertical && horizontal < bestHorizontal)) {
+        best = block;
+        bestVertical = vertical;
+        bestHorizontal = horizontal;
+      }
+    }
+    return best;
+  }
+
+  static double _distance(double value, double min, double max) {
+    if (value < min) return min - value;
+    if (value > max) return value - max;
+    return 0;
   }
 
   /// Forgets every block. Called when the document is replaced.

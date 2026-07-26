@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `LexicalEditorField.mentions`: the `@` typeahead, given a source. Mentions
+  are the one feature that cannot have a default — only the application knows
+  who can be mentioned — which is why there is no `registerMention` beside
+  `registerTable`.
+- Selected table cells are tinted. Selecting cells and merging them are the
+  same rectangle, and a user who cannot see it is guessing.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

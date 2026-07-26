@@ -36,6 +36,7 @@ String? _exportBlock(LexicalNode node, MarkdownTransformers transformers) {
   for (final transformer in transformers.elements) {
     final rendered = transformer.export(node, exportChildren);
     if (rendered == null) continue;
+    if (transformer.exportsSubtree) return rendered;
     final parts = <String>[if (rendered.isNotEmpty) rendered, ...nested];
     return parts.join('\n');
   }

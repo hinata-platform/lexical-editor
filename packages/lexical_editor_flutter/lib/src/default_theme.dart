@@ -93,7 +93,9 @@ LexicalTheme defaultLexicalTheme({
       TextFormat.highlight: (style) =>
           style.copyWith(backgroundColor: palette.highlight),
     },
-    blockLayouts: tableBlockLayouts(),
+    blockLayouts: tableBlockLayouts(
+      selectedCellColor: palette.accent.withValues(alpha: 0.18),
+    ),
     blockStyles: {
       'paragraph': BlockStyle(spacing: blockSpacing),
       'heading': BlockStyle(spacing: blockSpacing * 1.6),

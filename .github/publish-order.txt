@@ -11,10 +11,10 @@ lexical_list
 lexical_mark
 lexical_mention
 lexical_rich_text
-lexical_table
 lexical_collab
 lexical_html
 lexical_markdown
+lexical_table
 lexical_embed
 lexical_image
 lexical_mention_flutter

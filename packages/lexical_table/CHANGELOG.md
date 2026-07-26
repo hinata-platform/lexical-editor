@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `tableTransformer`: GitHub-flavoured tables in both directions. Without it
+  a table exported as its cells, one per line — which still reads like a
+  document, so nobody notices the table is gone.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

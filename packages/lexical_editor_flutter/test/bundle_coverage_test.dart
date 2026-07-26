@@ -227,6 +227,76 @@ void main() {
     );
   });
 
+  testWidgets('mentions work through the field, given a source', (
+    tester,
+  ) async {
+    // The one package in the bundle that cannot be wired up by
+    // `registerLexical`: a mention has no behaviour to register, it has a
+    // source to be given. What must hold is that giving it one is all an
+    // application has to do — the picker, the trigger, the insertion and the
+    // node are the bundle's job.
+    final editor = createLexicalEditor();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LexicalEditorField(
+            editor: editor,
+            baseTextStyle: const TextStyle(fontSize: 16),
+            autofocus: true,
+            scrollable: false,
+            mentions: LexicalMentions(
+              source: CallbackMentionSource(
+                (query) async => [
+                  MentionSuggestion(
+                    id: 'u_1',
+                    label: 'Rebar',
+                    mentionType: query.mentionType,
+                    subtitle: 'rebar@example.dev',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..append($createParagraphNode()..append($createTextNode('cc @Re')));
+      // In the text node, not at the end of the block: a trigger is only
+      // looked for when the caret sits in text.
+      (($getRoot().getFirstChild()! as ElementNode).getLastChild()! as TextNode)
+          .selectEnd();
+    }, discrete: true);
+    // Past the debounce, and one more frame for the overlay.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(
+      find.text('Rebar'),
+      findsOneWidget,
+      reason: 'the picker did not open on `@`',
+    );
+    expect(find.text('rebar@example.dev'), findsOneWidget);
+
+    await tester.tap(find.text('Rebar'));
+    await tester.pump();
+
+    editor.read(() {
+      final mention = $getRoot().children
+          .whereType<ElementNode>()
+          .expand((block) => block.children)
+          .whereType<MentionNode>()
+          .single;
+      expect(mention.getTextContent(), '@Rebar');
+      expect(mention.mentionId, 'u_1');
+      expect(mention.mentionType, 'user');
+    });
+  });
+
   testWidgets('the field draws its decorators without being asked', (
     tester,
   ) async {

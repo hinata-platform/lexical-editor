@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: a press that lands inside a block's padding — a cell's, or the empty
+  area below the last block — now places the caret in the nearest block
+  instead of being ignored. Ignoring it was not neutral: the selection kept
+  the anchor it already had, so the next drag spanned from wherever the user
+  had last clicked. In a table that showed up as a merge covering rows nobody
+  selected.
+- `LexicalEditorScope`: the editor drawing a document, reachable from anything
+  drawn inside it — a decorator, a block layout, an overlay.
+
 ## 1.0.0
 
 First stable release; semantic versioning applies from here.

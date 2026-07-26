@@ -56,6 +56,20 @@ void $convertFromMarkdown(
   if (root.isEmpty) root.append($createParagraphNode());
 }
 
+/// Parses [markdown] as **inline** content: text, formats, links, images.
+///
+/// The piece an [ElementTransformer] needs when the text it has to parse is
+/// not the last captured group — a table row, where every cell is its own
+/// inline run and the rule alone knows where the boundaries are.
+///
+/// Block constructs are not recognized: a `# ` here is a literal hash.
+///
+/// Must be called inside an update, since it creates nodes.
+List<LexicalNode> $parseMarkdownInline(
+  String markdown, {
+  MarkdownTransformers transformers = const MarkdownTransformers(),
+}) => _parseInline(markdown, 0, transformers);
+
 String? _fenceStart(String line) {
   final match = RegExp(r'^```([a-zA-Z0-9_+-]*)\s*$').firstMatch(line.trim());
   return match?.group(1);
