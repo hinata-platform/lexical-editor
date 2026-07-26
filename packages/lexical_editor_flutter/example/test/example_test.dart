@@ -42,7 +42,7 @@ void main() {
     await tester.pump();
     expect(find.text('lexical_editor_flutter'), findsOneWidget);
     // The inspector shows the same document the editor holds.
-    expect(find.textContaining('# Lexical, auf Flutter'), findsOneWidget);
+    expect(find.textContaining('# Lexical, on Flutter'), findsOneWidget);
   });
 
   testWidgets('the floating toolbar follows a selection', (tester) async {
@@ -53,7 +53,7 @@ void main() {
     // button, so count: one before, two while a selection exists.
     expect(find.byIcon(Icons.format_bold), findsOneWidget);
 
-    await _select(tester, 'Tippe');
+    await _select(tester, 'Type');
     expect(find.byIcon(Icons.format_bold), findsNWidgets(2));
 
     // And it sits over the selected text, not somewhere on the page.
@@ -85,7 +85,7 @@ void main() {
     // the built-in one is suppressed.
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
-    await _select(tester, 'Tippe');
+    await _select(tester, 'Type');
 
     tester
         .state<LexicalEditableState>(find.byType(LexicalEditable))
@@ -101,7 +101,7 @@ void main() {
   testWidgets('its bold button formats the selection', (tester) async {
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
-    await _select(tester, 'Tippe');
+    await _select(tester, 'Type');
 
     await tester.tap(find.byIcon(Icons.format_bold).last);
     await tester.pump();
@@ -120,7 +120,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
-    await _select(tester, 'Tippe');
+    await _select(tester, 'Type');
 
     await tester.tap(find.byIcon(Icons.link));
     await tester.pump();
@@ -140,7 +140,7 @@ void main() {
     );
     expect(
       _editorOf(tester).read(() => _links(tester).single.getTextContent()),
-      'Tippe',
+      'Type',
     );
   });
 
@@ -154,7 +154,7 @@ void main() {
 
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
-    await _select(tester, 'Tippe');
+    await _select(tester, 'Type');
 
     await tester.tap(find.byIcon(Icons.add_comment_outlined));
     await tester.pump();
@@ -162,8 +162,8 @@ void main() {
     // The document records only the mark; the panel quotes what it covers.
     final ids = _editorOf(tester).read($getMarkIdsAtSelection);
     expect(ids, hasLength(1));
-    expect(_editorOf(tester).read(() => $getMarkedText(ids.single)), 'Tippe');
-    expect(find.text('Tippe'), findsWidgets);
+    expect(_editorOf(tester).read(() => $getMarkedText(ids.single)), 'Type');
+    expect(find.text('Type'), findsWidgets);
 
     // Writing the comment does not touch the document.
     final before = _editorOf(tester).toJsonString();
@@ -186,7 +186,7 @@ void main() {
     expect(_editorOf(tester).read(() => $getMarkedText(ids.single)), isEmpty);
     expect(
       _editorOf(tester).read(() => $getRoot().getTextContent()),
-      contains('Tippe hier'),
+      contains('Type here'),
     );
   });
 
@@ -221,7 +221,7 @@ void main() {
     await tester.pump();
 
     // Nothing while the caret is in ordinary text.
-    expect(find.text('Tabelle'), findsNothing);
+    expect(find.text('Table'), findsNothing);
 
     // Into the first cell of the seeded table.
     _editorOf(tester).update(() {
@@ -231,7 +231,7 @@ void main() {
     }, discrete: true);
     await tester.pump();
 
-    expect(find.text('Tabelle'), findsOneWidget);
+    expect(find.text('Table'), findsOneWidget);
 
     List<int> shape() => _editorOf(tester).read(() {
       final table = $getRoot().children.whereType<TableNode>().first;
@@ -240,29 +240,29 @@ void main() {
     });
     expect(shape(), [3, 3]);
 
-    await tester.tap(find.text('Zeile darunter'));
+    await tester.tap(find.text('Row below'));
     await tester.pump();
     expect(shape(), [4, 3]);
 
-    await tester.tap(find.text('Spalte rechts'));
+    await tester.tap(find.text('Column right'));
     await tester.pump();
     expect(shape(), [4, 4]);
 
     // Deleting the row the caret is in must not lose the selection — the
     // core refuses a selection pointing at nodes that no longer exist.
-    await tester.tap(find.text('Zeile löschen'));
+    await tester.tap(find.text('Delete row'));
     await tester.pump();
     expect(shape(), [3, 4]);
     expect(tester.takeException(), isNull);
 
     // And deleting the table itself leaves a caret behind. The bar scrolls;
     // the last button is past the right edge on this surface.
-    await tester.ensureVisible(find.text('Tabelle löschen'));
+    await tester.ensureVisible(find.text('Delete table'));
     await tester.pump();
-    await tester.tap(find.text('Tabelle löschen'));
+    await tester.tap(find.text('Delete table'));
     await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(find.text('Tabelle'), findsNothing);
+    expect(find.text('Table'), findsNothing);
   });
 
   testWidgets('the link editor refuses a script URL', (tester) async {
@@ -271,7 +271,7 @@ void main() {
     // the link is created.
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
-    await _select(tester, 'Tippe');
+    await _select(tester, 'Type');
 
     await tester.tap(find.byIcon(Icons.link));
     await tester.pump();
@@ -279,7 +279,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.check_circle));
     await tester.pump();
 
-    expect(find.text('Kein erlaubtes Schema'), findsOneWidget);
+    expect(find.text('Scheme not allowed'), findsOneWidget);
     expect(_links(tester), isEmpty);
   });
 

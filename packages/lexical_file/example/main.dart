@@ -13,7 +13,7 @@ void main() {
   editor.update(() {
     $getRoot()
       ..clear()
-      ..append($createParagraphNode()..append($createTextNode('Hallo Welt')));
+      ..append($createParagraphNode()..append($createTextNode('Hello world')));
   }, discrete: true);
 
   final document = serializedDocumentFromEditorState(

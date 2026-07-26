@@ -33,7 +33,7 @@ void main() {
       ..clear()
       ..append(
         $createParagraphNode()
-          ..appendAll(tokenize('Gebaut mit #dart und #flutter heute')),
+          ..appendAll(tokenize('Built with #dart and #flutter today')),
       );
   }, discrete: true);
 

@@ -51,16 +51,16 @@ class _EditablePageState extends State<EditablePage> {
         ..append(
           $createParagraphNode()..append(
             $createTextNode(
-              'Markiere etwas: auf dem Handy erscheinen die Griffe und das '
-              'Kontextmenü, auf dem Desktop die Rechtsklick-Auswahl.',
+              'Select something: on a phone the handles and the context '
+              'menu appear, on a desktop the right-click menu does.',
             ),
           ),
         )
         ..append(
           $createParagraphNode()
-            ..append($createTextNode('Ein zweiter Absatz, mit '))
-            ..append($createTextNode('fettem')..setFormat(TextFormat.bold.bit))
-            ..append($createTextNode(' Text darin.')),
+            ..append($createTextNode('A second paragraph, with '))
+            ..append($createTextNode('bold')..setFormat(TextFormat.bold.bit))
+            ..append($createTextNode(' text in it.')),
         );
     }, discrete: true);
     editor.registerUpdateListener((_) => setState(() {}));
@@ -95,7 +95,7 @@ class _EditablePageState extends State<EditablePage> {
       title: const Text('lexical_flutter'),
       actions: [
         IconButton(
-          tooltip: 'Auswahl-Menü zeigen',
+          tooltip: 'Show the selection menu',
           onPressed: () => _editable.currentState?.showToolbar(),
           icon: const Icon(Icons.more_horiz),
         ),
@@ -110,12 +110,12 @@ class _EditablePageState extends State<EditablePage> {
             spacing: 16,
             children: [
               _Switch(
-                label: 'nur lesen',
+                label: 'read only',
                 value: _readOnly,
                 onChanged: (value) => setState(() => _readOnly = value),
               ),
               _Switch(
-                label: 'zweiter Cursor',
+                label: 'second caret',
                 value: _showPeer,
                 onChanged: (value) => setState(() => _showPeer = value),
               ),
@@ -140,8 +140,9 @@ class _EditablePageState extends State<EditablePage> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: Text(
-            'Zeichen: ${editor.read(() => $getRoot().getTextContent().length)}'
-            ' · Blöcke: ${editor.read(() => $getRoot().childrenSize)}',
+            'characters: '
+            '${editor.read(() => $getRoot().getTextContent().length)}'
+            ' · blocks: ${editor.read(() => $getRoot().childrenSize)}',
             style: Theme.of(context).textTheme.labelMedium,
           ),
         ),

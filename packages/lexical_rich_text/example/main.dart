@@ -17,9 +17,9 @@ void main() {
     $getRoot()
       ..clear()
       ..append(
-        $createHeadingNode(HeadingTag.h1)..append($createTextNode('Titel')),
+        $createHeadingNode(HeadingTag.h1)..append($createTextNode('Title')),
       )
-      ..append($createQuoteNode()..append($createTextNode('Ein Zitat.')));
+      ..append($createQuoteNode()..append($createTextNode('A quotation.')));
   }, discrete: true);
 
   print('blocks:            ${blocks(editor)}');

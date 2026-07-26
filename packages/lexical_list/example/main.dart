@@ -52,8 +52,8 @@ void main() {
 
   editor.update(() {
     final list = $createListNode(ListType.bullet)
-      ..append($createListItemNode()..append($createTextNode('eins')))
-      ..append($createListItemNode()..append($createTextNode('zwei')));
+      ..append($createListItemNode()..append($createTextNode('one')))
+      ..append($createListItemNode()..append($createTextNode('two')));
     $getRoot()
       ..clear()
       ..append(list);
@@ -94,8 +94,8 @@ void main() {
   editor.update(() {
     $getRoot().append(
       $createListNode(ListType.check)
-        ..append($createListItemNode(true)..append($createTextNode('erledigt')))
-        ..append($createListItemNode(false)..append($createTextNode('offen'))),
+        ..append($createListItemNode(true)..append($createTextNode('done')))
+        ..append($createListItemNode(false)..append($createTextNode('open'))),
     );
   }, discrete: true);
   show(editor, 'a check list');

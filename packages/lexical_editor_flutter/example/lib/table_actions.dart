@@ -48,55 +48,55 @@ class TableActions extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text('Tabelle', style: TextStyle(fontSize: 12)),
+              child: Text('Table', style: TextStyle(fontSize: 12)),
             ),
             _Action(
               icon: Icons.add,
-              label: 'Zeile darüber',
+              label: 'Row above',
               onPressed: () =>
                   editor.dispatchCommand(insertTableRowCommand, false),
             ),
             _Action(
               icon: Icons.add,
-              label: 'Zeile darunter',
+              label: 'Row below',
               onPressed: () =>
                   editor.dispatchCommand(insertTableRowCommand, true),
             ),
             _Action(
               icon: Icons.add,
-              label: 'Spalte links',
+              label: 'Column left',
               onPressed: () =>
                   editor.dispatchCommand(insertTableColumnCommand, false),
             ),
             _Action(
               icon: Icons.add,
-              label: 'Spalte rechts',
+              label: 'Column right',
               onPressed: () =>
                   editor.dispatchCommand(insertTableColumnCommand, true),
             ),
             const _Separator(),
             _Action(
               icon: Icons.remove,
-              label: 'Zeile löschen',
+              label: 'Delete row',
               onPressed: () =>
                   editor.dispatchCommand(deleteTableRowCommand, null),
             ),
             _Action(
               icon: Icons.remove,
-              label: 'Spalte löschen',
+              label: 'Delete column',
               onPressed: () =>
                   editor.dispatchCommand(deleteTableColumnCommand, null),
             ),
             const _Separator(),
             _Action(
               icon: Icons.vertical_align_top,
-              label: 'Kopfzeile',
+              label: 'Header row',
               onPressed: () =>
                   editor.dispatchCommand(toggleTableRowHeaderCommand, null),
             ),
             _Action(
               icon: Icons.vertical_align_bottom,
-              label: 'Kopfspalte',
+              label: 'Header column',
               onPressed: () =>
                   editor.dispatchCommand(toggleTableColumnHeaderCommand, null),
             ),
@@ -104,20 +104,20 @@ class TableActions extends StatelessWidget {
             // Merging needs several cells selected — drag across them.
             _Action(
               icon: Icons.call_merge,
-              label: 'Zellen verbinden',
+              label: 'Merge cells',
               onPressed: () =>
                   editor.dispatchCommand(mergeTableCellsCommand, null),
             ),
             _Action(
               icon: Icons.call_split,
-              label: 'Zelle trennen',
+              label: 'Split cell',
               onPressed: () =>
                   editor.dispatchCommand(unmergeTableCellCommand, null),
             ),
             const _Separator(),
             _Action(
               icon: Icons.delete_outline,
-              label: 'Tabelle löschen',
+              label: 'Delete table',
               onPressed: () => editor.dispatchCommand(deleteTableCommand, null),
             ),
           ],

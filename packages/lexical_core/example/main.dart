@@ -16,8 +16,8 @@ void main() {
       ..clear()
       ..append(
         $createParagraphNode()
-          ..append($createTextNode('Hallo '))
-          ..append($createTextNode('Welt')..setFormat(TextFormat.bold.bit)),
+          ..append($createTextNode('Hello '))
+          ..append($createTextNode('world')..setFormat(TextFormat.bold.bit)),
       );
   }, discrete: true);
 
@@ -30,7 +30,7 @@ void main() {
         ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
             as TextNode;
     text.select(6, 6);
-    ($getSelection()! as RangeSelection).insertText('schöne ');
+    ($getSelection()! as RangeSelection).insertText('lovely ');
   }, discrete: true);
 
   print('after typing: ${editor.read(() => $getRoot().getTextContent())}');
@@ -43,7 +43,7 @@ void main() {
     (paragraph.getLastChild()! as TextNode).selectEnd();
     ($getSelection()! as RangeSelection)
       ..insertParagraph()
-      ..insertText('Zweiter Absatz');
+      ..insertText('A second paragraph');
   }, discrete: true);
 
   print('blocks:    ${editor.read(() => $getRoot().childrenSize)}');
@@ -68,7 +68,7 @@ void main() {
   });
   editor.update(() {
     ($getRoot().getLastChild()! as ElementNode).append(
-      $createTextNode(' — angehängt'),
+      $createTextNode(' — appended'),
     );
   }, discrete: true);
 

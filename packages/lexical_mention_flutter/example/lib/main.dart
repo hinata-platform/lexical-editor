@@ -21,17 +21,17 @@ void main() => runApp(const ExampleApp());
 
 /// Stands in for the directory an application would actually search.
 const _people = [
-  ('rebar', 'Rebar Ahmad', 'Wartung'),
-  ('ada', 'Ada Lovelace', 'Analytik'),
-  ('grace', 'Grace Hopper', 'Compiler'),
-  ('alan', 'Alan Turing', 'Kryptografie'),
-  ('katherine', 'Katherine Johnson', 'Flugbahnen'),
+  ('rebar', 'Rebar Ahmad', 'Maintenance'),
+  ('ada', 'Ada Lovelace', 'Analytics'),
+  ('grace', 'Grace Hopper', 'Compilers'),
+  ('alan', 'Alan Turing', 'Cryptography'),
+  ('katherine', 'Katherine Johnson', 'Trajectories'),
 ];
 
 const _issues = [
-  ('42', 'Caret springt beim Einfügen'),
-  ('108', 'Tabellen: Spalte einfügen'),
-  ('256', 'Kollaboration: zweiter Cursor'),
+  ('42', 'Caret jumps when pasting'),
+  ('108', 'Tables: insert a column'),
+  ('256', 'Collaboration: a second caret'),
 ];
 
 /// A source with an artificial delay, so the debounce is visible.
@@ -100,7 +100,7 @@ class _MentionPageState extends State<MentionPage> {
         // anything is typed — and so the smoke test walks the same path.
         ..append(
           $createParagraphNode()
-            ..append($createTextNode('Schreib '))
+            ..append($createTextNode('Write '))
             ..append(
               $createMentionNode(
                 text: '@Ada Lovelace',
@@ -108,7 +108,7 @@ class _MentionPageState extends State<MentionPage> {
                 mentionId: 'ada',
               ),
             )
-            ..append($createTextNode(' für Personen oder '))
+            ..append($createTextNode(' for people, or '))
             ..append(
               $createMentionNode(
                 text: '#108',
@@ -117,7 +117,7 @@ class _MentionPageState extends State<MentionPage> {
                 trigger: '#',
               ),
             )
-            ..append($createTextNode(' für ein Ticket. ')),
+            ..append($createTextNode(' for an issue. ')),
         );
     }, discrete: true);
   }
@@ -133,7 +133,7 @@ class _MentionPageState extends State<MentionPage> {
     final id = hit.json['mentionId'];
     if (hit.json['mentionType'] == 'issue') {
       for (final (issue, title) in _issues) {
-        if (issue == id) return ('Ticket #$issue', title);
+        if (issue == id) return ('Issue #$issue', title);
       }
       return null;
     }
@@ -176,7 +176,7 @@ class _MentionPageState extends State<MentionPage> {
         : '/users/${hit.json['mentionId']}';
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('Navigation → $route')));
+    ).showSnackBar(SnackBar(content: Text('navigate → $route')));
   }
 
   @override

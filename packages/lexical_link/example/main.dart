@@ -15,12 +15,12 @@ void main() {
       ..clear()
       ..append(
         $createParagraphNode()
-          ..append($createTextNode('siehe '))
+          ..append($createTextNode('see '))
           ..append(
-            $createLinkNode('https://example.org', title: 'Die Doku')
-              ..append($createTextNode('die Doku')),
+            $createLinkNode('https://example.org', title: 'The docs')
+              ..append($createTextNode('the docs')),
           )
-          ..append($createTextNode(' dort')),
+          ..append($createTextNode(' over there')),
       );
   }, discrete: true);
 
@@ -38,7 +38,7 @@ void main() {
   // open. That is the whole point of validating at the point of use.
   for (final url in [
     'https://example.org',
-    'mailto:hallo@example.org',
+    'mailto:hello@example.org',
     'javascript:alert(1)',
     'data:text/html;base64,PHNjcmlwdD4=',
   ]) {

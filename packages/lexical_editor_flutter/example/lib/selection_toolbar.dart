@@ -193,12 +193,12 @@ class _SelectionToolbarState extends State<SelectionToolbar> {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final (icon, tooltip, format) in const [
-              (Icons.format_bold, 'Fett', TextFormat.bold),
-              (Icons.format_italic, 'Kursiv', TextFormat.italic),
-              (Icons.format_underlined, 'Unterstrichen', TextFormat.underline),
+              (Icons.format_bold, 'Bold', TextFormat.bold),
+              (Icons.format_italic, 'Italic', TextFormat.italic),
+              (Icons.format_underlined, 'Underline', TextFormat.underline),
               (
                 Icons.strikethrough_s,
-                'Durchgestrichen',
+                'Strikethrough',
                 TextFormat.strikethrough,
               ),
               (Icons.code, 'Code', TextFormat.code),
@@ -218,9 +218,9 @@ class _SelectionToolbarState extends State<SelectionToolbar> {
               _entry?.markNeedsBuild();
             }, active: _currentLink != null),
             if (_currentLink != null)
-              button(Icons.link_off, 'Link entfernen', () => _applyLink(null)),
+              button(Icons.link_off, 'Remove link', () => _applyLink(null)),
             if (widget.onComment != null)
-              button(Icons.add_comment_outlined, 'Kommentieren', () {
+              button(Icons.add_comment_outlined, 'Comment', () {
                 widget.onComment!();
                 _hide();
               }),
@@ -327,7 +327,7 @@ class _LinkFieldState extends State<_LinkField> {
               isDense: true,
               border: InputBorder.none,
               hintText: 'https://…',
-              errorText: _unsafe ? 'Kein erlaubtes Schema' : null,
+              errorText: _unsafe ? 'Scheme not allowed' : null,
             ),
             onChanged: (_) {
               if (_unsafe) setState(() => _unsafe = false);
@@ -336,7 +336,7 @@ class _LinkFieldState extends State<_LinkField> {
           ),
         ),
         IconButton(
-          tooltip: 'Übernehmen',
+          tooltip: 'Apply',
           onPressed: _submit,
           icon: const Icon(Icons.check_circle, size: 20),
         ),

@@ -90,7 +90,7 @@ class CommentsPanel extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Text(
-              'Text markieren und auf das Kommentar-Symbol tippen.',
+              'Select some text and tap the comment icon.',
               textAlign: TextAlign.center,
             ),
           ),
@@ -151,7 +151,7 @@ class _ThreadCard extends StatelessWidget {
                     ),
                     color: theme.colorScheme.tertiaryContainer,
                     child: Text(
-                      quote.isEmpty ? '(Text gelöscht)' : quote,
+                      quote.isEmpty ? '(text deleted)' : quote,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelLarge,
@@ -159,7 +159,7 @@ class _ThreadCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Auflösen',
+                  tooltip: 'Resolve',
                   iconSize: 18,
                   onPressed: onResolve,
                   icon: const Icon(Icons.check),
@@ -179,7 +179,7 @@ class _ThreadCard extends StatelessWidget {
               ),
             const SizedBox(height: 8),
             _Composer(
-              hint: thread.isDraft ? 'Kommentieren…' : 'Antworten…',
+              hint: thread.isDraft ? 'Comment…' : 'Reply…',
               autofocus: thread.isDraft,
               onSubmit: onSubmit,
             ),

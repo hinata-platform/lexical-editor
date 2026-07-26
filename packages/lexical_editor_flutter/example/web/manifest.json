@@ -1,11 +1,11 @@
 {
-    "name": "lexical_editor_flutter — Live-Demo",
+    "name": "lexical_editor_flutter — live demo",
     "short_name": "lexical_editor",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0B1220",
     "theme_color": "#0B1220",
-    "description": "Live-Demo des Lexical-Editors für Flutter: Rich Text, Listen, Tabellen, Bilder, Videos, Erwähnungen und Kommentare.",
+    "description": "Live demo of the Lexical editor for Flutter: rich text, lists, tables, images, videos, mentions and comments.",
     "orientation": "any",
     "prefer_related_applications": false,
     "icons": [

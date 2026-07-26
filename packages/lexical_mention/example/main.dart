@@ -19,12 +19,12 @@ Future<void> main() async {
   // The scan walks backwards from the caret at most maxQueryLength
   // characters, so its cost does not grow with the paragraph.
   for (final line in [
-    'Hallo @re',
-    'Hallo @',
-    'schreib an name@example.org',
-    'siehe #42',
-    'siehe #',
-    'kein trigger hier',
+    'Hello @re',
+    'Hello @',
+    'write to name@example.org',
+    'see #42',
+    'see #',
+    'no trigger here',
   ]) {
     final match = matchMentionTrigger(line, line.length, triggers);
     final verdict = match == null
@@ -60,7 +60,7 @@ Future<void> main() async {
   );
 
   // Four keystrokes in quick succession, as a person actually types.
-  for (final typed in ['Hallo @R', 'Hallo @Re', 'Hallo @Reb', 'Hallo @Reba']) {
+  for (final typed in ['Hello @R', 'Hello @Re', 'Hello @Reb', 'Hello @Reba']) {
     controller.onTextChanged(typed, typed.length);
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
@@ -73,11 +73,11 @@ Future<void> main() async {
 
   // Wandering off and coming back is answered from the cache rather than
   // from the network, which is the most common interaction there is.
-  controller.onTextChanged('Hallo @Ro', 'Hallo @Ro'.length);
+  controller.onTextChanged('Hello @Ro', 'Hello @Ro'.length);
   await Future<void>.delayed(const Duration(milliseconds: 60));
   print('a different query: $calls request(s) in total');
 
-  controller.onTextChanged('Hallo @Reba', 'Hallo @Reba'.length);
+  controller.onTextChanged('Hello @Reba', 'Hello @Reba'.length);
   await Future<void>.delayed(const Duration(milliseconds: 60));
   print('returning to the first one: still $calls — it came from the cache');
   controller.dispose();
@@ -90,7 +90,7 @@ Future<void> main() async {
       ..clear()
       ..append(
         $createParagraphNode()
-          ..append($createTextNode('Hallo '))
+          ..append($createTextNode('Hello '))
           ..append(
             $createMentionNode(
               text: '@Rebar',
@@ -98,7 +98,7 @@ Future<void> main() async {
               mentionId: 'rebar',
             ),
           )
-          ..append($createTextNode(', schau dir das an.')),
+          ..append($createTextNode(', take a look at this.')),
       );
   }, discrete: true);
 

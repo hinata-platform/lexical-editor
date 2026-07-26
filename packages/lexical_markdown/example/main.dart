@@ -11,24 +11,24 @@ import 'package:lexical_markdown/lexical_markdown.dart';
 import 'package:lexical_rich_text/lexical_rich_text.dart';
 
 const source = '''
-# Titel
+# Title
 
-Ein Absatz mit **fett**, *kursiv* und [einem Link](https://example.org).
+A paragraph with **bold**, *italic* and [a link](https://example.org).
 
-> Ein Zitat
+> A quotation
 
-- eins
-- zwei
-  - zwei-a
+- one
+- two
+  - two-a
 
-1. erstens
-2. zweitens
+1. first
+2. second
 
-- [x] erledigt
-- [ ] offen
+- [x] done
+- [ ] open
 
 ```dart
-void main() => print("*keine* Auszeichnung hier drin");
+void main() => print("*no* formatting in here");
 ```''';
 
 void main() {
@@ -67,14 +67,14 @@ void main() {
   print('a second pass changes nothing: ${second == back}');
 
   // Nothing inside a fence is parsed: those asterisks stayed asterisks.
-  print('the fence kept its asterisks: ${back.contains('*keine*')}');
+  print('the fence kept its asterisks: ${back.contains('*no*')}');
 
   // A URL is preserved exactly as written, even one this application would
   // refuse to open — validating belongs where the link is made tappable.
   final dodgy = LexicalEditor(nodes: [...richTextNodes, ...linkNodes]);
   dodgy.update(() {
     $convertFromMarkdown(
-      '[klick](javascript:alert)',
+      '[click](javascript:alert)',
       transformers: defaultMarkdownTransformers,
     );
   }, discrete: true);

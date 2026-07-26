@@ -80,7 +80,7 @@ class BrandAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 if (wide)
                   Text(
-                    'Lexical, portiert auf Dart und Flutter',
+                    'Lexical, ported to Dart and Flutter',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -117,7 +117,7 @@ class _CompatBadge extends StatelessWidget {
       border: Border.all(color: BrandAppBar.accent.withValues(alpha: 0.42)),
     ),
     child: const Text(
-      'kompatibel mit Lexical 0.48',
+      'compatible with Lexical 0.48',
       style: TextStyle(
         fontSize: 11,
         fontFamily: 'monospace',

@@ -53,7 +53,7 @@ Future<void> main() async {
   ada.editor.update(() {
     $getRoot()
       ..clear()
-      ..append($createParagraphNode()..append($createTextNode('Hallo Welt')));
+      ..append($createParagraphNode()..append($createTextNode('Hello world')));
   }, discrete: true);
   ada.collab.start();
   await Future<void>.delayed(Duration.zero);
@@ -67,7 +67,7 @@ Future<void> main() async {
   print('Grace joined and sees: "${grace.text}"');
 
   // Both type at once, in the same paragraph, without hearing from each other.
-  ada.type('schöne ', 6);
+  ada.type('lovely ', 6);
   grace.type('Sag ', 0);
   print('\nbefore syncing');
   print('  Ada:   "${ada.text}"');
@@ -84,7 +84,7 @@ Future<void> main() async {
   // ephemeral, so the document carries stable ids of its own instead.
   ada.editor.update(() {
     $getRoot().append(
-      $createParagraphNode()..append($createTextNode('Ein zweiter Absatz.')),
+      $createParagraphNode()..append($createTextNode('A second paragraph.')),
     );
   }, discrete: true);
   await deliver(ada, grace);

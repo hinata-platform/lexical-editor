@@ -30,11 +30,11 @@ void main() {
   editor.update(() {
     $getRoot()
       ..clear()
-      ..append($createParagraphNode()..append($createTextNode('Hallo')));
+      ..append($createParagraphNode()..append($createTextNode('Hello')));
   }, discrete: true);
 
   // Typing a run of characters coalesces into one undo step.
-  for (final letter in ' Welt'.split('')) {
+  for (final letter in ' world'.split('')) {
     type(editor, letter);
   }
   print('typed:        "${text(editor)}"');
@@ -57,7 +57,7 @@ void main() {
 
   // The opposite tag merges a change into the step before it, for an edit the
   // user did not initiate: an autocorrect, a transform, a format normalized.
-  type(editor, ' korrigiert', tags: {historyMergeTag});
+  type(editor, ' corrected', tags: {historyMergeTag});
   editor.dispatchCommand(undoCommand, null);
   print('after a merged edit and one undo: "${text(editor)}"');
 
@@ -72,13 +72,13 @@ void main() {
 
   // A collaborator's change never becomes an undo entry of its own, so
   // pressing undo does not walk backwards through someone else's typing.
-  type(editor, ' und dann', tags: {historyPushTag});
+  type(editor, ' and then', tags: {historyPushTag});
   final depth = editor.read(() => 0); // just to keep the read symmetric
   type(editor, ' von jemand anderem', tags: {collaborationTag});
   print('\nwith a collaborator typing in between: "${text(editor)}"');
   editor.dispatchCommand(undoCommand, null);
   print('after undo: "${text(editor)}"');
-  print('  — one press stepped over *this* user\'s " und dann", not over the');
+  print('  — one press stepped over *this* user\'s " and then", not over the');
   print('    collaborator\'s text, which never had a step of its own.');
   print('  (a snapshot history still cannot undo only the local changes; a');
   print('   collaborative session wants an undo manager scoped to the');

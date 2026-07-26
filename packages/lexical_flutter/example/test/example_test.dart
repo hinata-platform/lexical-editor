@@ -6,6 +6,6 @@ void main() {
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
     expect(find.text('lexical_flutter'), findsOneWidget);
-    expect(find.textContaining('Blöcke: 2'), findsOneWidget);
+    expect(find.textContaining('blocks: 2'), findsOneWidget);
   });
 }

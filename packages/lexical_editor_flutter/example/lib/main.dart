@@ -70,33 +70,32 @@ class _EditorPageState extends State<EditorPage> {
         ..clear()
         ..append(
           $createHeadingNode(HeadingTag.h1)
-            ..append($createTextNode('Lexical, auf Flutter')),
+            ..append($createTextNode('Lexical, on Flutter')),
         )
         ..append(
           $createParagraphNode()
-            ..append($createTextNode('Tippe hier. Alles ist echt: '))
-            ..append($createTextNode('fett')..setFormat(TextFormat.bold.bit))
+            ..append($createTextNode('Type here. All of it is real: '))
+            ..append($createTextNode('bold')..setFormat(TextFormat.bold.bit))
             ..append($createTextNode(', '))
             ..append(
-              $createTextNode('kursiv')..setFormat(TextFormat.italic.bit),
+              $createTextNode('italic')..setFormat(TextFormat.italic.bit),
             )
-            ..append($createTextNode(', Listen, Zitate, Code, Tabellen.')),
+            ..append($createTextNode(', lists, quotes, code, tables.')),
         )
         ..append(
           $createListNode(ListType.check)
             ..append(
               $createListItemNode(true)
-                ..append($createTextNode('Tab verschachtelt eine Liste')),
+                ..append($createTextNode('Tab nests a list')),
             )
             ..append(
-              $createListItemNode(false)..append(
-                $createTextNode('Enter auf einem leeren Punkt verlässt sie'),
-              ),
+              $createListItemNode(false)
+                ..append($createTextNode('Enter on an empty item leaves it')),
             ),
         )
         ..append(
           $createQuoteNode()
-            ..append($createTextNode('Ein Zitat, mit ⌘Z rückgängig.')),
+            ..append($createTextNode('A quotation — undo it with ⌘Z.')),
         )
         // An image lives *inside* a paragraph, because upstream's is inline.
         // Drag its corners; the size is written once, when the drag ends.
@@ -104,10 +103,10 @@ class _EditorPageState extends State<EditorPage> {
           $createParagraphNode()..append(
             $createImageNode(
               src: 'https://picsum.photos/seed/lexical/900/600',
-              altText: 'Ein Beispielbild',
+              altText: 'An example image',
               width: 420,
               height: 280,
-            )..setCaptionText('Ziehbar an den Ecken'),
+            )..setCaptionText('Drag it by the corners'),
           ),
         )
         // A video is a block of its own — and in Lexical, "video" means
@@ -124,9 +123,9 @@ class _EditorPageState extends State<EditorPage> {
   /// A 3x3 table with a header row, filled so the grid is readable.
   TableNode _sampleTable() {
     const rows = [
-      ['Paket', 'Was es kann', 'Rein Dart'],
-      ['lexical_table', 'Zeilen, Spalten, Merges', 'ja'],
-      ['lexical_embed', 'YouTube, Tweets, Figma', 'nein'],
+      ['Package', 'What it does', 'Pure Dart'],
+      ['lexical_table', 'Rows, columns, merges', 'yes'],
+      ['lexical_embed', 'YouTube, tweets, Figma', 'no'],
     ];
     final table = $createTableNodeWithDimensions(
       rows.length,
@@ -198,12 +197,12 @@ class _EditorPageState extends State<EditorPage> {
       appBar: BrandAppBar(
         actions: [
           IconButton(
-            tooltip: 'Rückgängig',
+            tooltip: 'Undo',
             onPressed: () => editor.dispatchCommand(undoCommand, null),
             icon: const Icon(Icons.undo),
           ),
           IconButton(
-            tooltip: 'Wiederherstellen',
+            tooltip: 'Redo',
             onPressed: () => editor.dispatchCommand(redoCommand, null),
             icon: const Icon(Icons.redo),
           ),
@@ -308,7 +307,7 @@ class _EditorPageState extends State<EditorPage> {
                       comments: CommentsPanel(
                         editor: editor,
                         store: comments,
-                        author: 'Du',
+                        author: 'You',
                       ),
                     ),
                   ),
@@ -379,18 +378,18 @@ class _Toolbar extends StatelessWidget {
             icon: const Icon(Icons.checklist),
           ),
           IconButton(
-            tooltip: 'Tabelle',
+            tooltip: 'Table',
             onPressed: onTable,
             icon: const Icon(Icons.grid_on),
           ),
           const VerticalDivider(width: 16),
           IconButton(
-            tooltip: 'Bild oder GIF',
+            tooltip: 'Image or GIF',
             onPressed: onImage,
             icon: const Icon(Icons.image_outlined),
           ),
           IconButton(
-            tooltip: 'Video, Tweet oder Figma',
+            tooltip: 'Video, tweet or Figma',
             onPressed: onEmbed,
             icon: const Icon(Icons.play_circle_outline),
           ),
@@ -431,10 +430,7 @@ class _SidePanel extends StatelessWidget {
                 ButtonSegment(value: _Panel.markdown, label: Text('Markdown')),
                 ButtonSegment(value: _Panel.json, label: Text('JSON')),
                 ButtonSegment(value: _Panel.file, label: Text('.lexical')),
-                ButtonSegment(
-                  value: _Panel.comments,
-                  label: Text('Kommentare'),
-                ),
+                ButtonSegment(value: _Panel.comments, label: Text('Comments')),
               ],
               selected: {panel},
               onSelectionChanged: (value) => onSelect(value.first),

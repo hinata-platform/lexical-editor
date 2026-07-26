@@ -21,7 +21,7 @@ void main() {
           ..append($createCodeHighlightNode(' main() {'))
           ..append($createLineBreakNode())
           ..append($createCodeHighlightNode('  print', 'function'))
-          ..append($createCodeHighlightNode("('hallo');"))
+          ..append($createCodeHighlightNode("('hello');"))
           ..append($createLineBreakNode())
           ..append($createCodeHighlightNode('}')),
       );

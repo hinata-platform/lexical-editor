@@ -23,26 +23,22 @@ void main() {
     $getRoot()
       ..clear()
       ..append(
-        $createHeadingNode(HeadingTag.h2)..append($createTextNode('Titel')),
+        $createHeadingNode(HeadingTag.h2)..append($createTextNode('Title')),
       )
       ..append(
         $createParagraphNode()
-          ..append($createTextNode('Text mit '))
-          ..append($createTextNode('fett')..setFormat(TextFormat.bold.bit))
-          ..append($createTextNode(' und '))
+          ..append($createTextNode('Text with '))
+          ..append($createTextNode('bold')..setFormat(TextFormat.bold.bit))
+          ..append($createTextNode(' and '))
           ..append(
             $createLinkNode('https://example.org')
-              ..append($createTextNode('einem Link')),
+              ..append($createTextNode('a link')),
           ),
       )
       ..append(
         $createListNode(ListType.check)
-          ..append(
-            $createListItemNode(true)..append($createTextNode('erledigt')),
-          )
-          ..append(
-            $createListItemNode(false)..append($createTextNode('offen')),
-          ),
+          ..append($createListItemNode(true)..append($createTextNode('done')))
+          ..append($createListItemNode(false)..append($createTextNode('open'))),
       );
   }, discrete: true);
 
@@ -73,9 +69,9 @@ void main() {
       ..clear()
       ..appendAll(
         $generateNodesFromHtml(
-          '<h1>Aus dem Browser</h1>'
-          '<p>Ein <b>fetter</b> Absatz und <custom-thing>etwas Fremdes</custom-thing>.</p>'
-          '<ol start="3"><li>drei</li><li>vier</li></ol>'
+          '<h1>From the browser</h1>'
+          '<p>A <b>bold</b> paragraph and <custom-thing>something foreign</custom-thing>.</p>'
+          '<ol start="3"><li>three</li><li>four</li></ol>'
           '<script>alert(1)</script>',
         ),
       );

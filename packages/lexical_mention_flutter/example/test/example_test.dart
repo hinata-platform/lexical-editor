@@ -28,7 +28,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
 
-    expect(find.text('Navigation → /issues/108'), findsOneWidget);
+    expect(find.text('navigate → /issues/108'), findsOneWidget);
   });
 
   test('an inserted mention carries its trigger exactly once', () async {

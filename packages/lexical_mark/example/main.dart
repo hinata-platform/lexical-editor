@@ -16,16 +16,16 @@ void main() {
       ..clear()
       ..append(
         $createParagraphNode()
-          ..append($createTextNode('Ein '))
+          ..append($createTextNode('A '))
           ..append(
-            $createMarkNode(['kommentar-1'])
-              ..append($createTextNode('markierter '))
+            $createMarkNode(['comment-1'])
+              ..append($createTextNode('marked '))
               ..append(
-                $createMarkNode(['kommentar-1', 'kommentar-2'])
-                  ..append($createTextNode('überlappender')),
+                $createMarkNode(['comment-1', 'comment-2'])
+                  ..append($createTextNode('overlapping')),
               ),
           )
-          ..append($createTextNode(' Text.')),
+          ..append($createTextNode(' text.')),
       );
   }, discrete: true);
 
@@ -51,13 +51,13 @@ void main() {
   // Resolving "which comments cover this word" is a walk up the ancestors.
   editor.read(() {
     final deepest = $getRoot().getAllTextNodes().firstWhere(
-      (node) => node.getTextContent() == 'überlappender',
+      (node) => node.getTextContent() == 'overlapping',
     );
     final ids = <String>{
       for (final parent in deepest.getParents())
         if (parent is MarkNode) ...parent.ids,
     };
-    print('\ncomments covering "überlappender": $ids');
+    print('\ncomments covering "overlapping": $ids');
   });
 
   // Ids are added and removed without rebuilding the range.
@@ -65,7 +65,7 @@ void main() {
     final mark = ($getRoot().getFirstChild()! as ElementNode).children
         .whereType<MarkNode>()
         .single;
-    mark.addId('kommentar-3');
+    mark.addId('comment-3');
   }, discrete: true);
   editor.read(() {
     final mark = ($getRoot().getFirstChild()! as ElementNode).children

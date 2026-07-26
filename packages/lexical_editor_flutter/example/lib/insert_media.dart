@@ -49,8 +49,8 @@ Future<void> showInsertEmbedDialog(
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
       content: Text(
-        'Lexical kann nur YouTube, Tweets und Figma einbetten — '
-        'daraus wurde ein Link.',
+        'Lexical only embeds YouTube, tweets and Figma — '
+        'this became a link.',
       ),
     ),
   );
@@ -79,7 +79,7 @@ class _ImageDialogState extends State<_ImageDialog> {
   final _src = TextEditingController(
     text: 'https://picsum.photos/seed/lexical/900/600',
   );
-  final _alt = TextEditingController(text: 'Ein Bild');
+  final _alt = TextEditingController(text: 'An image');
   final _caption = TextEditingController();
 
   @override
@@ -92,7 +92,7 @@ class _ImageDialogState extends State<_ImageDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Bild einfügen'),
+    title: const Text('Insert an image'),
     content: SizedBox(
       width: 420,
       child: Column(
@@ -102,21 +102,19 @@ class _ImageDialogState extends State<_ImageDialog> {
             controller: _src,
             autofocus: true,
             decoration: const InputDecoration(
-              labelText: 'Adresse',
-              helperText: 'https:, data: oder ein Asset-Pfad. Auch GIFs.',
+              labelText: 'Address',
+              helperText: 'https:, data: or an asset path. GIFs too.',
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _alt,
-            decoration: const InputDecoration(labelText: 'Alternativtext'),
+            decoration: const InputDecoration(labelText: 'Alt text'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _caption,
-            decoration: const InputDecoration(
-              labelText: 'Bildunterschrift (optional)',
-            ),
+            decoration: const InputDecoration(labelText: 'Caption (optional)'),
           ),
         ],
       ),
@@ -124,7 +122,7 @@ class _ImageDialogState extends State<_ImageDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Abbrechen'),
+        child: const Text('Cancel'),
       ),
       FilledButton(
         onPressed: () => Navigator.pop(
@@ -135,7 +133,7 @@ class _ImageDialogState extends State<_ImageDialog> {
             caption: _caption.text.trim(),
           ),
         ),
-        child: const Text('Einfügen'),
+        child: const Text('Insert'),
       ),
     ],
   );
@@ -171,14 +169,14 @@ class _EmbedDialogState extends State<_EmbedDialog> {
   Widget build(BuildContext context) {
     final target = matchEmbedUrl(_url.text);
     final verdict = switch (target?.kind) {
-      EmbedKind.youtube => 'YouTube-Video · ${target!.id}',
+      EmbedKind.youtube => 'YouTube video · ${target!.id}',
       EmbedKind.tweet => 'Tweet · ${target!.id}',
       EmbedKind.figma => 'Figma · ${target!.id}',
-      null => 'Nicht einbettbar — wird ein Link.',
+      null => 'Not embeddable — this becomes a link.',
     };
 
     return AlertDialog(
-      title: const Text('Medien einbetten'),
+      title: const Text('Embed media'),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -189,8 +187,8 @@ class _EmbedDialogState extends State<_EmbedDialog> {
               controller: _url,
               autofocus: true,
               decoration: const InputDecoration(
-                labelText: 'Adresse',
-                helperText: 'YouTube, Twitter/X oder Figma.',
+                labelText: 'Address',
+                helperText: 'YouTube, Twitter/X or Figma.',
               ),
             ),
             const SizedBox(height: 12),
@@ -216,11 +214,11 @@ class _EmbedDialogState extends State<_EmbedDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Abbrechen'),
+          child: const Text('Cancel'),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _url.text.trim()),
-          child: const Text('Einfügen'),
+          child: const Text('Insert'),
         ),
       ],
     );
