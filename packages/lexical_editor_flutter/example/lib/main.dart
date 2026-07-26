@@ -11,8 +11,9 @@
 // Select some text and a second toolbar appears over it, with the link editor
 // behind its link button — see selection_toolbar.dart. Its comment button
 // opens a thread in the right-hand panel — see comments.dart. The image and
-// media buttons are in insert_media.dart, and the panel can show the document
-// as markdown, as JSON, or as a .lexical file.
+// media buttons are in insert_media.dart. Put the caret in a table cell and a
+// bar of table actions appears — see table_actions.dart. The panel on the
+// right shows the document as markdown, as JSON, or as a .lexical file.
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lexical_file/lexical_file.dart';
@@ -21,6 +22,7 @@ import 'package:lexical_markdown/lexical_markdown.dart';
 import 'comments.dart';
 import 'insert_media.dart';
 import 'selection_toolbar.dart';
+import 'table_actions.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -108,8 +110,37 @@ class _EditorPageState extends State<EditorPage> {
         // A video is a block of its own — and in Lexical, "video" means
         // YouTube. See insert_media.dart for what happens to anything else.
         ..append($createYouTubeNode('dQw4w9WgXcQ'))
+        // Put the caret in a cell and a second bar appears with everything
+        // that can be done to a table — see table_actions.dart. Tab walks
+        // the cells, and dragging across cells selects a rectangle.
+        ..append(_sampleTable())
         ..append($createParagraphNode());
     }, discrete: true);
+  }
+
+  /// A 3x3 table with a header row, filled so the grid is readable.
+  TableNode _sampleTable() {
+    const rows = [
+      ['Paket', 'Was es kann', 'Rein Dart'],
+      ['lexical_table', 'Zeilen, Spalten, Merges', 'ja'],
+      ['lexical_embed', 'YouTube, Tweets, Figma', 'nein'],
+    ];
+    final table = $createTableNodeWithDimensions(
+      rows.length,
+      rows.first.length,
+      includeHeaders: true,
+    );
+    final grid = $computeTableGrid(table);
+    for (var row = 0; row < rows.length; row++) {
+      for (var column = 0; column < rows[row].length; column++) {
+        final cell = grid.at(row, column)?.cell;
+        final paragraph = cell?.getFirstChild();
+        if (paragraph is ElementNode) {
+          paragraph.append($createTextNode(rows[row][column]));
+        }
+      }
+    }
+    return table;
   }
 
   void _format(TextFormat format) =>
@@ -194,6 +225,7 @@ class _EditorPageState extends State<EditorPage> {
             onImage: () => showInsertImageDialog(context, editor),
             onEmbed: () => showInsertEmbedDialog(context, editor),
           ),
+          TableActions(editor: editor),
           const Divider(height: 1),
           Expanded(
             child: Flex(
@@ -337,7 +369,11 @@ class _Toolbar extends StatelessWidget {
             onPressed: () => onList(ListType.check),
             icon: const Icon(Icons.checklist),
           ),
-          IconButton(onPressed: onTable, icon: const Icon(Icons.grid_on)),
+          IconButton(
+            tooltip: 'Tabelle',
+            onPressed: onTable,
+            icon: const Icon(Icons.grid_on),
+          ),
           const VerticalDivider(width: 16),
           IconButton(
             tooltip: 'Bild oder GIF',

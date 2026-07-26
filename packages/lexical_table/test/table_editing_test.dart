@@ -370,6 +370,75 @@ void main() {
       });
     });
 
+    test('a table can be inserted with no caret in the document', () {
+      // A toolbar button is pressed before the editor has ever been focused
+      // more often than not, and a command that declines then is
+      // indistinguishable from a broken button.
+      final editor = _editor();
+      registerTable(editor);
+      editor.update(() {
+        $getRoot().clear();
+        $setSelection(null);
+      }, discrete: true);
+
+      final handled = editor.dispatchCommand(
+        insertTableCommand,
+        const TableShape(rows: 2, columns: 2),
+      );
+
+      expect(handled, isTrue);
+      editor.read(() {
+        expect($getRoot().children.whereType<TableNode>().length, 1);
+        assertTreeIntegrity($getRoot());
+      });
+    });
+
+    test('deleting a table from inside it keeps a caret', () {
+      // The ordinary way to delete a table is with the caret in one of its
+      // cells. Removing the nodes a selection points at without moving it
+      // first is an error the core refuses outright.
+      final editor = _editor();
+      registerTable(editor);
+      _seed(editor, 2, 2);
+      editor.update(() {
+        $getRoot().append(
+          $createParagraphNode()..append($createTextNode('danach')),
+        );
+        (_cell(0, 0).getFirstChild()! as ElementNode).selectStart();
+      }, discrete: true);
+
+      expect(editor.dispatchCommand(deleteTableCommand, null), isTrue);
+
+      editor.read(() {
+        expect($getRoot().children.whereType<TableNode>(), isEmpty);
+        final selection = $getSelection();
+        expect(selection, isA<RangeSelection>());
+        // Somewhere that still exists, and outside any table.
+        final anchor = (selection! as RangeSelection).anchor.getNode();
+        expect(anchor, isNotNull);
+        expect($getTableForNode(anchor!), isNull);
+        assertTreeIntegrity($getRoot());
+      });
+    });
+
+    test('deleting the only block leaves a paragraph to type in', () {
+      final editor = _editor();
+      registerTable(editor);
+      _seed(editor, 2, 2);
+      editor.update(() {
+        $getRoot().children.whereType<ParagraphNode>().forEach(
+          (paragraph) => paragraph.remove(),
+        );
+        (_cell(0, 0).getFirstChild()! as ElementNode).selectStart();
+      }, discrete: true);
+
+      expect(editor.dispatchCommand(deleteTableCommand, null), isTrue);
+      editor.read(() {
+        expect($getRoot().children.single, isA<ParagraphNode>());
+        expect($getSelection(), isA<RangeSelection>());
+      });
+    });
+
     test('inserting a table leaves somewhere to type after it', () {
       final editor = _editor();
       registerTable(editor);

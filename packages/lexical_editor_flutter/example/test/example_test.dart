@@ -189,6 +189,81 @@ void main() {
     );
   });
 
+  testWidgets('the toolbar button inserts a table', (tester) async {
+    // It used to do nothing at all: the bundle registered the table nodes
+    // but never their behaviour, so the command found no handler.
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    final before = _editorOf(
+      tester,
+    ).read(() => $getRoot().children.whereType<TableNode>().length);
+
+    await tester.tap(find.byIcon(Icons.grid_on));
+    await tester.pump();
+
+    _editorOf(tester).read(() {
+      final tables = $getRoot().children.whereType<TableNode>().toList();
+      expect(tables, hasLength(before + 1));
+      assertTreeIntegrity($getRoot());
+    });
+  });
+
+  testWidgets('the table bar appears with the caret and edits the table', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pump();
+
+    // Nothing while the caret is in ordinary text.
+    expect(find.text('Tabelle'), findsNothing);
+
+    // Into the first cell of the seeded table.
+    _editorOf(tester).update(() {
+      final table = $getRoot().children.whereType<TableNode>().first;
+      final cell = (table.getFirstChild()! as ElementNode).getFirstChild()!;
+      ((cell as ElementNode).getFirstChild()! as ElementNode).selectStart();
+    }, discrete: true);
+    await tester.pump();
+
+    expect(find.text('Tabelle'), findsOneWidget);
+
+    List<int> shape() => _editorOf(tester).read(() {
+      final table = $getRoot().children.whereType<TableNode>().first;
+      final rows = table.children.whereType<TableRowNode>().toList();
+      return [rows.length, rows.first.children.length];
+    });
+    expect(shape(), [3, 3]);
+
+    await tester.tap(find.text('Zeile darunter'));
+    await tester.pump();
+    expect(shape(), [4, 3]);
+
+    await tester.tap(find.text('Spalte rechts'));
+    await tester.pump();
+    expect(shape(), [4, 4]);
+
+    // Deleting the row the caret is in must not lose the selection — the
+    // core refuses a selection pointing at nodes that no longer exist.
+    await tester.tap(find.text('Zeile löschen'));
+    await tester.pump();
+    expect(shape(), [3, 4]);
+    expect(tester.takeException(), isNull);
+
+    // And deleting the table itself leaves a caret behind. The bar scrolls;
+    // the last button is past the right edge on this surface.
+    await tester.ensureVisible(find.text('Tabelle löschen'));
+    await tester.pump();
+    await tester.tap(find.text('Tabelle löschen'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Tabelle'), findsNothing);
+  });
+
   testWidgets('the link editor refuses a script URL', (tester) async {
     // A stored `javascript:` URL is an XSS waiting for a tap. The model keeps
     // what it is given so documents round-trip; refusing belongs here, where

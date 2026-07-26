@@ -13,6 +13,7 @@ import 'package:lexical_core/lexical_core.dart';
 
 import 'table_grid.dart';
 import 'table_nodes.dart';
+import 'table_selection.dart';
 
 /// Inserts [count] rows above or below the row holding [atRow].
 ///
@@ -175,6 +176,7 @@ bool $deleteTableRows(TableGrid grid, int startRow, [int count = 1]) {
   for (var row = start; row <= end; row++) {
     grid.rows[row].remove(preserveEmptyParent: true);
   }
+  $rescueTableSelection(grid.table);
   return true;
 }
 
@@ -202,7 +204,33 @@ bool $deleteTableColumns(TableGrid grid, int startColumn, [int count = 1]) {
     }
     ref.cell.setColSpan(ref.colSpan - overlap);
   }
+  $rescueTableSelection(grid.table);
   return true;
+}
+
+/// Puts the caret back in [table] when the cell it was in has been removed.
+///
+/// Deleting the row or column the caret happens to be in is the ordinary
+/// case, not an edge one — and a selection left pointing at detached nodes is
+/// an error the core refuses outright, so every structural removal has to end
+/// with the caret somewhere that still exists.
+///
+/// Must be called inside an update.
+void $rescueTableSelection(TableNode table) {
+  final selection = $getSelection();
+  if (selection == null) return;
+  final nodes = selection.getNodes();
+  if (nodes.isNotEmpty && nodes.every((node) => node.isAttached)) return;
+
+  for (final row in table.children.whereType<TableRowNode>()) {
+    final cell = row.getFirstChild();
+    if (cell is TableCellNode) {
+      $selectTableCellStart(cell);
+      return;
+    }
+  }
+  // A table with no cell left is not a table; the caller is removing it.
+  table.selectPrevious();
 }
 
 /// Removes the whole table.
@@ -210,10 +238,49 @@ bool $deleteTableColumns(TableGrid grid, int startColumn, [int count = 1]) {
 /// Must be called inside an update.
 void $deleteTable(TableNode table) {
   final parent = table.getParent();
+  // Where the caret goes afterwards has to be decided *before* the table is
+  // gone. The ordinary way to delete a table is with the caret inside it, and
+  // removing the nodes a selection points at without moving it first is an
+  // error the core refuses outright — a toolbar button that throws.
+  final held = _holdsSelection(table);
+  final after = table.getNextSibling();
+  final before = table.getPreviousSibling();
+
   table.remove();
+
   if (parent is RootNode && parent.isEmpty) {
-    parent.append($createParagraphNode());
+    final paragraph = $createParagraphNode();
+    parent.append(paragraph);
+    if (held) paragraph.selectStart();
+    return;
   }
+  if (!held) return;
+
+  final landing = after ?? before;
+  switch (landing) {
+    case final ElementNode element when identical(element, after):
+      element.selectStart();
+    case final ElementNode element:
+      element.selectEnd();
+    case final LexicalNode node when identical(node, after):
+      node.selectPrevious();
+    case final LexicalNode node:
+      node.selectNext();
+    case null:
+      break;
+  }
+}
+
+/// Whether the selection points at anything inside [table].
+///
+/// Must be called inside a read or an update.
+bool _holdsSelection(TableNode table) {
+  final selection = $getSelection();
+  if (selection == null) return false;
+  for (final node in selection.getNodes()) {
+    if (identical(node, table) || table.isParentOf(node)) return true;
+  }
+  return false;
 }
 
 /// Merges every cell in [range] into its top-left cell.

@@ -1,9 +1,10 @@
 /// Rebuilding a widget when the document changes.
 library;
 
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lexical_core/lexical_core.dart';
+
+import 'build_phase.dart';
 
 /// Builds a widget from the editor's current state, after every commit.
 ///
@@ -78,8 +79,7 @@ class _LexicalBuilderState extends State<LexicalBuilder> {
   }
 
   void _onCommit(EditorUpdate update) {
-    if (SchedulerBinding.instance.schedulerPhase !=
-        SchedulerPhase.persistentCallbacks) {
+    if (!isBuildingWidgets) {
       setState(() {});
       return;
     }
@@ -87,7 +87,7 @@ class _LexicalBuilderState extends State<LexicalBuilder> {
     // commits in one frame are one rebuild, which is what you want anyway.
     if (_rebuildScheduled) return;
     _rebuildScheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
+    whenBuildIsDone(() {
       _rebuildScheduled = false;
       if (mounted) setState(() {});
     });

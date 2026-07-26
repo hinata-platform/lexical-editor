@@ -207,11 +207,18 @@ class MentionScopeState extends State<MentionScope> {
   void _onSearchState(MentionSearchState state) {
     _state = state;
     if (!mounted) return;
-    if (state.isOpen) {
-      _showOverlay();
-    } else {
-      _removeOverlay();
-    }
+    // Inserting an overlay entry marks the Overlay dirty, so this cannot run
+    // during a build — and it can be reached from one: a commit landing
+    // mid-build reaches the controller, and a cached answer is emitted
+    // synchronously.
+    whenBuildIsDone(() {
+      if (!mounted) return;
+      if (_state.isOpen) {
+        _showOverlay();
+      } else {
+        _removeOverlay();
+      }
+    });
   }
 
   // -------------------------------------------------------------------

@@ -72,6 +72,7 @@ export 'src/table_ops.dart'
         $insertTableRows,
         $mergeTableCells,
         $nextTableCell,
+        $rescueTableSelection,
         $setTableCellBackground,
         $toggleTableColumnHeader,
         $toggleTableRowHeader,

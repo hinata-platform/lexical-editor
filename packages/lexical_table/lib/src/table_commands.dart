@@ -248,14 +248,18 @@ Unsubscribe registerTable(LexicalEditor editor) {
 /// it, and the caret cannot be placed after something that has no after.
 bool _insertTable(TableShape shape) {
   final selection = $getSelection();
-  if (selection is! RangeSelection) return false;
   final table = $createTableNodeWithDimensions(
     shape.rows,
     shape.columns,
     includeHeaders: shape.includeHeaders,
   );
 
-  final block = $getNearestBlock(selection.focus.getNode() ?? $getRoot());
+  // No caret is not a reason to do nothing. A toolbar button is pressed
+  // while the editor has not been focused yet more often than not, and a
+  // command that silently declines looks exactly like a broken button.
+  final block = selection is RangeSelection
+      ? $getNearestBlock(selection.focus.getNode() ?? $getRoot())
+      : $getRoot();
   if (block is RootNode) {
     $getRoot().append(table);
   } else if (block.getTextContent().isEmpty && block.getParent() is RootNode) {

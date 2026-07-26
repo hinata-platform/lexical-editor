@@ -8,6 +8,7 @@ import '../render/block_offset_map.dart';
 import '../render/span_builder.dart';
 import '../theme/lexical_theme.dart';
 import 'block_registry.dart';
+import 'build_phase.dart';
 import 'lexical_inline_block.dart';
 import 'lexical_interaction.dart';
 
@@ -176,7 +177,12 @@ class LexicalDocumentState extends State<LexicalDocument> {
         _cache.remove(key);
       }
     }
-    if (mounted) setState(_refreshTopLevel);
+    // A commit can land during a build — see `whenBuildIsDone`. Calling
+    // setState from here directly is the mistake this widget would otherwise
+    // make on behalf of every application using it.
+    whenBuildIsDone(() {
+      if (mounted) setState(_refreshTopLevel);
+    });
   }
 
   void _refreshTopLevel() {

@@ -255,6 +255,61 @@ void main() {
     });
   });
 
+  group('tables', () {
+    testWidgets('the insert command actually inserts one', (tester) async {
+      // The bundle registered the table *nodes* but never `registerTable`,
+      // so every table command dispatched into nothing and the toolbar
+      // button did visibly nothing. Nodes without their behaviour is the
+      // failure mode a bundle exists to prevent.
+      final editor = createLexicalEditor();
+      await _pump(tester, editor);
+
+      final handled = editor.dispatchCommand(
+        insertTableCommand,
+        const TableShape(rows: 2, columns: 3),
+      );
+
+      expect(handled, isTrue, reason: 'no handler claimed the command');
+      editor.read(() {
+        final table = $getRoot().children.whereType<TableNode>().single;
+        expect(table.children.whereType<TableRowNode>().length, 2);
+        final row = table.getFirstChild()! as ElementNode;
+        expect(row.children.whereType<TableCellNode>().length, 3);
+        assertTreeIntegrity($getRoot());
+      });
+    });
+
+    testWidgets('rows and columns can be added and removed', (tester) async {
+      final editor = createLexicalEditor();
+      await _pump(tester, editor);
+      editor
+        ..dispatchCommand(
+          insertTableCommand,
+          const TableShape(rows: 2, columns: 2),
+        )
+        ..dispatchCommand(insertTableRowCommand, true)
+        ..dispatchCommand(insertTableColumnCommand, true);
+
+      List<int> shape() => editor.read(() {
+        final table = $getRoot().children.whereType<TableNode>().single;
+        final rows = table.children.whereType<TableRowNode>().toList();
+        return [rows.length, rows.first.children.length];
+      });
+
+      expect(shape(), [3, 3]);
+
+      editor
+        ..dispatchCommand(deleteTableRowCommand, null)
+        ..dispatchCommand(deleteTableColumnCommand, null);
+      expect(shape(), [2, 2]);
+
+      editor.dispatchCommand(deleteTableCommand, null);
+      editor.read(() {
+        expect($getRoot().children.whereType<TableNode>(), isEmpty);
+      });
+    });
+  });
+
   group('media', () {
     // The inline image is the part worth pinning: upstream's ImageNode is an
     // inline decorator inside a paragraph, so it renders as a WidgetSpan in

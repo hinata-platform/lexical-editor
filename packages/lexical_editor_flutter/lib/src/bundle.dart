@@ -74,6 +74,11 @@ LexicalEditor createLexicalEditor({
 Unsubscribe registerLexical(LexicalEditor editor, {HistoryState? history}) {
   final unsubscribes = <Unsubscribe>[
     registerRichText(editor),
+    // Before the list: Tab arrives as indent/outdent, both packages claim it
+    // at `beforeEditor`, and same-priority handlers run in registration
+    // order. The table's handler falls through the moment the caret is
+    // outside a table, so first refusal is the right place for it.
+    registerTable(editor),
     registerList(editor),
     registerCode(editor),
     registerLink(editor),
@@ -160,7 +165,7 @@ class LexicalEditorField extends StatefulWidget {
     this.padding = const EdgeInsets.all(16),
     this.scrollable = true,
     this.scrollController,
-    this.decoratorBuilders = const {},
+    this.decoratorBuilders,
     this.tabBehaviour = TabBehaviour.indent,
     this.registerBehaviour = true,
     this.history,
@@ -200,7 +205,12 @@ class LexicalEditorField extends StatefulWidget {
   final ScrollController? scrollController;
 
   /// Widget builders for decorator node types.
-  final Map<String, DecoratorBuilder> decoratorBuilders;
+  ///
+  /// Defaults to [lexicalDecoratorBuilders] for this editor, because a
+  /// batteries-included widget that registers the image and embed nodes and
+  /// then draws neither is not batteries-included. Pass a map to override —
+  /// `const {}` for a field that renders every decorator as its text stand-in.
+  final Map<String, DecoratorBuilder>? decoratorBuilders;
 
   /// What the Tab key does.
   final TabBehaviour tabBehaviour;
@@ -308,7 +318,9 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
       padding: widget.padding,
       scrollable: widget.scrollable,
       scrollController: widget.scrollController,
-      decoratorBuilders: widget.decoratorBuilders,
+      decoratorBuilders:
+          widget.decoratorBuilders ??
+          lexicalDecoratorBuilders(editor: widget.editor),
       tabBehaviour: widget.tabBehaviour,
       interaction: widget.interaction,
       contextMenuBuilder: widget.contextMenuBuilder,
