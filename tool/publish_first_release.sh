@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 #
-# The first upload of every package to pub.dev, by hand and in order.
+# Uploading the set to pub.dev by hand, in dependency order.
 #
 #   dart pub login                        # once, as the publisher account
 #   tool/publish_first_release.sh --dry-run
 #   tool/publish_first_release.sh
 #
-# Only the *first* release needs this. pub.dev configures automated publishing
-# on a package's admin page, and a package has no admin page until it exists —
-# so the set has to reach pub.dev once by hand before a tag can do it. After
-# that, see RELEASING.md.
+# Only a release that *creates* packages needs this. pub.dev configures
+# automated publishing on a package's admin page, and a package has no admin
+# page until it exists — so a package has to reach pub.dev once by hand before
+# a tag can release it. After that, see RELEASING.md.
+#
+# A run may mix the two: a new version of the packages that are already up, a
+# first upload of the ones that are not. Only the second kind spends
+# `package-created` budget, so the two are counted apart — calling a version
+# update a creation would stop a run pub.dev would have allowed.
 #
 # Two properties worth knowing, because they are what makes running this twice
 # safe:
@@ -105,17 +110,41 @@ published_already() {
   [ "$code" = "200" ]
 }
 
-TODO=""
-SKIPPED=""
+# Whether pub.dev knows the package at all, at any version. Uploading a new
+# version of one it already has is `package-published`, a different operation
+# from `package-created` with a far roomier limit, so the two have to be told
+# apart before any budget is counted.
+package_exists() {
+  local package="$1"
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+    "https://pub.dev/api/packages/$package" || echo 000)
+  [ "$code" = "200" ]
+}
+
+TODO=""      # to publish, in dependency order
+SKIPPED=""   # already on pub.dev at this version
+NEW=""       # of TODO, the ones pub.dev has never seen — these cost creation budget
+EXISTING=""  # every package of the set pub.dev already knows, at any version
 for package in $PACKAGES; do
-  if published_already "$package"; then
-    SKIPPED="$SKIPPED $package"
-    printf '  %-24s already on pub.dev at %s\n' "$package" "$VERSION"
+  if package_exists "$package"; then
+    EXISTING="$EXISTING $package"
+    if published_already "$package"; then
+      SKIPPED="$SKIPPED $package"
+      printf '  %-24s already on pub.dev at %s\n' "$package" "$VERSION"
+      continue
+    fi
+    TODO="$TODO $package"
   else
     TODO="$TODO $package"
+    NEW="$NEW $package"
   fi
 done
 [ -n "$SKIPPED" ] && echo
+
+is_new() {
+  case " $NEW " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
 
 # ---------------------------------------------------------------------------
 # pub.dev's rate limits on creating packages
@@ -136,6 +165,12 @@ DAILY_LIMIT=12
 BURST_LIMIT=4
 
 # Prints: <created in the last 24h> <seconds until the oldest one ages out>
+#
+# A package was created when its *earliest* version was published, not its
+# latest. Reading `latest.published` would count every package that took a new
+# version today as created today — so a set that publishes new versions of the
+# packages already up would report its own budget as spent and refuse a run
+# pub.dev has no objection to.
 daily_usage() {
   local names="$1"
   {
@@ -155,10 +190,14 @@ for line in sys.stdin:
         data = json.loads(line)
     except ValueError:
         continue
-    published = (data.get("latest") or {}).get("published")
+    published = [
+        v["published"] for v in (data.get("versions") or []) if v.get("published")
+    ]
     if not published:
         continue
-    when = datetime.datetime.fromisoformat(published.replace("Z", "+00:00"))
+    when = min(
+        datetime.datetime.fromisoformat(p.replace("Z", "+00:00")) for p in published
+    )
     age = (now - when).total_seconds()
     if age < 86400:
         stamps.append(age)
@@ -189,48 +228,65 @@ for package in $TODO; do
 done
 echo
 
+# ---------------------------------------------------------------------------
+# Budget
+# ---------------------------------------------------------------------------
+#
+# Computed before the dry run returns, because "how much of this fits today"
+# is the question a dry run is asked. Nothing here writes to pub.dev.
+
+# A network hiccup must not turn into an unbound variable and a stack trace.
+USED_TODAY=0
+WAIT_SECONDS=0
+read -r USED_TODAY WAIT_SECONDS <<<"$(daily_usage "$EXISTING")" || true
+BUDGET=$((DAILY_LIMIT - ${USED_TODAY:-0}))
+[ "$BUDGET" -lt 0 ] && BUDGET=0
+TODO_COUNT=$(echo $TODO | wc -w | tr -d ' ')
+NEW_COUNT=$(echo $NEW | wc -w | tr -d ' ')
+UPDATE_COUNT=$((TODO_COUNT - NEW_COUNT))
+
+echo "pub.dev allows $DAILY_LIMIT new packages per day, $BURST_LIMIT per two minutes."
+echo "  created in the last 24h: $USED_TODAY"
+echo "  left today:              $BUDGET"
+echo "  new packages to create:  $NEW_COUNT"
+echo "  versions to update:      $UPDATE_COUNT"
+if [ "$NEW_COUNT" -gt 0 ] && [ "$BUDGET" -eq 0 ]; then
+  echo
+  printf 'The daily window is full. It reopens in about %dh %dm — re-run\n' \
+    "$((WAIT_SECONDS / 3600))" "$(((WAIT_SECONDS % 3600) / 60))"
+  echo "then; it continues where it stopped."
+  exit 0
+fi
+if [ "$NEW_COUNT" -gt "$BUDGET" ]; then
+  echo
+  echo "Only $BUDGET of the new ones fit today. The rest is one more run"
+  echo "tomorrow; the order is topological, so stopping partway is safe."
+fi
+echo
+
+if [ "$DRY_RUN" = "1" ]; then
+  echo "Would publish, in this order:"
+else
+  echo "About to publish, in this order:"
+fi
+created=0
+for package in $TODO; do
+  if is_new "$package"; then
+    created=$((created + 1))
+    # Everything after an unaffordable creation may depend on it, so the
+    # listing stops where the run will.
+    [ "$created" -gt "$BUDGET" ] && break
+    echo "  $package $VERSION   (new package)"
+  else
+    echo "  $package $VERSION"
+  fi
+done
+echo
 if [ "$DRY_RUN" = "1" ]; then
   echo "dry run: everything validates. Re-run without --dry-run to publish."
   exit 0
 fi
 
-# ---------------------------------------------------------------------------
-# Publish
-# ---------------------------------------------------------------------------
-
-# A network hiccup must not turn into an unbound variable and a stack trace.
-USED_TODAY=0
-WAIT_SECONDS=0
-read -r USED_TODAY WAIT_SECONDS <<<"$(daily_usage "$SKIPPED")" || true
-BUDGET=$((DAILY_LIMIT - ${USED_TODAY:-0}))
-[ "$BUDGET" -lt 0 ] && BUDGET=0
-TODO_COUNT=$(echo $TODO | wc -w | tr -d ' ')
-
-echo "pub.dev allows $DAILY_LIMIT new packages per day, $BURST_LIMIT per two minutes."
-echo "  created in the last 24h: $USED_TODAY"
-echo "  left today:              $BUDGET"
-echo "  still to publish:        $TODO_COUNT"
-if [ "$BUDGET" -eq 0 ]; then
-  echo
-  echo "The daily window is full. It reopens in about $((WAIT_SECONDS / 3600))h"
-  echo "$(((WAIT_SECONDS % 3600) / 60))m — re-run then, it continues where it stopped."
-  exit 0
-fi
-if [ "$TODO_COUNT" -gt "$BUDGET" ]; then
-  echo
-  echo "Only $BUDGET of them fit today. The rest is one more run tomorrow;"
-  echo "the order is topological, so stopping partway is safe."
-fi
-echo
-
-echo "About to publish, in this order:"
-count=0
-for package in $TODO; do
-  count=$((count + 1))
-  [ "$count" -gt "$BUDGET" ] && break
-  echo "  $package $VERSION"
-done
-echo
 echo "This cannot be undone. A published version stays published."
 printf 'Type the version (%s) to continue: ' "$VERSION"
 read -r confirmation
@@ -256,20 +312,32 @@ wait_until_visible() {
 
 DONE=""
 CREATED=0
+CREATED_NAMES=""
 REMAINING=""
 
 for package in $TODO; do
-  if [ "$CREATED" -ge "$BUDGET" ]; then
-    REMAINING="$REMAINING $package"
-    continue
-  fi
+  new=0
+  is_new "$package" && new=1
 
-  # Four per two minutes. Waiting *before* the fifth is politer than being
-  # refused and retrying, and it keeps the run readable.
-  if [ "$CREATED" -gt 0 ] && [ $((CREATED % BURST_LIMIT)) -eq 0 ]; then
-    echo "-- $BURST_LIMIT published; waiting out the two-minute burst window"
-    sleep 125
-    echo
+  if [ "$new" = "1" ]; then
+    # The creation budget is spent. Everything left in the order may depend on
+    # this package, and a version whose dependency was never uploaded is the
+    # half-published set this script exists to avoid — so stop rather than
+    # skip ahead.
+    if [ "$CREATED" -ge "$BUDGET" ]; then
+      REMAINING="$REMAINING $package"
+      echo "-- the day's creation budget is spent; stopping before $package."
+      break
+    fi
+
+    # Four per two minutes, and only creations count against it. Waiting
+    # *before* the fifth is politer than being refused and retrying, and it
+    # keeps the run readable.
+    if [ "$CREATED" -gt 0 ] && [ $((CREATED % BURST_LIMIT)) -eq 0 ]; then
+      echo "-- $BURST_LIMIT created; waiting out the two-minute burst window"
+      sleep 125
+      echo
+    fi
   fi
 
   echo "== $package"
@@ -281,7 +349,10 @@ for package in $TODO; do
   if published_already "$package"; then
     wait_until_visible "$package"
     DONE="$DONE $package"
-    CREATED=$((CREATED + 1))
+    if [ "$new" = "1" ]; then
+      CREATED=$((CREATED + 1))
+      CREATED_NAMES="$CREATED_NAMES $package"
+    fi
     echo
     continue
   fi
@@ -293,7 +364,11 @@ for package in $TODO; do
     REMAINING="$REMAINING $package"
     if grep -q 'in the last day' "$log"; then
       echo
-      echo "-- pub.dev's daily limit of $DAILY_LIMIT new packages is reached."
+      if [ "$new" = "1" ]; then
+        echo "-- pub.dev's daily limit of $DAILY_LIMIT new packages is reached."
+      else
+        echo "-- pub.dev's daily publish limit for $package is reached."
+      fi
       break
     fi
     echo "-- burst limit; waiting two minutes and trying $package once more"
@@ -304,7 +379,10 @@ for package in $TODO; do
     if published_already "$package"; then
       REMAINING="${REMAINING% $package}"
       DONE="$DONE $package"
-      CREATED=$((CREATED + 1))
+      if [ "$new" = "1" ]; then
+        CREATED=$((CREATED + 1))
+        CREATED_NAMES="$CREATED_NAMES $package"
+      fi
       echo
       continue
     fi
@@ -330,7 +408,9 @@ done
 echo "published:${DONE:- nothing}"
 if [ -n "$REMAINING" ]; then
   WAIT_SECONDS=0
-  read -r _ WAIT_SECONDS <<<"$(daily_usage "$SKIPPED$DONE")" || true
+  # Every package pub.dev now knows: the ones it already had, plus the ones
+  # this run created. Passing a name twice would count its creation twice.
+  read -r _ WAIT_SECONDS <<<"$(daily_usage "$EXISTING$CREATED_NAMES")" || true
   WAIT_SECONDS=${WAIT_SECONDS:-0}
   echo "still to go:$REMAINING"
   echo
