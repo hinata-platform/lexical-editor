@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0
+
+**The caret no longer shrinks and rides up when a space is typed at the end of
+a line.** `getFullHeightForCaret` reports the height of the *glyph run* at the
+position, and for trailing whitespace the engine reports that run without the
+style's height multiplier — 16 logical pixels where the line is 27. The visible
+result was a caret that jumped the moment a space was typed, which reads as the
+space having broken something rather than as a measuring artefact.
+`RenderLexicalBlock.caretRect` now never returns a caret shorter than the line
+it sits on.
+
 ## 1.3.0
 
 **Dragging a selection no longer stutters.** Four things ran on every pointer

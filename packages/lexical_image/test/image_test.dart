@@ -419,6 +419,51 @@ void main() {
       expect(image.height, 200);
     });
 
+    testWidgets('an image that was never resized draws at its own size', (
+      tester,
+    ) async {
+      // The node spells "the image's own size" `0`; this widget spells it
+      // `null`. Forwarding the node's zero verbatim — which is exactly what
+      // the decorator builder does — used to force every freshly inserted
+      // image into a 0x0 box: uploaded, stored, exported, and invisible.
+      final editor = _editor();
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 400,
+              child: LexicalImageView(
+                editor: editor,
+                nodeKey: const NodeKey('1'),
+                src: pixel,
+                width: 0,
+                height: 0,
+                captionsEnabled: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Asserted on the box rather than on the painted size: a `data:` image
+      // decodes asynchronously, so nothing has intrinsic dimensions yet — and
+      // the defect is precisely that the box refuses to give it any room to
+      // report them in.
+      final box = tester.widget<SizedBox>(
+        find
+            .ancestor(
+              of: find.byType(Image),
+              matching: find.byType(SizedBox),
+            )
+            .first,
+      );
+      expect(box.width, isNull);
+      expect(box.height, isNull);
+    });
+
     testWidgets('a column with room draws the size the document asked for', (
       tester,
     ) async {

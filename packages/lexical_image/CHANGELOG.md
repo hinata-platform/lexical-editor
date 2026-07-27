@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0
+
+**An image that was never resized is no longer drawn 0x0.** `ImageNode` spells
+"the image's own size" as `0` and `LexicalImageView` spells it as `null`, and
+`imageDecoratorBuilders` forwarded the node's zero verbatim — so the `SizedBox`
+around every freshly inserted image forced it to nothing. The image was
+uploaded, inserted, stored and exported correctly, and completely invisible.
+The builder now maps `0` to `null`, and the view treats a non-positive
+dimension as the absence of one, so a caller that forwards the node's value
+directly gets the image rather than an empty box.
+
 ## 1.3.0
 
 No library changes. The packages version in lockstep — they are one library

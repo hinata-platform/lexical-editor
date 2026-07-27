@@ -129,8 +129,12 @@ class _LexicalImageViewState extends State<LexicalImageView> {
 
   Size? get _size {
     if (_dragging != null) return _dragging;
-    final width = widget.width;
-    final height = widget.height;
+    // A non-positive dimension is not a size, it is the absence of one. The
+    // node spells "the image's own size" `0` and this widget spells it `null`;
+    // treating the two the same here means a caller that forwards the node's
+    // value verbatim gets the image rather than a 0×0 box.
+    final width = (widget.width ?? 0) > 0 ? widget.width : null;
+    final height = (widget.height ?? 0) > 0 ? widget.height : null;
     if (width == null && height == null) return null;
     final ratio = _aspectRatio;
     return Size(

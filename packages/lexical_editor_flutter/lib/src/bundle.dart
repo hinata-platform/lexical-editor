@@ -342,6 +342,7 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
         widget.baseTextStyle,
         widget.palette,
       ),
+      surfaceBuilder: mentions.surfaceBuilder,
       decoration: mentions.resolveDecoration(widget.palette),
       emptyBuilder: mentions.emptyBuilder,
       loadingBuilder: mentions.loadingBuilder,

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0
+
+**The return key takes the highlighted suggestion even when it arrives as an
+input action.** A soft keyboard and the web engine's hidden input both send
+Enter as a `TextInputAction` rather than as a `KeyEvent`, so on exactly the
+platforms where a typeahead matters most it reached the editor as "insert a
+paragraph". The picker then closed because the text before the caret had
+changed — from the outside, Enter cancelling the mention. `MentionScope` now
+handles `inputActionCommand` alongside the key event.
+
+**`MentionScope.surfaceBuilder`** wraps the suggestion list in chrome a
+`Decoration` cannot draw — a blurred surface, a clipped shape, a painted rim.
+The popover was the one surface an application could not make its own, because
+a fill, a border and a shadow were all it was allowed to ask for.
+
 ## 1.3.0
 
 No library changes. The packages version in lockstep — they are one library

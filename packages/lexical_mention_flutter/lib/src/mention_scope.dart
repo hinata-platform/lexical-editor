@@ -19,6 +19,16 @@ typedef MentionItemBuilder =
       bool highlighted,
     );
 
+/// Wraps the suggestion list in the popover's own chrome.
+///
+/// The alternative — and the only thing there used to be — is a [Decoration],
+/// which can draw a fill, a border and a shadow and nothing else. An
+/// application whose surfaces are blurred, refracted or clipped to a shape a
+/// `BoxDecoration` cannot express had no way to say so, and its picker was the
+/// one popover in the product that looked like it came from somewhere else.
+typedef MentionSurfaceBuilder =
+    Widget Function(BuildContext context, Widget list);
+
 /// Builds the editable the popover is anchored to.
 ///
 /// The key must be passed to a [LexicalEditable]: it is how the popover
@@ -57,6 +67,7 @@ class MentionScope extends StatefulWidget {
     this.maxHeight = 240,
     this.gap = 4,
     this.decoration,
+    this.surfaceBuilder,
     this.emptyBuilder,
     this.loadingBuilder,
     this.label = defaultMentionLabel,
@@ -98,6 +109,11 @@ class MentionScope extends StatefulWidget {
   /// Popover chrome. A plain box when omitted.
   final Decoration? decoration;
 
+  /// Wraps the list in chrome a [Decoration] cannot draw — a blurred glass
+  /// surface, a clipped shape, a custom-painted rim. Takes precedence over
+  /// [decoration], which is left alone so the simple case stays one line.
+  final MentionSurfaceBuilder? surfaceBuilder;
+
   /// Shown when a search returned nothing. Hidden when omitted.
   final WidgetBuilder? emptyBuilder;
 
@@ -136,6 +152,7 @@ class MentionScopeState extends State<MentionScope> {
   StreamSubscription<MentionSearchState>? _subscription;
   Unsubscribe? _unsubscribeEditor;
   Unsubscribe? _unsubscribeKeys;
+  Unsubscribe? _unsubscribeActions;
   OverlayEntry? _entry;
   MentionSearchState _state = const MentionSearchState();
 
@@ -158,6 +175,17 @@ class MentionScopeState extends State<MentionScope> {
       _onKey,
       CommandPriority.critical,
     );
+    // The return key does not always arrive as a key event. A soft keyboard
+    // sends it as an input action, and so does the web engine's hidden input —
+    // so on exactly the platforms where a picker matters most, Enter reached
+    // the editor as "insert a paragraph" instead of "take the highlighted
+    // suggestion", and the picker closed because the text before the caret had
+    // changed. From the outside that is Enter cancelling the mention.
+    _unsubscribeActions = widget.editor.registerCommand<TextInputAction>(
+      inputActionCommand,
+      _onInputAction,
+      CommandPriority.critical,
+    );
   }
 
   @override
@@ -177,6 +205,7 @@ class MentionScopeState extends State<MentionScope> {
   @override
   void dispose() {
     _unsubscribeKeys?.call();
+    _unsubscribeActions?.call();
     _unsubscribeEditor?.call();
     _subscription?.cancel();
     _controller.dispose();
@@ -258,6 +287,19 @@ class MentionScopeState extends State<MentionScope> {
         return true;
     }
     return false;
+  }
+
+  /// The return key, arriving through the input method rather than the
+  /// keyboard. Same meaning as [_onKey]'s Enter: take the highlighted row.
+  bool _onInputAction(TextInputAction action) {
+    if (!isOpen) return false;
+    if (action != TextInputAction.newline && action != TextInputAction.done) {
+      return false;
+    }
+    final highlighted = _state.highlighted;
+    if (highlighted == null) return false;
+    accept(highlighted);
+    return true;
   }
 
   // -------------------------------------------------------------------
@@ -354,6 +396,7 @@ class MentionScopeState extends State<MentionScope> {
           emptyBuilder: widget.emptyBuilder,
           loadingBuilder: widget.loadingBuilder,
           decoration: widget.decoration,
+          surfaceBuilder: widget.surfaceBuilder,
           maxHeight: height,
           onSelected: accept,
         ),
@@ -394,6 +437,7 @@ class _MentionList extends StatelessWidget {
     this.emptyBuilder,
     this.loadingBuilder,
     this.decoration,
+    this.surfaceBuilder,
   });
 
   final MentionSearchState state;
@@ -401,6 +445,7 @@ class _MentionList extends StatelessWidget {
   final WidgetBuilder? emptyBuilder;
   final WidgetBuilder? loadingBuilder;
   final Decoration? decoration;
+  final MentionSurfaceBuilder? surfaceBuilder;
   final double maxHeight;
   final void Function(MentionSuggestion suggestion) onSelected;
 
@@ -431,12 +476,15 @@ class _MentionList extends StatelessWidget {
       );
     }
 
+    final surface = surfaceBuilder;
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
-      child: DecoratedBox(
-        decoration: decoration ?? const BoxDecoration(),
-        child: body,
-      ),
+      child: surface != null
+          ? surface(context, body)
+          : DecoratedBox(
+              decoration: decoration ?? const BoxDecoration(),
+              child: body,
+            ),
     );
   }
 }

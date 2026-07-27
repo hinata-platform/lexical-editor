@@ -58,6 +58,38 @@ void _select(LexicalEditor editor, int from, int to) {
 }
 
 void main() {
+  group('the caret', () {
+    testWidgets('a trailing space does not shrink it or lift it off the '
+        'line', (tester) async {
+      // `getFullHeightForCaret` reports the *glyph run* at the position, and
+      // for trailing whitespace the engine reports it without the style's
+      // height multiplier — 14 where the line is 19.6. The caret shrank and
+      // rode up to the top of the line the moment a space was typed at the end
+      // of it, which reads as the space having broken something.
+      final editor = _editor(['adsasda']);
+      await _pump(tester, editor);
+
+      final before = _block(0).render.caretRect(7);
+
+      editor.update(() {
+        final text =
+            ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode;
+        text.setTextContent('adsasda ');
+        text.select(8, 8);
+      }, discrete: true);
+      await tester.pump();
+
+      final after = _block(0).render.caretRect(8);
+
+      expect(after.height, before.height);
+      expect(after.top, before.top);
+      // It did move along by the width of the space, which is the one thing
+      // that should have changed.
+      expect(after.left, greaterThan(before.left));
+    });
+  });
+
   group('handles', () {
     testWidgets(
       'a long press selects a word and raises the handles',

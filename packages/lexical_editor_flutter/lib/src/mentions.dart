@@ -39,6 +39,7 @@ class LexicalMentions {
     this.emptyBuilder,
     this.loadingBuilder,
     this.decoration,
+    this.surfaceBuilder,
     this.debounce = const Duration(milliseconds: 150),
     this.limit = 8,
     this.width = 280,
@@ -69,6 +70,12 @@ class LexicalMentions {
 
   /// Popover chrome. Derived from the field's palette when omitted.
   final Decoration? decoration;
+
+  /// Wraps the suggestion list in chrome a [Decoration] cannot draw — a
+  /// blurred surface, a clipped shape, a painted rim. Takes precedence over
+  /// [decoration], so an application with its own material is not limited to
+  /// what a box can express.
+  final MentionSurfaceBuilder? surfaceBuilder;
 
   /// How long to wait after the last keystroke before searching.
   final Duration debounce;

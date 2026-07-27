@@ -108,6 +108,30 @@ void main() {
     expect(_scopeKey.currentState!.isOpen, isFalse);
   });
 
+  testWidgets('the return key inserts when it arrives as an input action', (
+    tester,
+  ) async {
+    // A soft keyboard and the web engine's hidden input both send Enter as an
+    // input action rather than as a key event, so on the platforms where a
+    // picker matters most it used to reach the editor as "insert a paragraph".
+    // The picker then closed because the text before the caret had changed,
+    // which from the outside is Enter cancelling the mention.
+    final editor = _editor();
+    await _pump(tester, editor);
+
+    editor.dispatchCommand(insertTextCommand, '@Reb');
+    await tester.pumpAndSettle();
+    expect(_scopeKey.currentState!.isOpen, isTrue);
+
+    await tester.testTextInput.receiveAction(TextInputAction.newline);
+    await tester.pumpAndSettle();
+
+    expect(_text(editor), 'cc @Rebar Ahmad ');
+    // And no paragraph was split off behind it.
+    expect(editor.read(() => $getRoot().childrenSize), 1);
+    expect(_scopeKey.currentState!.isOpen, isFalse);
+  });
+
   testWidgets('the inserted mention is one atomic node', (tester) async {
     final editor = _editor();
     await _pump(tester, editor);

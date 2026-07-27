@@ -134,8 +134,12 @@ imageDecoratorBuilders({
       nodeKey: image.key,
       src: image.src,
       altText: image.altText,
-      width: image.width,
-      height: image.height,
+      // The node says "the image's own size" with `0`; the view says it with
+      // `null`. Passing the zero straight through made `SizedBox` force every
+      // image that had never been resized to 0×0 — inserted, stored, exported
+      // and completely invisible.
+      width: image.width == 0 ? null : image.width,
+      height: image.height == 0 ? null : image.height,
       caption: image.showCaption ? image.captionText : null,
       limits: limits,
       resolver: resolver,

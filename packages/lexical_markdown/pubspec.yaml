@@ -3,7 +3,7 @@ description: >-
   Markdown import and export for lexical_core, built from composable
   transformers: headings, quotes, lists, code fences, links and inline
   formatting. Pure Dart.
-version: 1.3.0
+version: 1.4.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -13,11 +13,11 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_code: ^1.3.0
-  lexical_core: ^1.3.0
-  lexical_link: ^1.3.0
-  lexical_list: ^1.3.0
-  lexical_rich_text: ^1.3.0
+  lexical_code: ^1.4.0
+  lexical_core: ^1.4.0
+  lexical_link: ^1.4.0
+  lexical_list: ^1.4.0
+  lexical_rich_text: ^1.4.0
   meta: ^1.15.0
 
 dev_dependencies:

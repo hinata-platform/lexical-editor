@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+**`LexicalMentions.surfaceBuilder`** forwards to `MentionScope`, so a bundle
+user can give the typeahead its own material rather than the box a
+`Decoration` allows.
+
 ## 1.3.0
 
 No library changes. The packages version in lockstep — they are one library

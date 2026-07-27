@@ -1,6 +1,7 @@
 /// The render object that lays out and paints one block's inline content.
 library;
 
+import 'dart:math' as math;
 import 'dart:ui' as ui show TextBox;
 
 import 'package:flutter/foundation.dart';
@@ -435,7 +436,18 @@ class RenderLexicalBlock extends RenderBox
       _textPainter.preferredLineHeight,
     );
     final caretOffset = _textPainter.getOffsetForCaret(position, prototype);
-    final height = _textPainter.getFullHeightForCaret(position, prototype);
+    // Never shorter than the line it sits on.
+    //
+    // `getFullHeightForCaret` reports the height of the *glyph run* at the
+    // position, and for trailing whitespace the engine reports that run
+    // without the style's height multiplier — 16 where the line is 27. The
+    // visible result is a caret that shrinks and rides up to the top of the
+    // line the moment a space is typed at the end of it, which reads as the
+    // space having done something wrong rather than as a measuring artefact.
+    final height = math.max(
+      _textPainter.getFullHeightForCaret(position, prototype),
+      prototype.height,
+    );
     return Rect.fromLTWH(caretOffset.dx, caretOffset.dy, width, height);
   }
 

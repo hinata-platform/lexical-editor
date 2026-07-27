@@ -42,4 +42,5 @@ export 'src/mention_scope.dart'
         MentionEditableBuilder,
         MentionItemBuilder,
         MentionScope,
-        MentionScopeState;
+        MentionScopeState,
+        MentionSurfaceBuilder;
