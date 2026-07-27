@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+
+**An image that was never resized has drag handles now.** They need geometry,
+and geometry meant a *stored* size — so the only image anyone ever wants to
+resize, a freshly inserted one, was the one image that could not be. The size
+the image reports about itself is a size too, and the handles hang off that
+until the document has one of its own.
+
 ## 1.5.0
 
 **A `data:` image no longer re-resolves on every build.** `MemoryImage`

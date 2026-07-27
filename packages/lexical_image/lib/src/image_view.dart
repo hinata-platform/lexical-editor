@@ -233,7 +233,13 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     // value verbatim gets the image rather than a 0×0 box.
     final width = (widget.width ?? 0) > 0 ? widget.width : null;
     final height = (widget.height ?? 0) > 0 ? widget.height : null;
-    if (width == null && height == null) return null;
+    // Nothing stored, but the image has told us how big it is: that is a size,
+    // and until it counted as one an image that had never been resized had no
+    // geometry to hang handles off — so the only image anyone ever wants to
+    // resize, a freshly inserted one, was the one image that could not be.
+    // Before the first frame decodes there is still nothing, which is what the
+    // outline-only branch upstream draws.
+    if (width == null && height == null) return _intrinsic;
     final ratio = _aspectRatio;
     return Size(
       width ?? (height != null && ratio != null ? height * ratio : 0),

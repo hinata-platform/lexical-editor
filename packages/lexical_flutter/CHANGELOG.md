@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.6.0
+
+**Space no longer scrolls the page instead of typing.**
+`DefaultTextEditingShortcuts` — which `WidgetsApp` installs over the whole
+application — binds space, and a handful of other keys, to text intents that
+only `EditableText` supplies actions for. Unhandled, the binding fell through
+and the key carried on up the widget tree; what sits above an editor is a
+scrollable, so finishing a word threw the page a screen down and the character
+never arrived. `LexicalEditable` now supplies
+`DoNothingAndStopPropagationTextIntent` the same way `EditableText` does, with
+`consumesKey: false`: the intent is handled so the key stops travelling, and
+the key itself is left unconsumed so the input method still delivers it.
+
 ## 1.5.0
 
 No library changes. The packages version in lockstep — they are one library

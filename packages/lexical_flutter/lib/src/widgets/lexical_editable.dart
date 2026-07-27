@@ -1204,77 +1204,96 @@ class LexicalEditableState extends State<LexicalEditable> {
       );
     }
 
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: widget.autofocus,
-      onKeyEvent: _onKeyEvent,
-      child: hover(
-        NotificationListener<ScrollNotification>(
-          // Handles that stay behind while the text scrolls away are worse
-          // than no handles at all.
-          onNotification: (_) {
-            _overlay?.update();
-            return false;
-          },
-          child: RawGestureDetector(
-            behavior: HitTestBehavior.opaque,
-            gestures: <Type, GestureRecognizerFactory>{
-              TapGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                    TapGestureRecognizer.new,
-                    (instance) => instance
-                      ..onTapDown = _onTapDown
-                      ..onTapUp = _onTapUp
-                      ..onSecondaryTapDown = _onSecondaryTapDown,
-                  ),
-              DoubleTapGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<
-                    DoubleTapGestureRecognizer
-                  >(
-                    DoubleTapGestureRecognizer.new,
-                    (instance) =>
-                        instance.onDoubleTapDown = (details) =>
-                            _selectWordAt(details.globalPosition),
-                  ),
-              LongPressGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<
-                    LongPressGestureRecognizer
-                  >(
-                    LongPressGestureRecognizer.new,
-                    (instance) => instance
-                      ..onLongPressStart = (details) {
-                        requestFocus();
-                        hideToolbar();
-                        _selectWordAt(details.globalPosition);
-                        if (_wantsHandles) showHandles();
-                      }
-                      ..onLongPressMoveUpdate = (details) {
-                        _placeCaret(details.globalPosition, extend: true);
-                      }
-                      ..onLongPressEnd = (_) {
-                        if (_selection?.hasRange ?? false) showToolbar();
-                      },
-                  ),
-              // Mouse and trackpad only: a touch drag has to reach the
-              // scrollable, or the document cannot be scrolled at all. Touch
-              // selection goes through long-press-and-drag instead, which is
-              // what every platform does.
-              PanGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
-                    () => PanGestureRecognizer(
-                      supportedDevices: const {
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.stylus,
-                        PointerDeviceKind.invertedStylus,
-                      },
-                    ),
-                    (instance) => instance
-                      ..onStart = _onDragStart
-                      ..onUpdate = _onDragUpdate
-                      ..onEnd = _onDragEnd,
-                  ),
+    return Actions(
+      // The one action that makes a custom editable behave like a text field.
+      //
+      // `DefaultTextEditingShortcuts` — which `WidgetsApp` installs over the
+      // whole application — binds space, backspace, the arrows and the rest to
+      // text intents. `EditableText` supplies the matching actions; anything
+      // that is *not* an `EditableText` does not, so those intents go
+      // unhandled and the key carries on up the tree to whatever is above.
+      // For space that is a scrollable, and the visible result is the page
+      // jumping a screen down every time a word is finished. `consumesKey:
+      // false` is what `EditableText` uses and what is wanted here too: the
+      // intent is handled so the key stops travelling, and the key itself is
+      // left unconsumed so the input method still delivers the character.
+      actions: <Type, Action<Intent>>{
+        DoNothingAndStopPropagationTextIntent: DoNothingAction(
+          consumesKey: false,
+        ),
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: widget.autofocus,
+        onKeyEvent: _onKeyEvent,
+        child: hover(
+          NotificationListener<ScrollNotification>(
+            // Handles that stay behind while the text scrolls away are worse
+            // than no handles at all.
+            onNotification: (_) {
+              _overlay?.update();
+              return false;
             },
-            child: document,
+            child: RawGestureDetector(
+              behavior: HitTestBehavior.opaque,
+              gestures: <Type, GestureRecognizerFactory>{
+                TapGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                      TapGestureRecognizer.new,
+                      (instance) => instance
+                        ..onTapDown = _onTapDown
+                        ..onTapUp = _onTapUp
+                        ..onSecondaryTapDown = _onSecondaryTapDown,
+                    ),
+                DoubleTapGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      DoubleTapGestureRecognizer
+                    >(
+                      DoubleTapGestureRecognizer.new,
+                      (instance) =>
+                          instance.onDoubleTapDown = (details) =>
+                              _selectWordAt(details.globalPosition),
+                    ),
+                LongPressGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      LongPressGestureRecognizer
+                    >(
+                      LongPressGestureRecognizer.new,
+                      (instance) => instance
+                        ..onLongPressStart = (details) {
+                          requestFocus();
+                          hideToolbar();
+                          _selectWordAt(details.globalPosition);
+                          if (_wantsHandles) showHandles();
+                        }
+                        ..onLongPressMoveUpdate = (details) {
+                          _placeCaret(details.globalPosition, extend: true);
+                        }
+                        ..onLongPressEnd = (_) {
+                          if (_selection?.hasRange ?? false) showToolbar();
+                        },
+                    ),
+                // Mouse and trackpad only: a touch drag has to reach the
+                // scrollable, or the document cannot be scrolled at all. Touch
+                // selection goes through long-press-and-drag instead, which is
+                // what every platform does.
+                PanGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+                      () => PanGestureRecognizer(
+                        supportedDevices: const {
+                          PointerDeviceKind.mouse,
+                          PointerDeviceKind.stylus,
+                          PointerDeviceKind.invertedStylus,
+                        },
+                      ),
+                      (instance) => instance
+                        ..onStart = _onDragStart
+                        ..onUpdate = _onDragUpdate
+                        ..onEnd = _onDragEnd,
+                    ),
+              },
+              child: document,
+            ),
           ),
         ),
       ),

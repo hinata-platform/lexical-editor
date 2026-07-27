@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0
+
+**`lexicalDecoratorBuilders(imagePlaceholderBuilder:)`** forwards to the image
+builder. A stand-in that cannot say *which* image failed, or offer to try
+again, leaves a grey box and no way forward — and the bundle was the one path
+that could not replace it.
+
 ## 1.5.0
 
 **`lexicalDecoratorBuilders(imageStyle:)`** forwards a `LexicalImageStyle`, so

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -487,6 +489,67 @@ void main() {
       );
       expect(box.width, isNull);
       expect(box.height, isNull);
+    });
+
+    testWidgets('an image that was never resized still offers handles', (
+      tester,
+    ) async {
+      // Handles need geometry, and geometry used to mean a *stored* size — so
+      // the only image anyone ever wants to resize, a freshly inserted one,
+      // was the one image that could not be. The size the image reports is a
+      // size too.
+      final editor = _editor();
+      final stable = MemoryImage(
+        base64Decode(pixel.substring(pixel.indexOf(',') + 1)),
+      );
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 400,
+              child: LexicalImageView(
+                editor: editor,
+                nodeKey: const NodeKey('1'),
+                src: pixel,
+                width: 0,
+                height: 0,
+                captionsEnabled: false,
+                resolver: (_) => stable,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await precacheImage(stable, tester.element(find.byType(Image)));
+      });
+      await tester.pumpAndSettle();
+
+      // Hover is what reveals them, the same as for a sized image.
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.byType(Image)));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(MouseRegion, skipOffstage: false),
+        findsWidgets,
+        reason: 'no handle regions were built',
+      );
+      expect(
+        tester
+            .widgetList<MouseRegion>(find.byType(MouseRegion))
+            .where(
+              (region) =>
+                  region.cursor == SystemMouseCursors.resizeUpLeftDownRight,
+            ),
+        isNotEmpty,
+        reason: 'the corner handles are missing',
+      );
     });
 
     testWidgets('a column with room draws the size the document asked for', (

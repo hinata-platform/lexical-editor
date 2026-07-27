@@ -54,6 +54,37 @@ Future<void> _pumpEditable(
 }
 
 void main() {
+  group('keys the editor does not handle', () {
+    testWidgets('space is claimed rather than left to travel up the tree', (
+      tester,
+    ) async {
+      // `DefaultTextEditingShortcuts`, which `WidgetsApp` installs over the
+      // whole application, binds space to a text intent that only
+      // `EditableText` supplies an action for. Unhandled, the
+      // binding falls through and the key carries on up the tree; what is above
+      // an editor is a scrollable, so finishing a word threw the page a screen
+      // down. Asserted as "the intent resolves from the focused context",
+      // because that is the fix: a key that no longer travels is what it buys,
+      // and a widget test has no browser to show it in.
+      final editor = _editor(['Hallo']);
+      await _pumpEditable(tester, editor);
+
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      final action = Actions.maybeFind<Intent>(
+        focused,
+        intent: const DoNothingAndStopPropagationTextIntent(),
+      );
+
+      expect(action, isA<DoNothingAction>());
+      // Not consumed: the intent is handled so the key stops travelling, while
+      // the key itself still reaches the input method and types its character.
+      expect(
+        action!.consumesKey(const DoNothingAndStopPropagationTextIntent()),
+        isFalse,
+      );
+    });
+  });
+
   testWidgets('a tap places the caret where it landed', (tester) async {
     final editor = _editor(['Hallo Welt', 'Zweiter Absatz']);
     await _pumpEditable(tester, editor);

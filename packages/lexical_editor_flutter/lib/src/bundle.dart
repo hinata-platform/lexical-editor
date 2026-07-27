@@ -127,6 +127,7 @@ Map<String, DecoratorBuilder> lexicalDecoratorBuilders({
   bool editable = true,
   bool captionsEnabled = true,
   LexicalImageStyle imageStyle = const LexicalImageStyle(),
+  Widget Function(BuildContext context, String src)? imagePlaceholderBuilder,
   EmbedOpener? onOpenEmbed,
   EmbedThumbnailResolver embedThumbnails = defaultEmbedThumbnailResolver,
 }) => <String, DecoratorBuilder>{
@@ -137,6 +138,7 @@ Map<String, DecoratorBuilder> lexicalDecoratorBuilders({
     editable: editable,
     captionsEnabled: captionsEnabled,
     style: imageStyle,
+    placeholderBuilder: imagePlaceholderBuilder,
   ),
   ...embedDecoratorBuilders(
     onOpen: onOpenEmbed,
