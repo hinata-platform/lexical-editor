@@ -69,6 +69,30 @@ jobs:
         with:
           channel: stable
 
+      # Having the OIDC token is not the same as pub having it. `setup-dart`
+      # performs this exchange as part of its own setup, which is why the
+      # published recipe never mentions it — but these are Flutter packages,
+      # `flutter-action` is the setup action, and it does not. Without this
+      # step pub finds no credentials at all and falls back to the interactive
+      # login, which is the hang the check above describes.
+      - name: Hand the OIDC token to pub
+        run: |
+          PUB_TOKEN="$(curl --retry 5 --retry-connrefused -sSLf \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://pub.dev" \
+            -H "User-Agent: actions/oidc-client" \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            | jq -r '.value')"
+          if [ -z "$PUB_TOKEN" ] || [ "$PUB_TOKEN" = "null" ]; then
+            echo "::error::The OIDC endpoint returned no token for audience https://pub.dev."
+            exit 1
+          fi
+          # Never let it reach a log, including through a later failure.
+          echo "::add-mask::$PUB_TOKEN"
+          echo "PUB_TOKEN=$PUB_TOKEN" >> "$GITHUB_ENV"
+          # Records *where* the token comes from, not the token itself, so it
+          # is read from the environment at upload time.
+          dart pub token add https://pub.dev --env-var PUB_TOKEN
+
       - name: Resolve workspace
         run: flutter pub get
 
