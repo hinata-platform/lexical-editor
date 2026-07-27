@@ -40,6 +40,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `pub publish` authenticates as this workflow through the OIDC token
+      # GitHub mints when `id-token: write` is granted. When that token is not
+      # there, pub does not fail — it falls back to an interactive browser
+      # login, prints a Google URL and waits for a click that a runner can
+      # never produce. The job then sits at "Waiting for your authorization..."
+      # until it times out, six hours later, and GitHub writes no log until it
+      # ends, so the run looks busy and says nothing. Checking first turns that
+      # into an immediate, explanatory failure.
+      #
+      # Runs on a manual dispatch as well as on a tag: this is the one step
+      # worth being able to run without publishing anything.
+      - name: OIDC token is actually available
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "ACTIONS_ID_TOKEN_REQUEST_URL is not set, so pub would fall"
+            echo "back to an interactive login and hang. Check:"
+            echo "  1. Settings -> Actions -> General -> Workflow permissions"
+            echo "  2. pub.dev, per package: Admin -> Automated publishing,"
+            echo "     repository hinata-platform/lexical-editor,"
+            echo "     tag pattern v{{version}}"
+            echo "::error::No OIDC token — pub would hang on an interactive login. See the log for what to check."
+            exit 1
+          fi
+          echo "OIDC endpoint present — pub will authenticate as this workflow."
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
