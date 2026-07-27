@@ -163,6 +163,26 @@ typedef DecoratorBuilder =
 typedef TokenBuilder =
     Widget Function(BuildContext context, TextNode node, TextStyle style);
 
+/// Draws something immediately before the contents of an inline element.
+///
+/// What a `TextStyle` cannot do: put a mark *beside* a run. A link is the case
+/// this exists for — colour and an underline are the whole vocabulary text
+/// styling has for "this goes somewhere", and in a document where headings and
+/// mentions are also coloured, that is not much.
+///
+/// The widget occupies **one position** in the laid-out text, the same as an
+/// inline decorator, and the offset map is told about it — so a caret placed
+/// on it resolves to the boundary before the element rather than to a hole in
+/// the block. It holds no text: nothing is inserted into the document, nothing
+/// is serialized, and a Lexical web client sees the same link it wrote.
+///
+/// Returning `null` draws nothing, which is how a builder can decide per node
+/// — an internal link marked differently from an outbound one, say.
+///
+/// {@macro lexical_flutter.builder_read_scope}
+typedef InlinePrefixBuilder =
+    Widget? Function(BuildContext context, ElementNode node, TextStyle style);
+
 /// Lays out a block whose children are not simply stacked.
 ///
 /// [buildChild] builds any node in the subtree, applying the theme and
@@ -192,6 +212,7 @@ class LexicalTheme {
     this.markerBuilders = const {},
     this.blockLayouts = const {},
     this.tokenBuilders = const {},
+    this.inlinePrefixes = const {},
     this.styleResolver = defaultCssStyleResolver,
     this.defaultBlockStyle = const BlockStyle(),
     this.linkStyle,
@@ -241,6 +262,13 @@ class LexicalTheme {
   /// The entry point for chip-shaped mentions; see [TokenBuilder] for what a
   /// builder is handed and why only token-mode nodes qualify.
   final Map<String, TokenBuilder> tokenBuilders;
+
+  /// Per-node-type builders for a mark drawn before an inline element's
+  /// contents, keyed on type — `link` being the one that earns its keep.
+  ///
+  /// See [InlinePrefixBuilder] for what the widget costs: one position in the
+  /// laid-out text, and nothing at all in the document.
+  final Map<String, InlinePrefixBuilder> inlinePrefixes;
 
   /// Interprets a node's raw CSS `style` string.
   final CssStyleResolver styleResolver;

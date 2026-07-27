@@ -3,7 +3,7 @@ description: >-
   Flutter rendering, selection and input layer for lexical_core: a dirty-set
   reconciler, one render object per block, InlineSpan building with a
   bidirectional offset map, theming and IME integration.
-version: 1.6.1
+version: 1.7.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -16,7 +16,7 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  lexical_core: ^1.6.0
+  lexical_core: ^1.7.0
   meta: ^1.15.0
 
 dev_dependencies:

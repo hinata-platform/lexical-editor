@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.7.0
+
+**An image can be resized with a finger.** It never could: a resize handle
+sits inside whatever scrolls the document, and against an ordinary pan the
+scrollable wins — a vertical drag declares itself after `kTouchSlop`, a pan
+only after `kPanSlop`, which is twice as far, so the scroll view reached its
+threshold first every time and the drag never started. With a mouse it always
+worked, because a scroll view does not accept mouse drags at all, which is
+exactly why this went unnoticed. A pointer that goes down on a handle now
+claims the gesture at once: there is nothing to arbitrate.
+
+**And it can be hit.** The dot is centred on the edge it moves, so half of it
+— three quarters, at a corner — hung outside the stack, and a stack does not
+hit-test outside its own box. What was left of a 10-pixel dot was smaller than
+the error in where a finger thinks it is. The area that takes the drag is now
+`LexicalImageStyle.handleTouchSize` (32 by default), held inside the picture
+and shrunk on a small one so eight targets do not swallow each other, while
+the dot stays exactly where it was drawn — and is no longer clipped in half by
+the stack it hangs over.
+
+**A tap on a handle no longer edits the document.** Claiming the pointer on
+the way down means a tap arrives as a drag of zero pixels, and writing back
+the size it already has is still an edit: a dirty document, an undo step and a
+save, for touching a picture.
+
 ## 1.6.1
 
 **An image no longer leaks a decoded picture on every rebuild.** The size a

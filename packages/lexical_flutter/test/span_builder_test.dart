@@ -334,6 +334,93 @@ void main() {
     });
   });
 
+  group('an inline prefix', () {
+    /// "vor " + an anchor holding "Ziel" + " nach".
+    LexicalEditor seed() {
+      final editor = LexicalEditor(
+        nodes: [NodeSpec<_Anchor>(type: 'anchor', create: _Anchor.new)],
+      );
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createTextNode('vor '))
+              ..append(_Anchor()..append($createTextNode('Ziel')))
+              ..append($createTextNode(' nach')),
+          );
+      }, discrete: true);
+      return editor;
+    }
+
+    final theme = LexicalTheme(
+      baseTextStyle: const TextStyle(fontSize: 14),
+      inlinePrefixes: {
+        'anchor': (context, node, style) => const SizedBox(width: 8, height: 8),
+      },
+    );
+
+    BuiltBlockSpan build(LexicalEditor editor, BuildContext context) =>
+        editor.read(() {
+          final block = $getRoot().getFirstChild()! as ElementNode;
+          return SpanBuilder(theme: theme, context: context).buildBlock(block);
+        });
+
+    testWidgets('occupies one position and no characters of document', (
+      tester,
+    ) async {
+      final editor = seed();
+      await withContext(tester, (context) {
+        final built = build(editor, context);
+
+        // One placeholder, exactly where the element begins.
+        expect(built.offsets.flatText, 'vor \u{fffc}Ziel nach');
+        expect(built.hasDecorators, isTrue);
+        // The document itself is untouched: the mark is presentation.
+        expect(editor.read(() => $getRoot().getTextContent()), 'vor Ziel nach');
+      });
+    });
+
+    testWidgets('everything after it still maps to the right place', (
+      tester,
+    ) async {
+      // The whole hazard of drawing something inline: it shifts every offset
+      // behind it, and the offset map is what the caret, the IME and the
+      // selection all speak.
+      final editor = seed();
+      await withContext(tester, (context) {
+        final built = build(editor, context);
+        final target = editor.read(
+          () =>
+              (($getRoot().getFirstChild()! as ElementNode).getChildAtIndex(1)!
+                      as ElementNode)
+                  .getFirstChild()!,
+        );
+
+        expect(built.offsets.flatOffsetFor(target.key, 0, PointType.text), 5);
+        expect(built.offsets.pointFor(6).key, target.key);
+        expect(built.offsets.pointFor(6).offset, 1);
+      });
+    });
+
+    testWidgets('is a boundary, not a thing with two sides', (tester) async {
+      // A tap on the mark belongs in front of what it marks. Read as an
+      // ordinary one-position run, its right-hand side would mean "one child
+      // further on" — the caret would land past the entire link that its own
+      // icon was pointing at.
+      final editor = seed();
+      await withContext(tester, (context) {
+        final built = build(editor, context);
+        final block = editor.read(() => $getRoot().getFirstChild()!.key);
+
+        final point = built.offsets.pointFor(5);
+        expect(point.type, PointType.element);
+        expect(point.key, block);
+        expect(point.offset, 1, reason: 'the caret skipped over the link');
+      });
+    });
+  });
+
   testWidgets('a builder for an editable text node is refused', (tester) async {
     // Its widget would occupy one position while the node holds many
     // characters, so every offset after it in the block would be wrong. In
@@ -372,6 +459,21 @@ void main() {
       );
     });
   });
+}
+
+/// An inline element with a type of its own — a link, in everything that
+/// matters here.
+class _Anchor extends ElementNode {
+  _Anchor();
+
+  @override
+  String get type => 'anchor';
+
+  @override
+  bool get isInline => true;
+
+  @override
+  _Anchor clone() => _Anchor();
 }
 
 /// A text node with its own type, standing in for a mention or a hashtag.

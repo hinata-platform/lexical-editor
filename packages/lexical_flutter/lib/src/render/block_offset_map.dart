@@ -123,6 +123,10 @@ final class BlockOffsetMap {
     for (final segment in segments) {
       if (segment.key != key) continue;
       if (type == PointType.element) {
+        // A mark that stands for nothing in the model — an inline prefix —
+        // is the boundary *before* the element and nothing else. Anything
+        // further in is somewhere the mark cannot answer for.
+        if (segment.modelLength == 0 && offset > 0) continue;
         // An element-typed point addresses a child index, which has no flat
         // position of its own; it maps to the boundary of that child.
         return segment.flatStart;
@@ -162,9 +166,17 @@ final class BlockOffsetMap {
         if (segment.type == PointType.element) {
           // A run with no addressable interior — a decorator or a line break.
           final atEnd = clamped == segment.flatEnd;
+          // Unless it stands for nothing in the model. An inline prefix marks
+          // the element that follows it, so both of its sides are the same
+          // position: the one in front of that element. Reading its right-hand
+          // side as "one child further on" would put the caret past the whole
+          // link a tap on its own icon was aiming at.
+          final boundary = segment.modelLength == 0;
           return ResolvedPoint(
             segment.parent,
-            atEnd ? segment.indexInParent + 1 : segment.indexInParent,
+            atEnd && !boundary
+                ? segment.indexInParent + 1
+                : segment.indexInParent,
             PointType.element,
           );
         }

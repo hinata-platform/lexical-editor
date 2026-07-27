@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.0
+
+**`LexicalTheme.inlinePrefixes`** — a widget drawn immediately before the
+contents of an inline element, keyed by node type. What a `TextStyle` cannot
+do is put a mark *beside* a run: colour and an underline are the whole
+vocabulary text styling has for "this goes somewhere", and in a document where
+headings and mentions are also coloured, that is not much. A link can carry a
+link icon now.
+
+The mark occupies one position in the laid-out text and **nothing at all in
+the document** — nothing is inserted, nothing is serialized, and a Lexical web
+client sees the link it wrote. The offset map is told about it, so the caret,
+the IME and the selection all keep their footing: it is registered as the
+*boundary* in front of the element rather than as a run with two sides, which
+is what keeps a tap on a link's own icon from landing the caret past the whole
+link.
+
 ## 1.6.1
 
 No library changes. The packages version in lockstep — they are one library

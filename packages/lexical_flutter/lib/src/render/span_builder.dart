@@ -156,6 +156,42 @@ final class SpanBuilder {
             children.add(_decoratorSpan(decorator, inherited));
           case final ElementNode inline when inline.isInline:
             final style = _inlineElementStyle(inline, inherited);
+            final prefix = theme.inlinePrefixes[inline.type]?.call(
+              context,
+              inline,
+              style,
+            );
+            if (prefix != null) {
+              hasDecorators = true;
+              // The mark holds no text, so it is not the element's content —
+              // it is the boundary *before* it, which is exactly the point a
+              // caret lands on. Registering it as such is what keeps the flat
+              // offsets it shifts from becoming a hole in the block: without a
+              // segment covering this position, a tap on the mark resolves to
+              // the start of the whole block.
+              segments.add(
+                OffsetSegment(
+                  key: inline.key,
+                  flatStart: buffer.length,
+                  flatLength: 1,
+                  modelLength: 0,
+                  type: PointType.element,
+                  parent: parent.key,
+                  indexInParent: index,
+                ),
+              );
+              buffer.write('￼');
+              children.add(
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  baseline: TextBaseline.alphabetic,
+                  child: KeyedSubtree(
+                    key: ValueKey<String>('lexical-prefix-${inline.key.value}'),
+                    child: prefix,
+                  ),
+                ),
+              );
+            }
             visit(inline, style);
           default:
             // A block child ends the inline run; the caller lays it out.

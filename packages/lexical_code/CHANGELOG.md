@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0
+
+No library changes. The packages version in lockstep — they are one library
+split for pay-for-what-you-use, not a set of independent projects — so this
+release keeps the set on one version. See `lexical_image` and
+`lexical_flutter` for what changed.
+
 ## 1.6.1
 
 No library changes. The packages version in lockstep — they are one library

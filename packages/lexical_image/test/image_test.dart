@@ -815,6 +815,126 @@ void main() {
       expect(commits, 1);
     });
   });
+
+  group('dragging a handle with a finger', () {
+    const pixel =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAAB'
+        'AAEAAAIBRAA7';
+
+    /// The same 200x100 image, inside something that scrolls — which is where
+    /// every document is.
+    Future<(LexicalEditor, ScrollController)> pumpScrolled(
+      WidgetTester tester,
+    ) async {
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createImageNode(src: pixel, width: 200, height: 100)),
+          );
+      }, discrete: true);
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 900,
+              height: 300,
+              child: ListView(
+                controller: controller,
+                children: [
+                  _ImageHost(editor: editor),
+                  const SizedBox(height: 1200),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // A finger reveals the handles by tapping the picture; there is no
+      // hover to do it.
+      await tester.tap(find.byType(Image));
+      await tester.pump();
+      return (editor, controller);
+    }
+
+    testWidgets('resizes the image instead of scrolling the page', (
+      tester,
+    ) async {
+      // What was reported: on a phone an image cannot be dragged at all. A
+      // scrollable's vertical drag declares itself after `kTouchSlop` and a
+      // pan only after `kPanSlop`, twice as far — so the scroll view won every
+      // arena and the handle never started. With a mouse it always worked,
+      // because a scroll view does not accept mouse drags at all, which is
+      // exactly why this went unnoticed.
+      final (editor, controller) = await pumpScrolled(tester);
+      final image = tester.getRect(find.byType(Image));
+
+      // A shade inside the corner: a box does not hit-test its own far edge,
+      // so the exact bottom-right pixel belongs to nothing.
+      final finger = await tester.startGesture(
+        image.bottomRight - const Offset(2, 2),
+        kind: PointerDeviceKind.touch,
+      );
+      await finger.moveBy(const Offset(30, 15));
+      await tester.pump();
+      await finger.moveBy(const Offset(30, 15));
+      await tester.pump();
+      await finger.up();
+      await tester.pump();
+
+      expect(_storedWidth(editor), 260);
+      expect(controller.offset, 0, reason: 'the page scrolled instead');
+    });
+
+    testWidgets('takes a touch that misses the dot by a finger width', (
+      tester,
+    ) async {
+      // The dot is 10 logical pixels and sits *centred* on the corner, so half
+      // of it — three quarters, at a corner — hangs outside the stack, where
+      // nothing is hit-tested at all. What is left is smaller than the error
+      // in where a finger thinks it is.
+      final (editor, _) = await pumpScrolled(tester);
+      final image = tester.getRect(find.byType(Image));
+
+      final finger = await tester.startGesture(
+        image.bottomRight - const Offset(12, 12),
+        kind: PointerDeviceKind.touch,
+      );
+      await finger.moveBy(const Offset(60, 30));
+      await tester.pump();
+      await finger.up();
+      await tester.pump();
+
+      expect(_storedWidth(editor), 260);
+    });
+
+    testWidgets('a tap on a handle does not edit the document', (tester) async {
+      // A handle claims its pointer the moment it goes down, so a tap arrives
+      // as a drag of zero pixels. Writing the size it already has would still
+      // be an edit: an undo step and a save, for touching a picture.
+      final (editor, _) = await pumpScrolled(tester);
+      var commits = 0;
+      final unsubscribe = editor.registerUpdateListener((_) => commits++);
+      addTearDown(unsubscribe);
+
+      await tester.tapAt(
+        tester.getRect(find.byType(Image)).bottomRight - const Offset(2, 2),
+      );
+      await tester.pump();
+
+      expect(commits, 0);
+      expect(_storedWidth(editor), 200);
+    });
+  });
 }
 
 /// The stored width of the one image in [editor].

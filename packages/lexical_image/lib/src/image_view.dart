@@ -1,6 +1,8 @@
 /// The widget an [ImageNode] is drawn with.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
@@ -78,6 +80,7 @@ class LexicalImageStyle {
     this.handleFill,
     this.handleBorder = const Color(0xFFFFFFFF),
     this.handleSize = 10,
+    this.handleTouchSize = 32,
     this.handleRadius = 0,
     this.outlineWidth = 1.5,
     this.handleShadows = const <BoxShadow>[],
@@ -95,6 +98,16 @@ class LexicalImageStyle {
   /// Edge length of a drag handle, in logical pixels.
   final double handleSize;
 
+  /// Edge length of the area that *takes* a handle's drag.
+  ///
+  /// A dot small enough to sit on the corner of a picture without covering it
+  /// is far too small to hit with a finger, so the thing you grab is larger
+  /// than the thing you see. It is also kept inside the image: a stack does
+  /// not hit-test outside its own box, so the half of a handle that hangs over
+  /// the edge cannot be touched at all — and on a small image the target
+  /// shrinks rather than swallowing its neighbours.
+  final double handleTouchSize;
+
   /// Corner radius of a drag handle. Zero is a square.
   final double handleRadius;
 
@@ -111,6 +124,7 @@ class LexicalImageStyle {
       other.handleFill == handleFill &&
       other.handleBorder == handleBorder &&
       other.handleSize == handleSize &&
+      other.handleTouchSize == handleTouchSize &&
       other.handleRadius == handleRadius &&
       other.outlineWidth == outlineWidth &&
       listEquals(other.handleShadows, handleShadows);
@@ -121,6 +135,7 @@ class LexicalImageStyle {
     handleFill,
     handleBorder,
     handleSize,
+    handleTouchSize,
     handleRadius,
     outlineWidth,
     Object.hashAll(handleShadows),
@@ -409,8 +424,17 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   /// Writes the size to the document — once, at the end of the drag.
   void _onDragEnd() {
     final size = _dragging;
+    final start = _dragStart;
     _dragStart = null;
     if (size == null) return;
+    // Nothing moved. A handle claims its pointer the moment it goes down, so
+    // a tap that lands on one arrives here as a drag of zero pixels — and
+    // writing the size it already has would still be an edit: a dirty
+    // document, an undo step, and a save, for touching a picture.
+    if (size == start) {
+      setState(() => _dragging = null);
+      return;
+    }
     // Discrete, so the document has the new size *before* the dragged size is
     // dropped. A scheduled commit would leave one frame in which neither is
     // in effect, and the image would snap back to its old size and forward
@@ -458,6 +482,10 @@ class _LexicalImageViewState extends State<LexicalImageView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
+                // A handle is centred on the edge it moves, so half of it is
+                // outside the picture. Clipped, it read as a tab stuck to the
+                // border rather than as something to grab.
+                clipBehavior: Clip.none,
                 children: [
                   SizedBox(
                     width: size?.width,
@@ -590,19 +618,41 @@ class _HandleDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dot = style.handleSize;
-    final x = switch (handle.horizontal) {
-      < 0 => -dot / 2,
-      > 0 => size.width - dot / 2,
-      _ => size.width / 2 - dot / 2,
+    final centerX = switch (handle.horizontal) {
+      < 0 => 0.0,
+      > 0 => size.width,
+      _ => size.width / 2,
     };
-    final y = switch (handle.vertical) {
-      < 0 => -dot / 2,
-      > 0 => size.height - dot / 2,
-      _ => size.height / 2 - dot / 2,
+    final centerY = switch (handle.vertical) {
+      < 0 => 0.0,
+      > 0 => size.height,
+      _ => size.height / 2,
     };
+
+    // What is grabbed, as opposed to what is seen. Held inside the image on
+    // both axes: a stack does not hit-test outside its own box, so anything
+    // hanging over the edge is not there as far as a pointer is concerned —
+    // which used to be half of every handle and three quarters of a corner.
+    // A third of the shorter side is the ceiling, so a small picture does not
+    // end up as eight overlapping targets.
+    final room = math.min(size.width, size.height) / 3;
+    final target = math.max(dot, math.min(style.handleTouchSize, room));
+    final left = clampDouble(
+      centerX - target / 2,
+      0,
+      math.max(0, size.width - target),
+    );
+    final top = clampDouble(
+      centerY - target / 2,
+      0,
+      math.max(0, size.height - target),
+    );
+
     return Positioned(
-      left: x,
-      top: y,
+      left: left,
+      top: top,
+      width: target,
+      height: target,
       child: MouseRegion(
         cursor: switch (handle) {
           ImageHandle.left ||
@@ -613,29 +663,81 @@ class _HandleDot extends StatelessWidget {
           ImageHandle.bottomRight => SystemMouseCursors.resizeUpLeftDownRight,
           _ => SystemMouseCursors.resizeUpRightDownLeft,
         },
-        child: GestureDetector(
+        child: RawGestureDetector(
           // The handle sits over the image, which has its own tap handler;
           // claiming the drag here keeps the two from fighting.
           behavior: HitTestBehavior.opaque,
-          dragStartBehavior: DragStartBehavior.down,
-          onPanStart: (details) => onStart(details.globalPosition),
-          onPanUpdate: (details) => onUpdate(details.globalPosition),
-          onPanEnd: (_) => onEnd(),
-          child: Container(
-            width: dot,
-            height: dot,
-            decoration: BoxDecoration(
-              color: style.handleFill ?? style.accent,
-              border: Border.all(color: style.handleBorder),
-              borderRadius: style.handleRadius > 0
-                  ? BorderRadius.circular(style.handleRadius)
-                  : null,
-              boxShadow: style.handleShadows,
-            ),
+          gestures: {
+            _HandleDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<_HandleDragRecognizer>(
+                  () => _HandleDragRecognizer(debugOwner: this),
+                  (recognizer) {
+                    // Braces, not arrows: the body of an arrow function
+                    // swallows the cascade sections that follow it.
+                    recognizer
+                      ..dragStartBehavior = DragStartBehavior.down
+                      ..onStart = (details) {
+                        onStart(details.globalPosition);
+                      }
+                      ..onUpdate = (details) {
+                        onUpdate(details.globalPosition);
+                      }
+                      ..onEnd = (_) {
+                        onEnd();
+                      }
+                      ..onCancel = onEnd;
+                  },
+                ),
+          },
+          // The dot is drawn where it belongs — centred on the edge, and so
+          // half outside the target that was clamped inwards.
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: centerX - dot / 2 - left,
+                top: centerY - dot / 2 - top,
+                child: IgnorePointer(
+                  child: Container(
+                    width: dot,
+                    height: dot,
+                    decoration: BoxDecoration(
+                      color: style.handleFill ?? style.accent,
+                      border: Border.all(color: style.handleBorder),
+                      borderRadius: style.handleRadius > 0
+                          ? BorderRadius.circular(style.handleRadius)
+                          : null,
+                      boxShadow: style.handleShadows,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// A pan that claims the pointer the moment it goes down.
+///
+/// A resize handle sits inside whatever scrolls the document, and against an
+/// ordinary pan the scrollable wins: a vertical drag declares itself after
+/// `kTouchSlop`, a pan only after `kPanSlop`, which is twice as far — so the
+/// scroll view always got there first and the drag never started. With a mouse
+/// that never showed, because a scroll view does not accept mouse drags at
+/// all; with a finger it meant an image could not be resized on a phone.
+///
+/// There is nothing to arbitrate: a pointer that went down on a resize handle
+/// has exactly one meaning.
+class _HandleDragRecognizer extends PanGestureRecognizer {
+  _HandleDragRecognizer({super.debugOwner});
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
   }
 }
 
