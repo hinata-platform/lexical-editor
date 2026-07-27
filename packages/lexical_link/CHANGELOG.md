@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.1
+
+**A link that is emptied removes itself.** It renders nothing, so an anchor
+left behind by deleting the text inside it is invisible: it is saved, sent to
+every other client, exported to markdown as `[](url)`, and one accumulates per
+edit that emptied a link. `LinkNode.canBeEmpty` is `false` now, which is what
+the core consults when a removal leaves a parent with nothing in it, and
+`registerLink` removes the ones that are emptied any other way. Both are what
+upstream does.
+
+**Typing at a link's edge writes beside it, not into it** —
+`canInsertTextBefore` and `canInsertTextAfter` are `false`, as upstream. The
+character after a link is not part of the link.
+
 ## 1.7.0
 
 No library changes. The packages version in lockstep — they are one library

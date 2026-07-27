@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1
+
+**An inline prefix is not drawn for an element with nothing in it.** An empty
+inline element renders nothing at all, which is what makes one easy to leave
+behind — and three abandoned anchors in a paragraph lined up three icons in
+front of the one link that still had its text.
+
 ## 1.7.0
 
 **`LexicalTheme.inlinePrefixes`** — a widget drawn immediately before the

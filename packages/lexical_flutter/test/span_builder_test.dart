@@ -403,6 +403,33 @@ void main() {
       });
     });
 
+    testWidgets('is not drawn for an element with nothing in it', (
+      tester,
+    ) async {
+      // An empty inline element renders nothing, which is what makes one easy
+      // to leave behind: three abandoned anchors in a paragraph would line up
+      // three icons in front of the one link that still has its text.
+      final editor = LexicalEditor(
+        nodes: [NodeSpec<_Anchor>(type: 'anchor', create: _Anchor.new)],
+      );
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append(_Anchor())
+              ..append(_Anchor())
+              ..append(_Anchor()..append($createTextNode('Ziel'))),
+          );
+      }, discrete: true);
+
+      await withContext(tester, (context) {
+        final built = build(editor, context);
+
+        expect(built.offsets.flatText, '\u{fffc}Ziel');
+      });
+    });
+
     testWidgets('is a boundary, not a thing with two sides', (tester) async {
       // A tap on the mark belongs in front of what it marks. Read as an
       // ordinary one-position run, its right-hand side would mean "one child

@@ -2,7 +2,7 @@ name: lexical_history
 description: >-
   Undo and redo for lexical_core, built on immutable editor-state snapshots
   with deterministic, tag-driven coalescing. Pure Dart, no Flutter dependency.
-version: 1.7.0
+version: 1.7.1
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

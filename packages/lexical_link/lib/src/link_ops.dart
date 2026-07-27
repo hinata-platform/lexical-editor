@@ -15,12 +15,38 @@ import 'link_node.dart';
 /// ```
 const LexicalCommand<String?> toggleLinkCommand = LexicalCommand('TOGGLE_LINK');
 
-/// Registers [toggleLinkCommand] on [editor].
-Unsubscribe registerLink(LexicalEditor editor) =>
+/// Registers [toggleLinkCommand] and the empty-link cleanup on [editor].
+///
+/// The cleanup is not housekeeping. A link with no children renders nothing,
+/// so an anchor left behind by deleting the text inside it is *invisible*: it
+/// is saved, sent to every other client, exported to markdown as `[](url)`,
+/// and it accumulates — one per edit that emptied a link. Upstream removes it
+/// in the same place, for the same reason.
+Unsubscribe registerLink(LexicalEditor editor) {
+  final unsubscribers = [
     editor.registerCommand<String?>(toggleLinkCommand, (url) {
       $toggleLink(url);
       return true;
-    }, CommandPriority.editor);
+    }, CommandPriority.editor),
+    for (final type in const ['link', 'autolink'])
+      editor.registerNodeTransform(type, (node) {
+        if (node is! LinkNode || node.canBeEmpty || !node.isEmpty) return;
+        final parent = node.getParent();
+        node.remove();
+        // A paragraph that held nothing but the link is not empty on purpose
+        // either — but the root's last child is, and removing it would leave
+        // a document with nowhere to type.
+        if (parent != null && parent.isEmpty && parent.isInline) {
+          parent.remove();
+        }
+      }),
+  ];
+  return () {
+    for (final unsubscribe in unsubscribers) {
+      unsubscribe();
+    }
+  };
+}
 
 /// The link the selection sits in, or `null`.
 ///

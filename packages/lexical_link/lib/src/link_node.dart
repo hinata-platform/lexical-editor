@@ -57,6 +57,27 @@ class LinkNode extends ElementNode {
   @override
   bool get isInline => true;
 
+  /// A link with nothing in it is not a link, upstream and here.
+  ///
+  /// It is invisible — it renders no text — so it accumulates unnoticed while
+  /// someone edits: link some text, delete the text, and an empty anchor stays
+  /// in the document, is saved, and is sent to every other client. Emptying
+  /// one removes it; `registerLink` is where that happens for a link emptied
+  /// by an edit rather than by the removal of its last child.
+  @override
+  bool get canBeEmpty => false;
+
+  /// Typing at a link's edge writes *beside* it, not into it.
+  ///
+  /// Upstream's rule, and the one people expect: the character after a link
+  /// is not part of the link, so continuing to type at the end of one does
+  /// not silently extend the anchor.
+  @override
+  bool get canInsertTextBefore => false;
+
+  @override
+  bool get canInsertTextAfter => false;
+
   @override
   LinkNode clone() => LinkNode(_url, _rel, _target, _title);
 

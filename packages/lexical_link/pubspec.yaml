@@ -1,7 +1,7 @@
 name: lexical_link
 description: >-
   Link and auto-link nodes for lexical_core, with URL scheme validation at the point of use. Wire-compatible with Lexical's @lexical/link.
-version: 1.7.0
+version: 1.7.1
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

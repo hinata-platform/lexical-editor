@@ -156,11 +156,18 @@ final class SpanBuilder {
             children.add(_decoratorSpan(decorator, inherited));
           case final ElementNode inline when inline.isInline:
             final style = _inlineElementStyle(inline, inherited);
-            final prefix = theme.inlinePrefixes[inline.type]?.call(
-              context,
-              inline,
-              style,
-            );
+            // Nothing to mark, so no mark. An element with no content draws
+            // nothing at all, which makes an empty one invisible and easy to
+            // leave behind — and three abandoned anchors in a paragraph would
+            // otherwise line up three icons in front of the one link that
+            // still has its text.
+            final prefix = inline.isEmpty
+                ? null
+                : theme.inlinePrefixes[inline.type]?.call(
+                    context,
+                    inline,
+                    style,
+                  );
             if (prefix != null) {
               hasDecorators = true;
               // The mark holds no text, so it is not the element's content —

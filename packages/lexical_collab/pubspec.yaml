@@ -1,7 +1,7 @@
 name: lexical_collab
 description: >-
   Real-time collaborative editing for lexical_core: a transport-agnostic CRDT, an editor binding and presence awareness.
-version: 1.7.0
+version: 1.7.1
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

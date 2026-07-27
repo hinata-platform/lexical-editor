@@ -257,4 +257,44 @@ void main() {
       unsubscribe();
     });
   });
+
+  group('an emptied link', () {
+    test('removes itself rather than staying behind invisibly', () {
+      // A link with no children renders nothing, so an anchor left over from
+      // deleting the text inside it cannot be seen — it is saved, sent to
+      // every other client and exported as `[](url)`, and one accumulates per
+      // edit that emptied a link.
+      final editor = _document(['die Doku']);
+      final unsubscribe = registerLink(editor);
+      addTearDown(unsubscribe);
+      _select(editor, 4, 8);
+      editor.dispatchCommand(toggleLinkCommand, 'https://lexical.dev');
+
+      editor.update(() {
+        final link = $getRoot().getLastDescendant()!.getParent()!;
+        link.getFirstChild()!.remove();
+      }, discrete: true);
+
+      expect(_links(editor), isEmpty);
+      expect(editor.read(() => $getRoot().getTextContent()), 'die ');
+    });
+
+    test('is gone the moment its last child is removed', () {
+      // The other route to the same state, and the one the model handles by
+      // itself: `canBeEmpty` is what the core consults when a removal leaves
+      // a parent with nothing in it.
+      final editor = _document(['die Doku']);
+      _select(editor, 4, 8);
+      editor.update(() {
+        $toggleLink('https://lexical.dev');
+      }, discrete: true);
+
+      editor.update(() {
+        final link = _links(editor).single;
+        ($getNodeByKey(link.key)! as ElementNode).getFirstChild()!.remove();
+      }, discrete: true);
+
+      expect(_links(editor), isEmpty);
+    });
+  });
 }
