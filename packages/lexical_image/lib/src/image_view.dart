@@ -299,11 +299,9 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   /// *synchronously* when the picture is already decoded — which it is every
   /// time but the first — and a listener that calls `setState` from inside a
   /// build throws. The completer catches that throw and reports it as an
-  /// **image error**: the picture that had just loaded perfectly draws its
-  /// placeholder instead, and because the error sticks to the completer the
-  /// image cache is holding, every later attempt at the same address fails the
-  /// same way for as long as the process lives. Merely rebuilding an image
-  /// broke it permanently.
+  /// **image error**: a picture that had just loaded perfectly draws its
+  /// placeholder instead, and an error is not something an image stream
+  /// forgets.
   ///
   /// [State.didChangeDependencies] and [State.didUpdateWidget] are where the
   /// framework allows this call, which is where Flutter's own `Image` makes
