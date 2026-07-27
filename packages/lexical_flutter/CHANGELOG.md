@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+No library changes. The packages version in lockstep — they are one library
+split for pay-for-what-you-use, not a set of independent projects — so this
+release keeps the set on one version. See `lexical_image` for what changed.
+
 ## 1.4.0
 
 **The caret no longer shrinks and rides up when a space is typed at the end of

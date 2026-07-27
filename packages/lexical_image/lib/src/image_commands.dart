@@ -126,6 +126,7 @@ imageDecoratorBuilders({
   bool preserveAspectRatio = true,
   TextStyle? captionStyle,
   Widget Function(BuildContext context, String src)? placeholderBuilder,
+  LexicalImageStyle style = const LexicalImageStyle(),
 }) => {
   'image': (context, node) {
     final image = node as ImageNode;
@@ -148,6 +149,7 @@ imageDecoratorBuilders({
       preserveAspectRatio: preserveAspectRatio,
       captionStyle: captionStyle,
       placeholderBuilder: placeholderBuilder,
+      style: style,
     );
   },
 };

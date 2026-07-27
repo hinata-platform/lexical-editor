@@ -55,7 +55,11 @@ export 'src/image_markdown.dart'
 export 'src/image_node.dart' show ImageNode, $createImageNode;
 export 'src/image_resize.dart' show ImageHandle, ImageSizeLimits, resizeImage;
 export 'src/image_view.dart'
-    show ImageResolver, LexicalImageView, defaultImageResolver;
+    show
+        ImageResolver,
+        LexicalImageStyle,
+        LexicalImageView,
+        defaultImageResolver;
 
 /// The node specs this package contributes.
 List<NodeSpec<LexicalNode>> get imageNodes => <NodeSpec<LexicalNode>>[

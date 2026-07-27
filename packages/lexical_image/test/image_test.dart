@@ -368,6 +368,31 @@ void main() {
       );
     });
 
+    test('the same data: URI resolves to the same provider', () {
+      // `MemoryImage` compares its bytes by identity and decoding a URI hands
+      // back a fresh buffer every time, so a plain one was never `==` to the
+      // provider from the previous build. A widget that resolves per build
+      // then re-resolved every frame: the image never settled long enough to
+      // report a size, and it re-decoded its payload for as long as it was on
+      // screen.
+      const uri = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+
+      expect(defaultImageResolver(uri), defaultImageResolver(uri));
+      expect(
+        defaultImageResolver(uri).hashCode,
+        defaultImageResolver(uri).hashCode,
+      );
+      // A different payload is still a different picture.
+      expect(
+        defaultImageResolver(uri),
+        isNot(
+          defaultImageResolver(
+            'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
+          ),
+        ),
+      );
+    });
+
     test('a file URL does not', () {
       // A document from someone else has no business reading the local disk.
       expect(defaultImageResolver('file:///etc/passwd'), isNull);

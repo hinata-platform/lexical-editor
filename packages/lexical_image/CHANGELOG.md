@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5.0
+
+**A `data:` image no longer re-resolves on every build.** `MemoryImage`
+compares its bytes by identity and decoding a URI hands back a fresh buffer
+each time, so the provider was never `==` to the one from the previous build:
+a widget that resolves per build re-resolved every frame, the image never
+settled long enough to report a size, and it re-decoded its payload for as long
+as it was on screen. A `data:` image is identified by its URI now.
+
+**`LexicalImageStyle`** — the outline, the drag handles and the caption caret
+were one hard-coded blue. That is a fine default and a wrong answer in any
+product with an accent of its own, and selection chrome is the most visible
+thing about editing an image. Pass one to `LexicalImageView` or to
+`imageDecoratorBuilders`; the defaults draw exactly what they always drew.
+
 ## 1.4.0
 
 **An image that was never resized is no longer drawn 0x0.** `ImageNode` spells

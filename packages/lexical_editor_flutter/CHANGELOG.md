@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+**`lexicalDecoratorBuilders(imageStyle:)`** forwards a `LexicalImageStyle`, so
+a bundled editor can draw the image's selection chrome in its own accent
+instead of the built-in blue.
+
 ## 1.4.0
 
 **`LexicalMentions.surfaceBuilder`** forwards to `MentionScope`, so a bundle

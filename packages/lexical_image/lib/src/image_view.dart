@@ -1,6 +1,7 @@
 /// The widget an [ImageNode] is drawn with.
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -28,10 +29,103 @@ ImageProvider<Object>? defaultImageResolver(String src) {
   if (!uri.hasScheme) return AssetImage(trimmed);
   return switch (uri.scheme.toLowerCase()) {
     'http' || 'https' => NetworkImage(trimmed),
-    'data' when uri.data != null => MemoryImage(uri.data!.contentAsBytes()),
+    'data' when uri.data != null => _DataUriImage(
+      trimmed,
+      uri.data!.contentAsBytes(),
+    ),
     'asset' => AssetImage(uri.path),
     _ => null,
   };
+}
+
+/// A `data:` image identified by its URI rather than by the buffer it decoded
+/// into.
+///
+/// `MemoryImage` compares its bytes by **identity**, and decoding a URI hands
+/// back a fresh `Uint8List` every time — so a plain `MemoryImage` here was
+/// never `==` to the one from the previous build. A widget that resolves its
+/// provider each build then re-resolved on every frame, and an inline image
+/// never settled long enough to report a size: it stayed invisible, and it
+/// re-decoded its payload for as long as it was on screen. The URI is what
+/// actually identifies the picture.
+@immutable
+class _DataUriImage extends MemoryImage {
+  _DataUriImage(this.uri, super.bytes);
+
+  /// The `data:` URI the bytes came from.
+  final String uri;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DataUriImage && other.uri == uri && other.scale == scale;
+
+  @override
+  int get hashCode => Object.hash(uri, scale);
+}
+
+
+/// How the selection chrome around an editable image is drawn.
+///
+/// The handles, the outline and the caption caret used to be one hard-coded
+/// blue. That is a reasonable default and a wrong answer in any product with
+/// an accent of its own — and the chrome is the most visible thing about
+/// editing an image, so "close enough" reads as a component from somewhere
+/// else.
+@immutable
+class LexicalImageStyle {
+  /// Creates a chrome style. The defaults are the blue this always drew.
+  const LexicalImageStyle({
+    this.accent = const Color(0xFF3F8AE0),
+    this.handleFill,
+    this.handleBorder = const Color(0xFFFFFFFF),
+    this.handleSize = 10,
+    this.handleRadius = 0,
+    this.outlineWidth = 1.5,
+    this.handleShadows = const <BoxShadow>[],
+  });
+
+  /// The outline around a selected image, and the caption's caret.
+  final Color accent;
+
+  /// The fill of a drag handle. [accent] when omitted.
+  final Color? handleFill;
+
+  /// The ring around a drag handle, so it stays visible over the image.
+  final Color handleBorder;
+
+  /// Edge length of a drag handle, in logical pixels.
+  final double handleSize;
+
+  /// Corner radius of a drag handle. Zero is a square.
+  final double handleRadius;
+
+  /// Thickness of the outline.
+  final double outlineWidth;
+
+  /// Shadow cast by a handle, for chrome that has to read over a photograph.
+  final List<BoxShadow> handleShadows;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LexicalImageStyle &&
+      other.accent == accent &&
+      other.handleFill == handleFill &&
+      other.handleBorder == handleBorder &&
+      other.handleSize == handleSize &&
+      other.handleRadius == handleRadius &&
+      other.outlineWidth == outlineWidth &&
+      listEquals(other.handleShadows, handleShadows);
+
+  @override
+  int get hashCode => Object.hash(
+    accent,
+    handleFill,
+    handleBorder,
+    handleSize,
+    handleRadius,
+    outlineWidth,
+    Object.hashAll(handleShadows),
+  );
 }
 
 /// An image with drag handles, drawn for an [ImageNode].
@@ -57,6 +151,7 @@ class LexicalImageView extends StatefulWidget {
     this.preserveAspectRatio = true,
     this.captionStyle,
     this.placeholderBuilder,
+    this.style = const LexicalImageStyle(),
   });
 
   /// The editor holding the image.
@@ -73,6 +168,9 @@ class LexicalImageView extends StatefulWidget {
 
   /// The alternative text, used for semantics.
   final String altText;
+
+  /// How the selection chrome — outline, handles, caption caret — is drawn.
+  final LexicalImageStyle style;
 
   /// The chosen width, or `null` for the image's own.
   final double? width;
@@ -305,7 +403,10 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   Widget _outline(BuildContext context) => IgnorePointer(
     child: DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF3F8AE0), width: 1.5),
+        border: Border.all(
+          color: widget.style.accent,
+          width: widget.style.outlineWidth,
+        ),
       ),
     ),
   );
@@ -316,6 +417,7 @@ class _LexicalImageViewState extends State<LexicalImageView> {
       _HandleDot(
         handle: handle,
         size: size,
+        style: widget.style,
         // The drag starts from what is on screen, not from what is stored:
         // grabbing a corner of an image that is being shown smaller than its
         // stored size would otherwise jump to that larger size first.
@@ -332,12 +434,14 @@ class _LexicalImageViewState extends State<LexicalImageView> {
       return _TextButton(
         label: 'Beschriftung hinzufügen',
         onTap: () => _setCaption(''),
+        color: widget.style.accent,
       );
     }
     if (_editingCaption && widget.editable) {
       return _CaptionField(
         initial: caption,
         style: widget.captionStyle,
+        cursorColor: widget.style.accent,
         onDone: _setCaption,
       );
     }
@@ -361,6 +465,7 @@ class _HandleDot extends StatelessWidget {
   const _HandleDot({
     required this.handle,
     required this.size,
+    required this.style,
     required this.onStart,
     required this.onUpdate,
     required this.onEnd,
@@ -368,6 +473,7 @@ class _HandleDot extends StatelessWidget {
 
   final ImageHandle handle;
   final Size size;
+  final LexicalImageStyle style;
 
   /// Both report the pointer's **global position**, not a distance.
   ///
@@ -377,19 +483,18 @@ class _HandleDot extends StatelessWidget {
   final ValueChanged<Offset> onUpdate;
   final VoidCallback onEnd;
 
-  static const double _dot = 10;
-
   @override
   Widget build(BuildContext context) {
+    final dot = style.handleSize;
     final x = switch (handle.horizontal) {
-      < 0 => -_dot / 2,
-      > 0 => size.width - _dot / 2,
-      _ => size.width / 2 - _dot / 2,
+      < 0 => -dot / 2,
+      > 0 => size.width - dot / 2,
+      _ => size.width / 2 - dot / 2,
     };
     final y = switch (handle.vertical) {
-      < 0 => -_dot / 2,
-      > 0 => size.height - _dot / 2,
-      _ => size.height / 2 - _dot / 2,
+      < 0 => -dot / 2,
+      > 0 => size.height - dot / 2,
+      _ => size.height / 2 - dot / 2,
     };
     return Positioned(
       left: x,
@@ -413,11 +518,15 @@ class _HandleDot extends StatelessWidget {
           onPanUpdate: (details) => onUpdate(details.globalPosition),
           onPanEnd: (_) => onEnd(),
           child: Container(
-            width: _dot,
-            height: _dot,
+            width: dot,
+            height: dot,
             decoration: BoxDecoration(
-              color: const Color(0xFF3F8AE0),
-              border: Border.all(color: const Color(0xFFFFFFFF)),
+              color: style.handleFill ?? style.accent,
+              border: Border.all(color: style.handleBorder),
+              borderRadius: style.handleRadius > 0
+                  ? BorderRadius.circular(style.handleRadius)
+                  : null,
+              boxShadow: style.handleShadows,
             ),
           ),
         ),
@@ -427,20 +536,22 @@ class _HandleDot extends StatelessWidget {
 }
 
 class _TextButton extends StatelessWidget {
-  const _TextButton({required this.label, required this.onTap});
+  const _TextButton({
+    required this.label,
+    required this.onTap,
+    required this.color,
+  });
 
   final String label;
   final VoidCallback onTap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF3F8AE0)),
-      ),
+      child: Text(label, style: TextStyle(fontSize: 12, color: color)),
     ),
   );
 }
@@ -449,11 +560,15 @@ class _CaptionField extends StatefulWidget {
   const _CaptionField({
     required this.initial,
     required this.onDone,
+    required this.cursorColor,
     this.style,
   });
 
   final String initial;
   final TextStyle? style;
+
+  /// Colour of the caret while the caption is being written.
+  final Color cursorColor;
 
   /// Called with the caption, or `null` when it was emptied and removed.
   final ValueChanged<String?> onDone;
@@ -498,7 +613,7 @@ class _CaptionFieldState extends State<_CaptionField> {
       focusNode: _focusNode,
       autofocus: true,
       style: widget.style ?? const TextStyle(fontSize: 12),
-      cursorColor: const Color(0xFF3F8AE0),
+      cursorColor: widget.cursorColor,
       backgroundCursorColor: const Color(0x33000000),
       onSubmitted: (_) => _submit(),
     ),

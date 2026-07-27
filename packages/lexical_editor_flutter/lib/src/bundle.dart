@@ -126,6 +126,7 @@ Map<String, DecoratorBuilder> lexicalDecoratorBuilders({
   ImageResolver imageResolver = defaultImageResolver,
   bool editable = true,
   bool captionsEnabled = true,
+  LexicalImageStyle imageStyle = const LexicalImageStyle(),
   EmbedOpener? onOpenEmbed,
   EmbedThumbnailResolver embedThumbnails = defaultEmbedThumbnailResolver,
 }) => <String, DecoratorBuilder>{
@@ -135,6 +136,7 @@ Map<String, DecoratorBuilder> lexicalDecoratorBuilders({
     resolver: imageResolver,
     editable: editable,
     captionsEnabled: captionsEnabled,
+    style: imageStyle,
   ),
   ...embedDecoratorBuilders(
     onOpen: onOpenEmbed,
