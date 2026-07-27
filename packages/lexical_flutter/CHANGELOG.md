@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+No library changes. The packages version in lockstep — they are one library
+split for pay-for-what-you-use, not a set of independent projects — so this
+release keeps the set on one version.
+
 ## 1.1.0
 
 - Fixed: a press that lands inside a block's padding — a cell's, or the empty

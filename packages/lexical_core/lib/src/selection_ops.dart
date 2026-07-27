@@ -83,6 +83,86 @@ enum SelectionUnit {
 /// granularity a caret, an input method, and a line of text all work at.
 ElementNode $getNearestBlock(LexicalNode node) => _blockOf(node);
 
+/// Whether [node] is a block whose content is a line rather than more blocks.
+///
+/// The distinction the name does not carry on its own: a paragraph, a heading,
+/// a quote holding text and a list *item* holding text are all blocks in this
+/// sense. A table, a list, or any element whose first child is itself a block
+/// is **not** — it is a container, and its content is the blocks inside it.
+///
+/// This is the predicate that decides what may be turned into something else.
+/// Rewriting a container the way a paragraph is rewritten does not convert it,
+/// it dissolves it: every cell of a table run together into one heading, the
+/// rows and the table gone, the words still there so nothing looks wrong. Any
+/// operation that replaces blocks wholesale wants this guard, which is why it
+/// is public rather than an implementation detail of [$setBlocksType].
+///
+/// The root and a shadow root are never blocks: they are where blocks live.
+bool $isBlock(LexicalNode? node) {
+  if (node is! ElementNode || node.isInline) return false;
+  if (node is RootNode || node.isShadowRoot) return false;
+  final first = node.getFirstChild();
+  return first == null ||
+      first is TextNode ||
+      first is LineBreakNode ||
+      first.isInline;
+}
+
+/// Replaces every block the selection touches with a fresh element.
+///
+/// The operation behind a toolbar's heading, quote and paragraph buttons.
+/// [createElement] is called once per block, so each one becomes its own new
+/// element and the children move across untouched — a three-item selection
+/// becomes three headings, never one heading holding three runs of text.
+///
+/// Blocks that are containers rather than lines are skipped; see [$isBlock].
+/// A caret inside a table cell therefore converts the paragraph in that cell,
+/// which is what the writer pointed at, and leaves the table alone.
+///
+/// ```dart
+/// editor.update(() {
+///   $setBlocksType($getSelection(), () => $createHeadingNode(HeadingTag.h2));
+/// });
+/// ```
+///
+/// Must be called inside an update.
+void $setBlocksType(
+  BaseSelection? selection,
+  ElementNode Function() createElement,
+) {
+  if (selection == null) return;
+
+  final blocks = <ElementNode>[];
+  final seen = <String>{};
+  void consider(LexicalNode? node) {
+    if (!$isBlock(node)) return;
+    final block = node! as ElementNode;
+    if (!seen.add(block.key.value)) return;
+    blocks.add(block);
+  }
+
+  for (final node in selection.getNodes()) {
+    consider(node);
+  }
+  // A collapsed caret selects the text node it sits in, not the block holding
+  // it — and a caret is the ordinary case for a toolbar button.
+  if (selection is RangeSelection) {
+    for (final point in [selection.anchor, selection.focus]) {
+      final node = point.getNode();
+      if (node != null) consider($getNearestBlock(node));
+    }
+  }
+
+  // Collected before anything is replaced: mutating during the walk would
+  // invalidate the sibling pointers it is standing on.
+  for (final block in blocks) {
+    final replacement = createElement()
+      ..setFormat(block.getFormat())
+      ..setIndent(block.getIndent());
+    block.replace(replacement, includeChildren: true);
+  }
+}
+
 /// The block before [block] in document order, or `null`.
 ElementNode? $getPreviousBlock(ElementNode block) => _previousBlockOf(block);
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- `imageMarkdownTransformer({maxWidth})`: the image rule with a width of your
+  choosing. `imageTransformer` is now this function at its default, which is
+  still upstream's `800`, so nothing changes for anyone not passing a number.
+  It exists because the only way to write a different one was to copy the rule
+  into the application — and a copied rule stops matching this one the first
+  time either changes.
+
 ## 1.1.0
 
 First release. The packages version in lockstep, so this one joins the set at

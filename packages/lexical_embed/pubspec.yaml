@@ -2,7 +2,7 @@ name: lexical_embed
 description: >-
   YouTube, tweet and Figma embeds for lexical_core, matching the Lexical
   playground's wire format, with URL recognition and a Flutter card widget.
-version: 1.1.0
+version: 1.2.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -15,8 +15,8 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  lexical_core: ^1.1.0
-  lexical_markdown: ^1.1.0
+  lexical_core: ^1.2.0
+  lexical_markdown: ^1.2.0
   meta: ^1.15.0
 
 dev_dependencies:

@@ -24,6 +24,26 @@ final ElementTransformer headingTransformer = ElementTransformer(
   },
 );
 
+/// `---`, `***` and `___` on a line of their own.
+///
+/// All three spellings mean the same break, and all three have to be here: the
+/// inline rules claim the other two otherwise — by the time a `***` line
+/// reaches a block rule it has already become an empty emphasis run and a
+/// stray asterisk. Matching the line before anything inline sees it is what
+/// makes the spelling irrelevant, which is what CommonMark says it is.
+///
+/// Declared **before** [quoteTransformer] and the list rules for the same
+/// reason a check list is declared before a bullet: `---` also matches nothing
+/// else here, but `***` and `___` are ambiguous with emphasis and the earliest
+/// rule wins.
+final ElementTransformer horizontalRuleTransformer = ElementTransformer(
+  regExp: RegExp(r'^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$'),
+  replace: (block, children, match) {
+    block.replace($createHorizontalRuleNode());
+  },
+  export: (node, exportChildren) => $isHorizontalRuleNode(node) ? '---' : null,
+);
+
 /// `> `.
 final ElementTransformer quoteTransformer = ElementTransformer(
   regExp: RegExp(r'^>\s?(.*)$'),
@@ -112,8 +132,13 @@ final ElementTransformer codeTransformer = ElementTransformer(
 );
 
 /// `[label](url)`.
+///
+/// The label is markdown in its own right — CommonMark reads
+/// `[ein *kursiver* Link](url)` as a link holding emphasis — so it is parsed
+/// rather than taken as characters.
 final TextMatchTransformer linkTransformer = TextMatchTransformer(
   regExp: RegExp(r'\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)'),
+  parsesInlineContent: true,
   replace: (match, format) {
     final url = match.group(2)!;
     // Scheme validation happens where the link is made tappable, not here:
@@ -152,6 +177,7 @@ const List<TextFormatTransformer> defaultTextFormatTransformers = [
 /// has to come first.
 MarkdownTransformers get defaultMarkdownTransformers => MarkdownTransformers(
   elements: [
+    horizontalRuleTransformer,
     headingTransformer,
     quoteTransformer,
     codeTransformer,
@@ -180,36 +206,60 @@ void _appendItem(
   // Continuing the list above rather than starting a new one for every line
   // is what makes three bullets one list instead of three.
   if (previous is ListNode && previous.listType == listType) {
-    _placeAtIndent(previous, item, indent);
+    final container = _placeAtIndent(previous, item, indent);
     block.remove(preserveEmptyParent: true);
     // Numbering is derived from position, and import must produce a
     // well-formed document whether or not the numbering transform happens to
-    // be registered on this editor.
-    renumberItems(previous);
+    // be registered on this editor. Every list on the path is renumbered, not
+    // just the outer one: placing an item deeper also inserts the holder that
+    // shifts the numbering of the list it was inserted into.
+    for (LexicalNode? node = container; node != null; node = node.getParent()) {
+      if (node is ListNode) renumberItems(node);
+    }
     return;
   }
   block.replace($createListNode(listType, start)..append(item));
 }
 
-/// Puts [item] at nesting depth [indent] inside [list].
-void _placeAtIndent(ListNode list, ListItemNode item, int indent) {
+/// Puts [item] at nesting depth [indent] inside [list], and returns the list it
+/// ended up in.
+///
+/// A nested list is a sibling of the item it sits under, held by an item of its
+/// own — not a child of that item. Both shapes carry the same words, which is
+/// why the wrong one survives casual inspection, but only this one matches what
+/// Lexical itself writes, what `ListItemNode.isNestedListHolder` describes, and
+/// what the indent of an item means. Anything reading structure rather than
+/// text — an exporter, an outline, a document authored on another platform —
+/// sees two different documents otherwise.
+///
+/// The depth is carried by the items, never by the list element: an item's
+/// `indent` is the nesting level of the list it belongs to.
+ListNode _placeAtIndent(ListNode list, ListItemNode item, int indent) {
   var container = list;
   var depth = 0;
   while (depth < indent) {
     final last = container.getLastChild();
     if (last is! ListItemNode) break;
-    final nested = last.getLastChild();
+    // A holder is an item whose only child is the nested list — so descending
+    // looks at the first child, not the last.
+    final nested = last.getFirstChild();
     if (nested is ListNode) {
       container = nested;
       depth++;
       continue;
     }
     final fresh = $createListNode(list.listType);
-    last.append(fresh);
+    last.insertAfter(
+      $createListItemNode()
+        ..setIndent(depth)
+        ..append(fresh),
+    );
     container = fresh;
     depth++;
   }
+  item.setIndent(depth);
   container.append(item);
+  return container;
 }
 
 int _depthOf(ListItemNode item) {

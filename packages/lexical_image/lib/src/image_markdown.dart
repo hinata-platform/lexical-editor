@@ -29,7 +29,23 @@ import 'image_node.dart';
 /// [ImageNode.defaultMaxWidth]. That looks arbitrary and is: it is the number
 /// the playground's own IMAGE transformer writes, and matching it means the
 /// same markdown decodes to the same document on both platforms.
-final TextMatchTransformer imageTransformer = TextMatchTransformer(
+///
+/// An application that writes a different number — because the other half of
+/// its stack does, and the two have to agree — should not have to copy this
+/// rule to change it. Use [imageMarkdownTransformer] instead.
+final TextMatchTransformer imageTransformer = imageMarkdownTransformer();
+
+/// The image rule, with a [maxWidth] of your choosing.
+///
+/// The default is upstream's, so `imageMarkdownTransformer()` and
+/// [imageTransformer] are the same rule. Pass a different width when a
+/// document has to match what another implementation writes for the same
+/// markdown — a server-side converter, say. The alternative is copying the
+/// rule into the application, and a copied rule is one that stops matching
+/// this one the first time either changes.
+TextMatchTransformer imageMarkdownTransformer({
+  double maxWidth = markdownImageMaxWidth,
+}) => TextMatchTransformer(
   // The `!` has to be part of the match. Without it the link rule claims the
   // `[alt](src)` that follows, and the image arrives as a link with a stray
   // exclamation mark in front of it.
@@ -37,7 +53,7 @@ final TextMatchTransformer imageTransformer = TextMatchTransformer(
   replace: (match, format) => $createImageNode(
     src: match.group(2)!,
     altText: match.group(1)!,
-    maxWidth: markdownImageMaxWidth,
+    maxWidth: maxWidth,
   ),
   export: (node, exportChildren) {
     if (node is! ImageNode) return null;

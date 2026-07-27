@@ -104,12 +104,25 @@ void _appendLine(
   paragraph.appendAll(_parseInline(line, 0, transformers));
 }
 
+/// How deep a rule's own content may itself be parsed as markdown.
+///
+/// A link inside a link label inside a link label is not a document anyone
+/// writes; it is what a rule whose output re-matches its own pattern produces,
+/// forever. Two levels is more than the constructs that exist need.
+const int _maxContentDepth = 2;
+
 /// Parses [text] into inline nodes, carrying [format] into everything it makes.
+///
+/// [contentDepth] counts only the recursion through
+/// [TextMatchTransformer.parsesInlineContent] — the ordinary recursion into a
+/// delimiter's body or the rest of the line is unbounded on purpose, because it
+/// always consumes input and therefore always terminates.
 List<LexicalNode> _parseInline(
   String text,
   int format,
-  MarkdownTransformers transformers,
-) {
+  MarkdownTransformers transformers, {
+  int contentDepth = 0,
+}) {
   if (text.isEmpty) return const [];
 
   var earliest = text.length;
@@ -153,13 +166,19 @@ List<LexicalNode> _parseInline(
     }
     final inner = text.substring(earliest + formatHit.tag.length, formatEnd);
     result.addAll(
-      _parseInline(inner, format | formatHit.format.bit, transformers),
+      _parseInline(
+        inner,
+        format | formatHit.format.bit,
+        transformers,
+        contentDepth: contentDepth,
+      ),
     );
     result.addAll(
       _parseInline(
         text.substring(formatEnd + formatHit.tag.length),
         format,
         transformers,
+        contentDepth: contentDepth,
       ),
     );
     return result;
@@ -171,18 +190,63 @@ List<LexicalNode> _parseInline(
     }
     final node = matchHit.replace(matchResult, format);
     if (node != null) {
+      if (matchHit.parsesInlineContent &&
+          node is ElementNode &&
+          contentDepth < _maxContentDepth) {
+        _parseContentOf(node, transformers, contentDepth + 1);
+      }
       result.add(node);
     } else {
       result.add(_text(matchResult.group(0)!, format));
     }
     result.addAll(
-      _parseInline(text.substring(matchResult.end), format, transformers),
+      _parseInline(
+        text.substring(matchResult.end),
+        format,
+        transformers,
+        contentDepth: contentDepth,
+      ),
     );
     return result;
   }
 
   result.add(_text(text, format));
   return result;
+}
+
+/// Parses the text a rule put inside [element] as inline markdown.
+///
+/// Each text child is replaced by what its own content parses to. The child's
+/// format is carried in rather than dropped: a link inside emphasis has that
+/// emphasis on the label the rule made, and re-parsing it must add to that
+/// rather than replace it.
+void _parseContentOf(
+  ElementNode element,
+  MarkdownTransformers transformers,
+  int contentDepth,
+) {
+  for (final child in element.children.toList()) {
+    if (child is! TextNode) continue;
+    final text = child.getTextContent();
+    if (text.isEmpty) continue;
+
+    final parsed = _parseInline(
+      text,
+      child.getFormat(),
+      transformers,
+      contentDepth: contentDepth,
+    );
+    // Nothing in it was markdown: leave the node the rule made, rather than
+    // swapping it for an identical one.
+    if (parsed.length == 1 && parsed.single is TextNode) continue;
+
+    LexicalNode anchor = child;
+    for (final node in parsed) {
+      anchor.insertAfter(node);
+      anchor = node;
+    }
+    child.remove();
+  }
 }
 
 /// Finds the delimiter that closes [tag], skipping ones that only open.

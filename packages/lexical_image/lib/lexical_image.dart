@@ -50,7 +50,8 @@ export 'src/image_commands.dart'
         insertImageCommand,
         registerImage,
         $insertImage;
-export 'src/image_markdown.dart' show imageTransformer, markdownImageMaxWidth;
+export 'src/image_markdown.dart'
+    show imageMarkdownTransformer, imageTransformer, markdownImageMaxWidth;
 export 'src/image_node.dart' show ImageNode, $createImageNode;
 export 'src/image_resize.dart' show ImageHandle, ImageSizeLimits, resizeImage;
 export 'src/image_view.dart'

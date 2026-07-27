@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0
+
+- `HorizontalRuleNode`, with `$createHorizontalRuleNode` and
+  `$isHorizontalRuleNode`, registered by `richTextNodes`. A standard Lexical
+  node the port was missing: the registry is closed on purpose, so a stored
+  document containing a `---` could not be opened at all until an application
+  declared the type itself. The wire shape is upstream's exactly —
+  `{"type": "horizontalrule", "version": 1}`. A decorator, so what it draws is
+  the renderer's business; `lexical_editor_flutter` supplies a default.
+
 ## 1.1.0
 
 No library changes. The packages version in lockstep — they are one library

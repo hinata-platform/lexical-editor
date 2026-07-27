@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0
+
+Added `$setBlocksType(selection, createElement)` — the operation behind a
+toolbar's heading, quote and paragraph buttons, and the counterpart to
+`@lexical/selection`'s function of the same name. It was missing, so every
+consumer wrote it themselves, and writing it correctly turns out to be harder
+than it looks: `createElement` is called once per block, so a three-block
+selection becomes three elements rather than one holding everything run
+together, and the children move across rather than being flattened.
+
+Added `$isBlock(node)`, the predicate that decides what may be converted. A
+paragraph, a heading, a quote or a list item holding text is a block; a table,
+a list, or anything whose first child is itself a block is a container, and
+converting one dissolves it — every cell run together into one element, the
+rows gone, all the words still present so nothing downstream reports a problem.
+`$setBlocksType` skips containers for exactly that reason, which is why a caret
+in a table cell converts the paragraph in that cell and leaves the table alone.
+
 ## 1.1.0
 
 No library changes. The packages version in lockstep — they are one library

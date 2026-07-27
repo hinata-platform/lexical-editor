@@ -56,6 +56,43 @@ void main() {
       expect(_roundTrip('Erster\n\nZweiter'), 'Erster\n\nZweiter');
     });
 
+    test('every spelling of a thematic break is one', () {
+      // `***` and `___` are the interesting ones: they are ambiguous with
+      // emphasis, and an inline rule that sees them first turns the line into
+      // a stray asterisk rather than a break.
+      for (final marker in ['---', '***', '___', '-----', '  ---  ']) {
+        expect(
+          _types(_from('davor\n\n$marker\n\ndanach')),
+          ['paragraph', 'horizontalrule', 'paragraph'],
+          reason: '$marker did not become a break',
+        );
+      }
+    });
+
+    test('a break exports to one spelling, and reads back the same', () {
+      expect(_roundTrip('davor\n\n***\n\ndanach'), 'davor\n\n---\n\ndanach');
+      expect(_roundTrip('davor\n\n---\n\ndanach'), 'davor\n\n---\n\ndanach');
+    });
+
+    test('dashes inside a fence stay content', () {
+      // A fence is consumed before the line rules run, and it has to stay that
+      // way: `---` in a code sample is text the writer typed.
+      const source = '```\n---\n```';
+      expect(_types(_from(source)), ['code']);
+      expect(_roundTrip(source), source);
+    });
+
+    test('a setext underline does not swallow the line above it', () {
+      // `Titel\n---` is an h2 in CommonMark. This importer is line-based and
+      // has no setext rule, so the honest outcome is a paragraph and a break —
+      // not a break that ate the title.
+      expect(_types(_from('Titel\n---')), ['paragraph', 'horizontalrule']);
+      expect(
+        _from('Titel\n---').read(() => $getRoot().getTextContent()),
+        contains('Titel'),
+      );
+    });
+
     test('a fenced code block keeps its language and its content verbatim', () {
       const source = '```dart\nvoid main() {\n  print("*hi*");\n}\n```';
       final editor = _from(source);
@@ -125,13 +162,90 @@ void main() {
 
     test('indentation nests, and comes back out', () {
       final editor = _from('- eins\n  - eins-a\n- zwei');
+      // Three items, not two: the nested list is held by an item of its own,
+      // between the two that carry text.
       expect(
         editor.read(
           () => ($getRoot().getFirstChild()! as ListNode).childrenSize,
         ),
-        2,
+        3,
       );
       expect(_to(editor), '- eins\n  - eins-a\n- zwei');
+    });
+
+    test('a nested list is a sibling of the item it sits under', () {
+      // The shape Lexical itself writes. The other one — the nested list as a
+      // child of the item holding the parent's text — carries the same words,
+      // which is why it survives reading the output. It is a different
+      // document to anything that walks structure.
+      final editor = _from('- außen\n  - innen');
+      final shape = editor.read(() {
+        final list = $getRoot().getFirstChild()! as ListNode;
+        return list.children
+            .cast<ListItemNode>()
+            .map(
+              (item) => (
+                // Joined rather than kept as a list: a record compares its
+                // fields with `==`, and two equal lists are not `==`.
+                item.children.map((child) => child.type).join(','),
+                item.isNestedListHolder,
+              ),
+            )
+            .toList();
+      });
+
+      expect(shape, [('text', false), ('list', true)]);
+    });
+
+    test('an item carries the nesting depth of the list it belongs to', () {
+      // `indent` is what tells a renderer, an exporter and Lexical web how deep
+      // an item sits. Leaving every item at 0 makes a three-level list render
+      // flat everywhere except in the importer that built it.
+      final editor = _from('- außen\n  - innen\n    - ganz innen\n- zurück');
+      final indents = editor.read(() {
+        final out = <(String, int)>[];
+        void walk(ListNode list) {
+          for (final item in list.children.cast<ListItemNode>()) {
+            final nested = item.getFirstChild();
+            if (nested is ListNode) {
+              out.add(('<holder>', item.getIndent()));
+              walk(nested);
+            } else {
+              out.add((item.getTextContent(), item.getIndent()));
+            }
+          }
+        }
+
+        walk($getRoot().getFirstChild()! as ListNode);
+        return out;
+      });
+
+      expect(indents, [
+        ('außen', 0),
+        ('<holder>', 0),
+        ('innen', 1),
+        ('<holder>', 1),
+        ('ganz innen', 2),
+        ('zurück', 0),
+      ]);
+    });
+
+    test('numbering counts holders, so a nested list does not restart it', () {
+      final editor = _from('1. eins\n   1. eins-a\n1. zwei');
+      final values = editor.read(
+        () => ($getRoot().getFirstChild()! as ListNode).children
+            .cast<ListItemNode>()
+            .map((item) => item.value)
+            .toList(),
+      );
+
+      expect(values, [1, 2, 3]);
+      expect(_to(editor), '1. eins\n  1. eins-a\n3. zwei');
+    });
+
+    test('three levels round-trip without losing a level', () {
+      const source = '- außen\n  - innen\n    - ganz innen\n- zurück';
+      expect(_roundTrip(source), source);
     });
   });
 
@@ -189,6 +303,69 @@ void main() {
   });
 
   group('links', () {
+    test('a label is markdown, not characters', () {
+      // CommonMark resolves emphasis inside a link label. Keeping the
+      // asterisks would show a reader the syntax rather than the formatting,
+      // and would disagree with every CommonMark parser a document travels to.
+      final editor = _from('[ein *kursiver* Link](https://x.de)');
+      final runs = editor.read(() {
+        final link =
+            ($getRoot().getFirstChild()! as ElementNode).children
+                    .whereType<LinkNode>()
+                    .first
+                as ElementNode;
+        return link.children
+            .cast<TextNode>()
+            .map((node) => (node.getTextContent(), node.getFormat()))
+            .toList();
+      });
+
+      expect(runs, [
+        ('ein ', 0),
+        ('kursiver', TextFormat.italic.bit),
+        (' Link', 0),
+      ]);
+      expect(_to(editor), '[ein *kursiver* Link](https://x.de)');
+    });
+
+    test('a label inside emphasis keeps the emphasis around it', () {
+      // The rule put the outer bold on the label it made; re-parsing has to add
+      // to that rather than trade it for the inner format.
+      final editor = _from('**[ein *kursiver* Link](https://x.de)**');
+      final runs = editor.read(() {
+        final link =
+            ($getRoot().getFirstChild()! as ElementNode).children
+                    .whereType<LinkNode>()
+                    .first
+                as ElementNode;
+        return link.children
+            .cast<TextNode>()
+            .map((node) => (node.getTextContent(), node.getFormat()))
+            .toList();
+      });
+
+      expect(runs, [
+        ('ein ', TextFormat.bold.bit),
+        ('kursiver', TextFormat.bold.bit | TextFormat.italic.bit),
+        (' Link', TextFormat.bold.bit),
+      ]);
+    });
+
+    test('a plain label is left as the one node the rule made', () {
+      final editor = _from('[die Doku](https://example.org)');
+      expect(
+        editor.read(() {
+          final link =
+              ($getRoot().getFirstChild()! as ElementNode).children
+                      .whereType<LinkNode>()
+                      .first
+                  as ElementNode;
+          return link.childrenSize;
+        }),
+        1,
+      );
+    });
+
     test('round-trip', () {
       final editor = _from('siehe [die Doku](https://example.org) dort');
       expect(

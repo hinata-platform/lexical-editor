@@ -107,7 +107,9 @@ export 'src/selection_ops.dart'
         $getNearestBlock,
         $getNextBlock,
         $getPreviousBlock,
-        $selectAll;
+        $isBlock,
+        $selectAll,
+        $setBlocksType;
 export 'src/transforms.dart' show NodeTransform, maxTransformCycles;
 export 'src/updates.dart'
     show

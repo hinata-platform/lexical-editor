@@ -1,7 +1,7 @@
 name: lexical_table
 description: >-
   Table, row and cell nodes for lexical_core, wire-compatible with Lexical's @lexical/table. Pure Dart.
-version: 1.1.0
+version: 1.2.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -11,10 +11,14 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_core: ^1.1.0
-  lexical_markdown: ^1.1.0
+  lexical_core: ^1.2.0
+  lexical_markdown: ^1.2.0
   meta: ^1.15.0
 
 dev_dependencies:
+  # Tests only: a heading is the shape a block conversion turns a cell's
+  # paragraph into, and proving a table survives one needs something to convert
+  # it to. Not a runtime dependency — a table knows nothing about headings.
+  lexical_rich_text: ^1.2.0
   lints: ^6.0.0
   test: ^1.25.0

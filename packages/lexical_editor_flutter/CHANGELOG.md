@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- `LexicalHorizontalRuleView` and `horizontalRuleDecoratorBuilders()`, for the
+  `HorizontalRuleNode` new in `lexical_rich_text` 1.2.0. Included in
+  `lexicalDecoratorBuilders`, so a bundled editor draws a rule rather than the
+  text stand-in a decorator without a builder falls back to. Its colour comes
+  from the surrounding text style, so it follows a light or dark document
+  without being configured.
+
 ## 1.1.0
 
 - `LexicalEditorField.mentions`: the `@` typeahead, given a source. Mentions

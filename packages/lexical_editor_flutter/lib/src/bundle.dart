@@ -19,6 +19,7 @@ import 'package:lexical_rich_text/lexical_rich_text.dart';
 import 'package:lexical_table/lexical_table.dart';
 
 import 'default_theme.dart';
+import 'horizontal_rule_view.dart';
 import 'mentions.dart';
 
 /// Every node type this bundle knows, on top of the core types.
@@ -139,6 +140,7 @@ Map<String, DecoratorBuilder> lexicalDecoratorBuilders({
     onOpen: onOpenEmbed,
     thumbnailResolver: embedThumbnails,
   ),
+  ...horizontalRuleDecoratorBuilders(),
 };
 
 /// A ready-to-use editor: every node type, the default theme, history.

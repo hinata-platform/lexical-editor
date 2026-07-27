@@ -31,6 +31,7 @@ export 'src/default_transformers.dart'
         defaultMarkdownTransformers,
         defaultTextFormatTransformers,
         headingTransformer,
+        horizontalRuleTransformer,
         linkTransformer,
         orderedListTransformer,
         quoteTransformer;

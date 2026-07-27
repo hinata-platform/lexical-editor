@@ -94,6 +94,7 @@ final class TextMatchTransformer {
     required this.regExp,
     required this.replace,
     required this.export,
+    this.parsesInlineContent = false,
   });
 
   /// Matched against the text of a line.
@@ -104,6 +105,20 @@ final class TextMatchTransformer {
 
   /// Renders a node of the type this rule produces.
   final TextMatchExport export;
+
+  /// Whether the text [replace] puts inside the node is itself inline markdown.
+  ///
+  /// A link label is: CommonMark reads `[ein *kursiver* Link](url)` as a link
+  /// holding emphasis, not as a link holding three asterisk characters. The
+  /// rule cannot parse it itself — [TextMatchReplace] is handed a match, not
+  /// the rule set — so it says so here and the importer parses the text
+  /// children of whatever it built.
+  ///
+  /// Off by default, and it has to be: a rule whose content is deliberately
+  /// literal — anything code-like — would have its content rewritten by a
+  /// setting it never asked for. Opting in is the difference between a rule
+  /// that carries markdown and one that carries characters.
+  final bool parsesInlineContent;
 }
 
 /// A complete set of markdown rules.

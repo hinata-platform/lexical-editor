@@ -92,4 +92,28 @@ void main() {
     );
     expect(plain, isEmpty);
   });
+  test('the width is configurable, and defaults to upstream', () {
+    // The reason this is a parameter: an application whose server writes a
+    // different number has to agree with it, and the only way to change it
+    // used to be copying the rule.
+    final editor = _editor();
+    editor.update(() {
+      $convertFromMarkdown(
+        '![x](https://example.org/a.png)',
+        transformers: defaultMarkdownTransformers.extend(
+          textMatches: [imageMarkdownTransformer(maxWidth: 500)],
+        ),
+      );
+    }, discrete: true);
+
+    expect(
+      editor.read(
+        () =>
+            (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                    as ImageNode)
+                .maxWidth,
+      ),
+      500,
+    );
+  });
 }

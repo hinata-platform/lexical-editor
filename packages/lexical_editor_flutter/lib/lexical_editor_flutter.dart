@@ -50,5 +50,7 @@ export 'src/default_theme.dart'
         defaultCodeHighlightStyles,
         defaultHeadingStyles,
         defaultLexicalTheme;
+export 'src/horizontal_rule_view.dart'
+    show LexicalHorizontalRuleView, horizontalRuleDecoratorBuilders;
 export 'src/mentions.dart' show LexicalMentions;
 export 'src/table_layout.dart' show tableBlockLayouts;
