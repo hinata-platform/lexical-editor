@@ -48,6 +48,7 @@ export 'src/commands.dart'
         selectAllCommand,
         selectionChangeCommand,
         undoCommand;
+export 'src/css.dart' show getCssFromStyleObject, getStyleObjectFromCss;
 export 'src/editing.dart' show maxIndent, registerPlainText, registerRichText;
 export 'src/editor.dart'
     show DirtyType, EditorConfig, LexicalEditor, UnknownNodePolicy, coreNodes;
@@ -96,6 +97,15 @@ export 'src/selection.dart'
         RangeSelection,
         $getSelection,
         $setSelection;
+export 'src/selection_content.dart'
+    show
+        $isAtEndOfNode,
+        $isAtNodeEnd,
+        $isAtStartOfNode,
+        $isParentElementRtl,
+        $isParentRtl,
+        $sliceSelectedTextContent,
+        $trimTextContentFromAnchor;
 export 'src/selection_ops.dart'
     show
         ElementNodeSelection,
@@ -103,6 +113,7 @@ export 'src/selection_ops.dart'
         RangeSelectionEditing,
         SelectionUnit,
         TextNodeSelection,
+        $copyBlockFormatIndent,
         $createRangeSelection,
         $getNearestBlock,
         $getNextBlock,
@@ -110,6 +121,17 @@ export 'src/selection_ops.dart'
         $isBlock,
         $selectAll,
         $setBlocksType;
+export 'src/selection_style.dart'
+    show
+        ElementNodeStylePatch,
+        RangeSelectionStylePatch,
+        StylePatch,
+        StyleValue,
+        TextNodeStylePatch,
+        $ensureForwardRangeSelection,
+        $forEachSelectedTextNode,
+        $getSelectionStyleValueForProperty,
+        $patchStyleText;
 export 'src/transforms.dart' show NodeTransform, maxTransformCycles;
 export 'src/updates.dart'
     show

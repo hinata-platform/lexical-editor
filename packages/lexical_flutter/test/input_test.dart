@@ -331,4 +331,46 @@ void main() {
       expect(_blocks(editor), ['Hallo,', 'neu Welt', 'Zweiter']);
     });
   });
+
+  group('the editing window', () {
+    test('reuses an offset map for the block it already describes', () {
+      // Rebuilding it walks the block and rebuilds its flat text. On a
+      // selection drag that is once per pointer move, for a block whose text
+      // by definition did not change.
+      final editor = _editor();
+      _seed(editor, ['Hallo Welt']);
+      _caret(editor, 0, 5);
+
+      final (first, reused, rebuilt) = editor.read(() {
+        final first = $buildEditingWindow()!;
+        return (
+          first,
+          $buildEditingWindow(reuseOffsets: first.offsets)!,
+          $buildEditingWindow()!,
+        );
+      });
+
+      // The map handed in is the one used, and a fresh build is a fresh map:
+      // without both halves this asserts nothing.
+      expect(identical(reused.offsets, first.offsets), isTrue);
+      expect(identical(rebuilt.offsets, first.offsets), isFalse);
+      // Reusing it changes nothing about what the platform is told.
+      expect(reused.value, rebuilt.value);
+    });
+
+    test('rebuilds when the caret has moved to another block', () {
+      final editor = _editor();
+      _seed(editor, ['Hallo Welt', 'Zweiter']);
+      _caret(editor, 0, 5);
+      final stale = editor.read(() => $buildEditingWindow()!.offsets);
+      _caret(editor, 1, 3);
+
+      final window = editor.read(
+        () => $buildEditingWindow(reuseOffsets: stale)!,
+      );
+
+      expect(window.blockKey, isNot(stale.blockKey));
+      expect(window.offsets.flatText, 'Zweiter');
+    });
+  });
 }

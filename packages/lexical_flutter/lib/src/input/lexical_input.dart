@@ -174,11 +174,17 @@ class LexicalInput implements DeltaTextInputClient {
   /// Nothing is sent when the two agree, which is the normal case while
   /// typing: the platform applied the same edit we did, so the connection
   /// stays silent and a long block is never re-serialized.
-  void syncToModel({bool force = false}) {
+  ///
+  /// Pass `documentChanged: false` when the commit moved only the selection.
+  /// The block's own text is then known to be unchanged, so the offset map is
+  /// reused rather than rebuilt — which is what keeps a selection drag from
+  /// re-walking the block on every pointer move.
+  void syncToModel({bool force = false, bool documentChanged = true}) {
     if (_applyingDeltas) return;
     final window = editor.read(
       () => $buildEditingWindow(
         previous: _anchor,
+        reuseOffsets: documentChanged ? null : _window?.offsets,
         radius: windowRadius,
         composing: _composing,
       ),

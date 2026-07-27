@@ -210,6 +210,49 @@ abstract class ElementNode extends LexicalNode {
     return null;
   }
 
+  /// The first leaf under this element, or `null` when it holds nothing.
+  ///
+  /// "Leaf" as the tree means it: the walk descends through elements until it
+  /// reaches something that is not one, so a paragraph nested three lists deep
+  /// answers with its text node rather than with the list.
+  LexicalNode? getFirstDescendant() {
+    var node = getFirstChild();
+    while (node is ElementNode) {
+      final child = node.getFirstChild();
+      if (child == null) break;
+      node = child;
+    }
+    return node;
+  }
+
+  /// The last leaf under this element, or `null` when it holds nothing.
+  LexicalNode? getLastDescendant() {
+    var node = getLastChild();
+    while (node is ElementNode) {
+      final child = node.getLastChild();
+      if (child == null) break;
+      node = child;
+    }
+    return node;
+  }
+
+  /// The leaf at child [index], reaching into nested elements.
+  ///
+  /// This is what an element-typed selection point resolves to. An index past
+  /// the last child answers with the very last leaf rather than `null`,
+  /// because that offset is where a caret sits at the end of the element and
+  /// it has to resolve to something.
+  LexicalNode? getDescendantByIndex(int index) {
+    final size = childrenSize;
+    final isPastEnd = index >= size;
+    final node = getChildAtIndex(isPastEnd ? size - 1 : index);
+    if (node is! ElementNode) return node;
+    final leaf = isPastEnd
+        ? node.getLastDescendant()
+        : node.getFirstDescendant();
+    return leaf ?? node;
+  }
+
   /// The descendant text and inline nodes of this element, in order.
   List<LexicalNode> getAllTextNodes() {
     final result = <LexicalNode>[];

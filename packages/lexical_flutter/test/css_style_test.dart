@@ -15,6 +15,18 @@ void main() {
       expect(parseCssDeclarations('color; :red; ;'), isEmpty);
       expect(parseCssDeclarations(''), isEmpty);
     });
+
+    test('a separator inside a value is content, not a separator', () {
+      // Splitting on `;` truncates the url and invents a `b)` declaration
+      // after it; splitting on `,` breaks a quoted font stack the same way.
+      expect(parseCssDeclarations('background: url(a;b); color: red'), {
+        'background': 'url(a;b)',
+        'color': 'red',
+      });
+      expect(parseCssDeclarations('font-family: "a;b", monospace'), {
+        'font-family': '"a;b", monospace',
+      });
+    });
   });
 
   group('colors', () {

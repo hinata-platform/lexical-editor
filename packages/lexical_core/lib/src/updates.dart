@@ -293,6 +293,30 @@ void $removeNode(LexicalNode node, {bool preserveEmptyParent = false}) {
   }
 }
 
+/// Moves any selection point that addressed [from] onto [to].
+///
+/// [childOffset] is how many children [to] already held when [from]'s were
+/// appended to them, so an element point keeps addressing the same child.
+@internal
+void $moveSelectionPointsToReplacement(
+  LexicalNode from,
+  LexicalNode to, {
+  int childOffset = 0,
+}) {
+  final selection = $getActiveEditorState().selection;
+  if (selection is! RangeSelection) return;
+  for (final point in [selection.anchor, selection.focus]) {
+    if (point.key != from.key) continue;
+    if (to is TextNode) {
+      final size = to.getTextContentSize();
+      point.set(to.key, point.offset.clamp(0, size), PointType.text);
+    } else if (to is ElementNode) {
+      final offset = childOffset + point.offset;
+      point.set(to.key, offset.clamp(0, to.childrenSize), PointType.element);
+    }
+  }
+}
+
 /// Moves any selection point that addressed [node] onto a surviving node.
 ///
 /// Without this, removing the node the caret sits in leaves a selection

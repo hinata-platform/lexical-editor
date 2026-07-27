@@ -115,9 +115,17 @@ final class WindowAnchor {
 
 /// Builds the editing window for the current selection, or `null`.
 ///
+/// [reuseOffsets] is a map built for an earlier window. It is used instead of
+/// walking the block again **only** when it describes the same block and the
+/// caller states the document has not changed since — which is every commit
+/// of a selection drag, where the block's text is by definition the same and
+/// rebuilding it once per pointer move is the difference between a smooth
+/// selection and a stuttering one.
+///
 /// Must be called inside a read or update context.
 EditingWindow? $buildEditingWindow({
   WindowAnchor? previous,
+  BlockOffsetMap? reuseOffsets,
   int radius = defaultWindowRadius,
   TextRange composing = TextRange.empty,
 }) {
@@ -127,7 +135,9 @@ EditingWindow? $buildEditingWindow({
   if (focusNode == null) return null;
 
   final block = $getNearestBlock(focusNode);
-  final offsets = buildModelOffsets(block);
+  final offsets = reuseOffsets != null && reuseOffsets.blockKey == block.key
+      ? reuseOffsets
+      : buildModelOffsets(block);
   final length = offsets.length;
 
   final caret =

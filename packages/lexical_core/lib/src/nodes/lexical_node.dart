@@ -430,6 +430,12 @@ abstract class LexicalNode {
   }
 
   /// Replaces this node with [replaceWith], optionally moving children over.
+  ///
+  /// A selection point that addressed this node is moved onto the
+  /// replacement. It takes over this node's place in the tree, so it takes
+  /// over its role in the selection too — a caret on the empty paragraph
+  /// being turned into a heading belongs on the heading, and a point left
+  /// naming a key that is no longer in the document is a lost selection.
   T replace<T extends LexicalNode>(
     T replaceWith, {
     bool includeChildren = false,
@@ -442,6 +448,12 @@ abstract class LexicalNode {
     }
     final parent = self.getParentOrThrow();
     final prev = self.getPreviousSibling();
+    // How many children the replacement already had: this node's children are
+    // appended after them, so an element point that addressed child *k* here
+    // addresses child *existing + k* there.
+    final existingChildren = toReplace is ElementNode
+        ? toReplace.childrenSize
+        : 0;
     $removeFromParent(toReplace);
     if (prev == null) {
       parent.insertChildAtStart(toReplace);
@@ -458,6 +470,11 @@ abstract class LexicalNode {
         toReplace.append(child);
       }
     }
+    $moveSelectionPointsToReplacement(
+      self,
+      toReplace,
+      childOffset: includeChildren ? existingChildren : 0,
+    );
     $removeFromParent(self);
     return toReplace;
   }

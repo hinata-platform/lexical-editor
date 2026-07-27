@@ -1,5 +1,86 @@
 # Changelog
 
+## 1.3.0
+
+Ports the useful half of `@lexical/selection` into the core, where the rest of
+the selection model already lives. Not a separate package, because it was never
+a separate concern: everything in it operates on the `RangeSelection` the core
+defines, and splitting it would only produce two packages that cannot be used
+apart.
+
+**Style over a selection.** `$patchStyleText(selection, patch)` changes the
+declarations you name and leaves the rest of a node's `style` alone — the
+difference between a colour picker and a colour picker that silently drops the
+font size the writer set a minute ago. A partially covered node is split so the
+patch lands on exactly the covered run; a token node is styled whole or not at
+all; a collapsed selection records the patch as *pending*, so it applies to the
+next character typed rather than to nothing. `StyleValue` says which of the
+three things an entry does — set, drop, or derive the new value from the
+current one. `$getSelectionStyleValueForProperty` reads back the other way and
+distinguishes "every covered node agrees", "they disagree" and "nothing sets
+it"; a picker needs all three, and they are not the same answer.
+
+`style` is an untyped CSS string on the wire and stays one, so
+`getStyleObjectFromCss` and `getCssFromStyleObject` are the conversion those
+two need. They do not implement CSS: a property they have never heard of is
+carried through untouched, and a `;` or `:` inside quotes or parentheses is
+content rather than a separator, which is what keeps `url(a;b)` in one piece.
+
+**Where a point sits.** `$isAtNodeEnd(point)`, and its generalization to an
+ancestor, `$isAtStartOfNode` / `$isAtEndOfNode` — true only when nothing of the
+element's content lies between the point and that edge, at every level.
+`$forEachSelectedTextNode` and `$ensureForwardRangeSelection` are the two
+building blocks the style functions are written on, exposed because anything
+applying a per-run change wants them.
+
+**Taking content out.** `$sliceSelectedTextContent(selection, textNode)` is
+what an exporter needs and a node cannot answer: how much of this node did the
+selection actually cover. `$trimTextContentFromAnchor(editor, anchor, count)`
+enforces a maximum length, walking backwards out of the anchor through text,
+then whole nodes, then the blocks holding them — and counting the two
+characters a block boundary is worth in `getTextContent()`, so the accounting
+matches whatever measured the document in the first place. A node whose text
+changed in the same update is restored rather than trimmed, which is what makes
+a length limit *reject* an overlong paste instead of truncating it.
+
+**Direction.** `$isParentRtl` / `$isParentElementRtl`, answered from the
+model's own `direction` rather than from a computed style, which does not exist
+outside a browser.
+
+Two functions are deliberately **not** ported. `createDOMRange` and
+`createRectsFromDOMRange` describe a DOM range; `$moveCaretSelection` and
+`$moveCharacter` are `selection.modify()` plus a writing-mode flip that Flutter
+does not have — `RangeSelection.moveCaret` is the same operation here. The
+functions upstream marks deprecated (`$addNodeStyle`, `$wrapNodes`,
+`trimTextContentFromAnchor`) are not ported at all. And
+`$sliceSelectedTextNodeContent` returns text rather than a node: a clone would
+carry the original's key, so every accessor on it would resolve through the
+node map back to the original, and writing into the live node instead would
+edit the committed document from inside a read.
+
+**`$setBlocksType`, two fixes.** A selection that stops exactly at the start of
+the next block no longer converts that block — dragging from the middle of one
+paragraph to the start of the next covers no character of the second one, and a
+writer who sees nothing of it highlighted does not expect it to become a
+heading. And `afterCreateElement` is now a parameter, defaulting to the new
+`$copyBlockFormatIndent`, so what survives a conversion is the caller's to
+decide.
+
+**`replace()` carries the selection.** A point that addressed the replaced node
+is moved onto the replacement instead of being left naming a key that is no
+longer in the document. Converting an *empty* paragraph — press Enter, then
+click Heading — used to throw for exactly that reason.
+
+**A faster selection drag.** `RangeSelection.getBlocks()` walks block to block
+rather than leaf to leaf. Same blocks, but a selection over a long document
+holds thousands of leaves and dozens of blocks, and this runs on every pointer
+move of a drag.
+
+Additions to the node API, all upstream's: `ElementNode.getFirstDescendant`,
+`getLastDescendant` and `getDescendantByIndex`, and `TextNode.canHaveFormat`
+for a node type that renders something other than its own characters and should
+not be restyled into something that no longer reads as what it is.
+
 ## 1.2.0
 
 Added `$setBlocksType(selection, createElement)` — the operation behind a

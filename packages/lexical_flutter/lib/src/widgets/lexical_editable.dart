@@ -280,6 +280,13 @@ class LexicalEditableState extends State<LexicalEditable> {
   List<(DocumentSelection, Color)> _remote = const [];
   LexicalSelectionOverlay? _overlay;
 
+  /// Whether a pointer is dragging the selection right now.
+  ///
+  /// The caret is only scrolled into view when it moved for a reason the user
+  /// cannot see — a keystroke, an IME commit, a programmatic edit. While they
+  /// are dragging, they are looking at where they are pointing.
+  bool _draggingSelection = false;
+
   FocusNode get _focusNode =>
       widget.focusNode ?? (_ownedFocusNode ??= FocusNode());
 
@@ -388,11 +395,22 @@ class LexicalEditableState extends State<LexicalEditable> {
   // -------------------------------------------------------------------
 
   void _onCommit(EditorUpdate update) {
+    // A commit that moved only the selection — every commit of a drag, and
+    // every arrow key — leaves the text of every block exactly as it was.
+    // Saying so lets the work below skip what only the text can invalidate.
+    final documentChanged =
+        update.isFullReconcile ||
+        update.dirtyLeaves.isNotEmpty ||
+        update.dirtyElements.isNotEmpty;
     _refreshSelection();
-    _input.syncToModel();
+    _input.syncToModel(documentChanged: documentChanged);
     _restartBlink();
     _applyPresentation();
-    _revealCaret();
+    // Not while a pointer is dragging the selection: the user is pointing at
+    // where they want to be, and scrolling the view under them on every move
+    // is both wrong and the most expensive thing on this path — it walks to
+    // the enclosing scrollable and repaints everything between.
+    if (!_draggingSelection) _revealCaret();
     _overlay?.update();
   }
 
@@ -520,6 +538,10 @@ class LexicalEditableState extends State<LexicalEditable> {
     _caretVisible = true;
     if (!_focusNode.hasFocus) return;
     if (widget.cursorBlinkInterval == Duration.zero) return;
+    // A range has no caret to blink — see [_caretFor] — so a drag would
+    // otherwise cancel and re-arm a periodic timer on every pointer move for
+    // something that is not on screen.
+    if (_selection?.hasRange ?? false) return;
     _blinkTimer = Timer.periodic(widget.cursorBlinkInterval, (_) {
       _caretVisible = !_caretVisible;
       _applyPresentation();
@@ -805,6 +827,7 @@ class LexicalEditableState extends State<LexicalEditable> {
     requestFocus();
     hideToolbar();
     if (!widget.enableInteractiveSelection) return;
+    _draggingSelection = true;
     _placeCaret(details.globalPosition, extend: false);
   }
 
@@ -814,6 +837,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   }
 
   void _onDragEnd(DragEndDetails details) {
+    _draggingSelection = false;
     if (_selection?.hasRange ?? false) showToolbar();
   }
 

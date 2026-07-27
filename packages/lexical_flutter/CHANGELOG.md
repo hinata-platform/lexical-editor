@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.3.0
+
+**Dragging a selection no longer stutters.** Four things ran on every pointer
+move, and none of them had to:
+
+* The caret was scrolled into view on every move. While a pointer is dragging,
+  the user is looking at where they are pointing — and this was the most
+  expensive thing on the path, because it walks to the enclosing scrollable and
+  repaints everything in between.
+* The block's flat text and offset map were rebuilt from the model on every
+  move, to hand the platform an editing value whose text had not changed.
+  `$buildEditingWindow` now takes `reuseOffsets`, and `LexicalInput.syncToModel`
+  passes the previous map when the commit moved only the selection.
+* The caret blink timer was cancelled and re-armed on every move, for a caret
+  that is not drawn at all while a range is selected.
+* Resolving the selection into per-block spans walked every leaf it covered
+  rather than every block (fixed in `lexical_core` 1.3.0).
+
+`parseCssDeclarations` now defers to `lexical_core`'s
+`getStyleObjectFromCss`. Splitting the string on `;` and `:` — which is what it
+did — truncates `background: url(a;b)` and mangles a quoted font stack, and it
+was a second answer to a question the core already answers for the value that
+has to round-trip through Lexical web.
+
 ## 1.2.0
 
 No library changes. The packages version in lockstep — they are one library

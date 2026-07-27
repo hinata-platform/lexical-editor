@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/painting.dart';
+import 'package:lexical_core/lexical_core.dart';
 
 /// Resolves a node's raw `style` string onto a [TextStyle].
 ///
@@ -12,20 +13,20 @@ typedef CssStyleResolver = TextStyle Function(String css, TextStyle base);
 
 /// Parses a CSS declaration list into `property -> value` pairs.
 ///
-/// Deliberately small: it splits on `;` and `:`, trims, and lower-cases
-/// property names. It does not implement CSS. Anything more elaborate is the
-/// consumer's business, which is why [CssStyleResolver] is an injection
-/// point rather than a hard-coded parser.
+/// The reading half of [getStyleObjectFromCss], with property names
+/// lower-cased for lookup. Splitting the string here instead would get
+/// `background: url(a;b)` and quoted font stacks wrong, and would be a second
+/// answer to a question the core already answers — the same one that has to
+/// round-trip through Lexical web.
+///
+/// It still does not *implement* CSS. Which declarations mean anything is the
+/// consumer's business, which is why [CssStyleResolver] is an injection point
+/// rather than a hard-coded parser.
 Map<String, String> parseCssDeclarations(String css) {
   if (css.isEmpty) return const {};
   final result = <String, String>{};
-  for (final declaration in css.split(';')) {
-    final separator = declaration.indexOf(':');
-    if (separator <= 0) continue;
-    final property = declaration.substring(0, separator).trim().toLowerCase();
-    final value = declaration.substring(separator + 1).trim();
-    if (property.isEmpty || value.isEmpty) continue;
-    result[property] = value;
+  for (final entry in getStyleObjectFromCss(css).entries) {
+    result[entry.key.toLowerCase()] = entry.value;
   }
   return result;
 }

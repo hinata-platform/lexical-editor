@@ -191,6 +191,15 @@ final class LexicalEditor {
   /// The uncommitted state, when an update is in flight.
   EditorState? get pendingEditorState => _pendingEditorState;
 
+  /// The last committed state, even while an update is in flight.
+  ///
+  /// [editorState] answers with the *pending* state during an update, which
+  /// is what a reader almost always wants. This is for the few operations
+  /// that need to compare against what the document held before the update
+  /// started — undoing an edit that overran a limit, for one.
+  @internal
+  EditorState get committedEditorState => _editorState;
+
   /// Whether an update closure is currently running.
   bool get isUpdating => _updating;
 

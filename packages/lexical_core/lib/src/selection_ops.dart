@@ -27,6 +27,7 @@ import 'nodes/paragraph_node.dart';
 import 'nodes/root_node.dart';
 import 'nodes/text_node.dart';
 import 'selection.dart';
+import 'selection_content.dart';
 import 'updates.dart';
 
 // ---------------------------------------------------------------------------
@@ -108,16 +109,36 @@ bool $isBlock(LexicalNode? node) {
       first.isInline;
 }
 
+/// Carries a block's own layout across a conversion.
+///
+/// The default [$setBlocksType] applies: a right-aligned, twice-indented
+/// paragraph turned into a heading is still right-aligned and twice indented,
+/// because alignment and indent describe where the block sits rather than
+/// what kind of block it is.
+void $copyBlockFormatIndent(ElementNode source, ElementNode destination) {
+  final format = source.getFormat();
+  final indent = source.getIndent();
+  if (format != destination.getFormat()) destination.setFormat(format);
+  if (indent != destination.getIndent()) destination.setIndent(indent);
+}
+
 /// Replaces every block the selection touches with a fresh element.
 ///
 /// The operation behind a toolbar's heading, quote and paragraph buttons.
 /// [createElement] is called once per block, so each one becomes its own new
 /// element and the children move across untouched — a three-item selection
 /// becomes three headings, never one heading holding three runs of text.
+/// [afterCreateElement] then carries whatever should survive the conversion;
+/// by default that is [$copyBlockFormatIndent].
 ///
 /// Blocks that are containers rather than lines are skipped; see [$isBlock].
 /// A caret inside a table cell therefore converts the paragraph in that cell,
 /// which is what the writer pointed at, and leaves the table alone.
+///
+/// A selection that stops exactly at a block's edge does not convert that
+/// block. Dragging from the middle of one paragraph to the start of the next
+/// covers no character of the second one, and a writer who sees nothing of it
+/// highlighted does not expect it to become a heading.
 ///
 /// ```dart
 /// editor.update(() {
@@ -128,39 +149,88 @@ bool $isBlock(LexicalNode? node) {
 /// Must be called inside an update.
 void $setBlocksType(
   BaseSelection? selection,
-  ElementNode Function() createElement,
-) {
+  ElementNode Function() createElement, {
+  void Function(ElementNode source, ElementNode created) afterCreateElement =
+      $copyBlockFormatIndent,
+}) {
   if (selection == null) return;
 
   final blocks = <ElementNode>[];
-  final seen = <String>{};
+  final seen = <NodeKey>{};
   void consider(LexicalNode? node) {
     if (!$isBlock(node)) return;
     final block = node! as ElementNode;
-    if (!seen.add(block.key.value)) return;
+    if (!seen.add(block.key)) return;
     blocks.add(block);
   }
 
-  for (final node in selection.getNodes()) {
-    consider(node);
-  }
   // A collapsed caret selects the text node it sits in, not the block holding
   // it — and a caret is the ordinary case for a toolbar button.
+  ElementNode? focusBlock;
+  var skipFocus = false;
   if (selection is RangeSelection) {
-    for (final point in [selection.anchor, selection.focus]) {
-      final node = point.getNode();
-      if (node != null) consider($getNearestBlock(node));
+    final anchorBlock = _enclosingBlock(selection.anchor.getNode());
+    focusBlock = _enclosingBlock(selection.focus.getNode());
+    // The focus is the moving end of a drag. When it overshoots into the next
+    // block it lands at that block's *leading* edge — the edge opposite the
+    // way it travelled — so the block holds none of the selection.
+    skipFocus =
+        focusBlock != null &&
+        focusBlock.key != anchorBlock?.key &&
+        _holdsNoneOfSelection(
+          selection.focus,
+          focusBlock,
+          backwards: selection.isBackward,
+        );
+    consider(anchorBlock);
+    if (!skipFocus) consider(focusBlock);
+  }
+
+  for (final node in selection.getNodes()) {
+    if (skipFocus && node.key == focusBlock?.key) continue;
+    if ($isBlock(node)) {
+      consider(node);
+    } else if (selection is! RangeSelection) {
+      // A node selection has no ends to expand from, so each selected node
+      // stands in for the block that holds it.
+      consider(_enclosingBlock(node));
     }
   }
 
   // Collected before anything is replaced: mutating during the walk would
   // invalidate the sibling pointers it is standing on.
   for (final block in blocks) {
-    final replacement = createElement()
-      ..setFormat(block.getFormat())
-      ..setIndent(block.getIndent());
+    final replacement = createElement();
+    afterCreateElement(block, replacement);
     block.replace(replacement, includeChildren: true);
   }
+}
+
+/// The nearest block at or above [node], or `null` when there is none.
+ElementNode? _enclosingBlock(LexicalNode? node) {
+  var current = node;
+  while (current != null) {
+    if ($isBlock(current)) return current as ElementNode;
+    current = current.getParent();
+  }
+  return null;
+}
+
+/// Whether [point] sits at the edge of [block] that the selection travelled
+/// *away* from, which is the shape of an overshoot.
+bool _holdsNoneOfSelection(
+  Point point,
+  ElementNode block, {
+  required bool backwards,
+}) {
+  // An empty block is at both of its edges at once, so the test cannot tell
+  // an overshoot from a deliberate selection of the whole thing — and losing
+  // the conversion is the worse of the two mistakes.
+  final node = point.getNode();
+  if (node is ElementNode && node.isEmpty) return false;
+  return backwards
+      ? $isAtEndOfNode(point, block)
+      : $isAtStartOfNode(point, block);
 }
 
 /// The block before [block] in document order, or `null`.
@@ -562,23 +632,33 @@ extension RangeSelectionEditing on RangeSelection {
   }
 
   /// The blocks the selection touches, in document order.
+  ///
+  /// Walks block to block rather than leaf to leaf. The two enumerate the same
+  /// blocks, but a selection over a long document holds thousands of leaves
+  /// and dozens of blocks — and this runs on every pointer move of a drag,
+  /// where the difference is the difference between a smooth selection and a
+  /// stuttering one.
   List<ElementNode> getBlocks() {
     final (start, end) = orderedPoints;
     final startNode = start.getNode();
     final endNode = end.getNode();
     if (startNode == null || endNode == null) return const [];
-    final blocks = <NodeKey, ElementNode>{};
+
     final startBlock = _blockOf(startNode);
-    blocks[startBlock.key] = startBlock;
-    if (start.key != end.key || start.offset != end.offset) {
-      for (final node in _leavesBetween(startNode, endNode)) {
-        final block = _blockOf(node);
-        blocks[block.key] = block;
-      }
-    }
     final endBlock = _blockOf(endNode);
-    blocks[endBlock.key] = endBlock;
-    return blocks.values.where((block) => block is! RootNode).toList();
+    final blocks = <ElementNode>[];
+    if (startBlock is! RootNode) blocks.add(startBlock);
+    if (startBlock.key == endBlock.key) return blocks;
+
+    for (
+      var block = _nextBlockOf(startBlock);
+      block != null && block.key != endBlock.key;
+      block = _nextBlockOf(block)
+    ) {
+      if (block is! RootNode) blocks.add(block);
+    }
+    if (endBlock is! RootNode) blocks.add(endBlock);
+    return blocks;
   }
 }
 

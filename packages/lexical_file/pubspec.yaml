@@ -2,7 +2,7 @@ name: lexical_file
 description: >-
   The .lexical document envelope for lexical_core: editorState, lastSaved,
   source and version, wire-compatible with @lexical/file. Pure Dart.
-version: 1.2.0
+version: 1.3.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -12,7 +12,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_core: ^1.2.0
+  lexical_core: ^1.3.0
   meta: ^1.15.0
 
 dev_dependencies:

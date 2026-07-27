@@ -10,15 +10,15 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_code: ^1.2.0
-  lexical_core: ^1.2.0
-  lexical_hashtag: ^1.2.0
-  lexical_history: ^1.2.0
-  lexical_link: ^1.2.0
-  lexical_list: ^1.2.0
-  lexical_mark: ^1.2.0
-  lexical_rich_text: ^1.2.0
-  lexical_table: ^1.2.0
+  lexical_code: ^1.3.0
+  lexical_core: ^1.3.0
+  lexical_hashtag: ^1.3.0
+  lexical_history: ^1.3.0
+  lexical_link: ^1.3.0
+  lexical_list: ^1.3.0
+  lexical_mark: ^1.3.0
+  lexical_rich_text: ^1.3.0
+  lexical_table: ^1.3.0
 
 dev_dependencies:
   lints: ^6.0.0

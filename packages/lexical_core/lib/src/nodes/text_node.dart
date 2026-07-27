@@ -213,6 +213,17 @@ class TextNode extends LexicalNode {
   /// type.
   bool get isSimpleText => type == 'text' && modeInternal == TextMode.normal;
 
+  /// Whether formatting and styling may change this node.
+  ///
+  /// A node type that renders something other than its own text — a stamped
+  /// date, a chip whose colour carries meaning — overrides this to opt out of
+  /// bold and of the colour pickers, rather than being restyled into
+  /// something that no longer reads as what it is.
+  ///
+  /// This is about *whether* to format, not about splitting: an atomic node
+  /// says that with [TextMode.token], and nothing splits one of those.
+  bool get canHaveFormat => true;
+
   /// Replaces the text content.
   TextNode setTextContent(String text) =>
       getWritable<TextNode>()..textInternal = text;

@@ -30,7 +30,7 @@ native scrolling and native performance to keep code no user ever sees.
 
 | Package | What it is |
 |---|---|
-| [`lexical_core`](packages/lexical_core) | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, selection and every editing operation. No Flutter import. |
+| [`lexical_core`](packages/lexical_core) | Pure Dart. Editor state, node map, sibling-pointer tree, registry, JSON, commands, transforms, selection, styling and every editing operation. No Flutter import. |
 | [`lexical_history`](packages/lexical_history) | Undo/redo over state snapshots, deterministic tag-driven coalescing |
 | [`lexical_collab`](packages/lexical_collab) | Real-time collaboration: a transport-agnostic CRDT, an editor binding, presence |
 | [`lexical_rich_text`](packages/lexical_rich_text) | Heading, quote |
