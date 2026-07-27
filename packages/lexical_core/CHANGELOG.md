@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.7.4
+
+A review of the whole set against the wire format, the core-model invariants
+and the render/input rules. Two of the findings are in this package, and the
+first one is the most consequential bug the port has had.
+
+**A split carries the caret with it.** `TextNode.splitText` never touched the
+selection, so a point past the split kept naming the original node at an
+offset longer than that node had become. Every keystroke after that landed in
+the run *before* the split. It is why a hashtag could not be typed — the first
+letter made the tag, and everything after it went into the text in front of
+it — and it was waiting for every other transform that splits a run under the
+caret. The relocation is upstream's, bias included: the end of a range is
+left-biased, and a start exactly on a border moves on with the end so the
+range does not straddle a boundary it need not. Call sites that read a point's
+offset *after* splitting were corrected in the same pass.
+
+**A segmented run becomes ordinary text when it is typed into.** It was
+completed as a unit — a place name, an address — and from the moment it is
+edited by hand, deleting a whole word at a time is no longer what its content
+means. Upstream's rule, and the last of the normalization invariants this port
+had not implemented. Backspace still takes a whole segment.
+
 ## 1.7.3
 
 A review of selection against every node type the set ships, and the four

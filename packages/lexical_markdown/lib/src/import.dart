@@ -142,7 +142,7 @@ List<LexicalNode> _parseInline(
 
   for (final transformer in transformers.textFormats) {
     if ((format & transformer.format.bit) != 0) continue;
-    final open = text.indexOf(transformer.tag);
+    final open = _findOpen(text, transformer.tag);
     if (open < 0 || open >= earliest) continue;
     final close = _findClose(
       text,
@@ -165,14 +165,23 @@ List<LexicalNode> _parseInline(
       result.add(_text(text.substring(0, earliest), format));
     }
     final inner = text.substring(earliest + formatHit.tag.length, formatEnd);
-    result.addAll(
-      _parseInline(
-        inner,
-        format | formatHit.format.bit,
-        transformers,
-        contentDepth: contentDepth,
-      ),
-    );
+    if (formatHit.literal) {
+      // A code span is the characters between the backticks, exactly. Parsing
+      // emphasis in there invents formatting nobody wrote and exports as
+      // markdown that no longer says the same thing.
+      if (inner.isNotEmpty) {
+        result.add(_text(inner, format | formatHit.format.bit));
+      }
+    } else {
+      result.addAll(
+        _parseInline(
+          inner,
+          format | formatHit.format.bit,
+          transformers,
+          contentDepth: contentDepth,
+        ),
+      );
+    }
     result.addAll(
       _parseInline(
         text.substring(formatEnd + formatHit.tag.length),
@@ -249,6 +258,30 @@ void _parseContentOf(
   }
 }
 
+/// Whether the character at [index] is escaped by a backslash.
+///
+/// An odd number of backslashes escapes; an even number is that many literal
+/// backslashes. `\*nicht kursiv\*` is text the author asked for verbatim, and
+/// treating its asterisks as emphasis both loses the asterisks and leaves the
+/// backslashes stranded in the document.
+bool _isEscaped(String text, int index) {
+  var count = 0;
+  for (var i = index - 1; i >= 0 && text.codeUnitAt(i) == 0x5c; i--) {
+    count++;
+  }
+  return count.isOdd;
+}
+
+/// Finds the first delimiter [tag] that is not escaped.
+int _findOpen(String text, String tag) {
+  var index = text.indexOf(tag);
+  while (index >= 0) {
+    if (!_isEscaped(text, index)) return index;
+    index = text.indexOf(tag, index + 1);
+  }
+  return -1;
+}
+
 /// Finds the delimiter that closes [tag], skipping ones that only open.
 ///
 /// The subtlety is `***bold and italic***`: a naive search for the next `**`
@@ -263,7 +296,7 @@ int _findClose(String text, String tag, int from) {
     while (runEnd < text.length && text.codeUnitAt(runEnd) == character) {
       runEnd++;
     }
-    if (index + tag.length == runEnd) return index;
+    if (index + tag.length == runEnd && !_isEscaped(text, index)) return index;
     index = text.indexOf(tag, index + 1);
   }
   return -1;

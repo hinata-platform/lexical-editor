@@ -210,6 +210,24 @@ void main() {
       expect(_text(editor), 'vor drin nach');
     });
 
+    test('a block wrapper contributes its text once', () {
+      // A `div` with only inline content becomes a paragraph. Building that
+      // paragraph from the children *and* converting the element again put
+      // every pasted `div` into the document twice.
+      final editor = _parse('<div>Kein Absatz</div>');
+      expect(_text(editor), 'Kein Absatz');
+    });
+
+    test('a block wrapper keeps its alignment', () {
+      final editor = _parse('<div style="text-align: right">rechts</div>');
+      expect(
+        editor.read(
+          () => ($getRoot().getFirstChild()! as ElementNode).getFormat(),
+        ),
+        ElementFormat.right,
+      );
+    });
+
     test('script and style contribute nothing at all', () {
       final editor = _parse(
         '<p>sichtbar</p><script>alert(1)</script><style>p{}</style>',

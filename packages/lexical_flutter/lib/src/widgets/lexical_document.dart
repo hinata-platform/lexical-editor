@@ -408,7 +408,12 @@ class LexicalDocumentState extends State<LexicalDocument> {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < _topLevelKeys.length; i++)
-              _topLevelBlock(context, i),
+              // A boundary per block, which the scrolling path gets from
+              // `ListView` for free. Without it the caret's blink — a
+              // paint-only change in one block, twice a second, forever —
+              // repaints every block in the document, and so does every
+              // keystroke.
+              RepaintBoundary(child: _topLevelBlock(context, i)),
           ],
         ),
       );

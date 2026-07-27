@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.4
+
+No behaviour change. A call site that read a selection offset *after* splitting
+a text node was corrected for the selection fix in `lexical_core` 1.7.4.
+
 ## 1.7.3
 
 No changes in this package, but three things about editing at a link's edge

@@ -32,6 +32,34 @@ void main() {
     expect(find.byType(LexicalInlineBlock), findsNWidgets(3));
   });
 
+  testWidgets('each block paints on its own layer', (tester) async {
+    // The caret blinks by marking one block needs-paint, twice a second,
+    // forever. Without a boundary per block that repaints the whole document
+    // — and so does every keystroke. The scrolling path gets these from
+    // `ListView`; this is the path that has to ask.
+    final editor = _multiParagraph(3);
+    await tester.pumpWidget(
+      wrap(
+        SizedBox(
+          width: 400,
+          height: 600,
+          child: LexicalDocument(
+            editor: editor,
+            theme: testTheme,
+            scrollable: false,
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(LexicalDocument),
+        matching: find.byType(RepaintBoundary),
+      ),
+      findsNWidgets(3),
+    );
+  });
+
   testWidgets('an edit rebuilds exactly one block', (tester) async {
     // The reconciler's whole purpose, asserted on the dirty-set path rather
     // than eyeballed in a profile.

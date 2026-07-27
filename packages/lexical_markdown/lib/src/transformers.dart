@@ -70,13 +70,27 @@ final class ElementTransformer {
 @immutable
 final class TextFormatTransformer {
   /// Declares [tag] as the delimiter for [format].
-  const TextFormatTransformer({required this.tag, required this.format});
+  const TextFormatTransformer({
+    required this.tag,
+    required this.format,
+    this.literal = false,
+  });
 
   /// The delimiter, opening and closing.
   final String tag;
 
   /// The format bit it sets.
   final TextFormat format;
+
+  /// Whether what the delimiters enclose is taken exactly as written.
+  ///
+  /// True for a code span, and the reason is not a preference: in markdown the
+  /// content of `` `a **b**` `` is the characters `a **b**`, so parsing
+  /// emphasis inside it invents formatting the author did not write and — far
+  /// worse — exports as `` `a `**`b`** ``, which is no longer the same
+  /// document and no longer valid markdown. CommonMark and upstream both stop
+  /// inline parsing inside a code span.
+  final bool literal;
 }
 
 /// Builds a node from an inline match, or returns `null` to decline it.

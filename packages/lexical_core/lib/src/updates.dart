@@ -317,6 +317,54 @@ void $moveSelectionPointsToReplacement(
   }
 }
 
+/// Carries selection points into the pieces [parts] a split produced.
+///
+/// [parts] are the runs one text node became, in document order; the first of
+/// them still carries the original key. A point past the first split point
+/// therefore names a node at an offset longer than that node now is, and the
+/// next keystroke lands in the wrong run — which is how a hashtag being typed
+/// loses the characters after it, or a caret jumps backwards when a transform
+/// splits a run underneath it.
+///
+/// The bias is upstream's: the end of a range is left-biased, and so is the
+/// start except that a start sitting exactly on a border moves on with the
+/// end, so the range does not straddle a boundary it need not.
+@internal
+void $moveSelectionPointsAfterSplit(NodeKey original, List<TextNode> parts) {
+  final selection = $getActiveEditorState().selection;
+  if (selection is! RangeSelection) return;
+
+  final held = [
+    for (final point in [selection.anchor, selection.focus])
+      if (point.type == PointType.text && point.key == original) point,
+  ];
+  if (held.isEmpty) return;
+  // Both ends inside one run order by offset alone — no tree walk needed.
+  if (held.length == 2 && held[1].offset < held[0].offset) {
+    held.insert(0, held.removeLast());
+  }
+  Point? startPoint = held.first;
+  final endPoint = held.last;
+  final startOffset = startPoint.offset;
+  final endOffset = endPoint.offset;
+
+  var consumed = 0;
+  for (final part in parts) {
+    final end = consumed + part.getTextContentSize();
+    if (startPoint != null && startOffset >= consumed && startOffset <= end) {
+      startPoint.set(part.key, startOffset - consumed, PointType.text);
+      // Exactly on a border: keep looking, so it can join the end on the
+      // next part rather than leaving the range straddling the boundary.
+      if (startOffset < end) startPoint = null;
+    }
+    if (endOffset >= consumed && endOffset <= end) {
+      endPoint.set(part.key, endOffset - consumed, PointType.text);
+      break;
+    }
+    consumed = end;
+  }
+}
+
 /// Moves any selection point that addressed [node] onto a surviving node.
 ///
 /// Without this, removing the node the caret sits in leaves a selection

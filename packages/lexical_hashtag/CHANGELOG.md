@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.4
+
+**A hashtag can be typed.** Not a change in this package: the transform
+replaces the run under the caret, and the caret did not survive the split that
+replacement rests on, so everything after the first letter of a tag went into
+the text in front of it. `lexical_core` 1.7.4 is where that is fixed; the
+regression test lives here, where the symptom was.
+
 ## 1.7.3
 
 No library changes. The packages version in lockstep — they are one library

@@ -1065,7 +1065,7 @@ Point _insertTextAt(
   required int format,
   required String style,
 }) {
-  final node = caret.getNode();
+  var node = caret.getNode();
 
   if (node is TextNode && caret.type == PointType.text) {
     // Some inline elements do not take text at their edge: a character typed
@@ -1094,6 +1094,20 @@ Point _insertTextAt(
         node.insertAfter(fresh);
       }
       return Point(fresh.key, text.length, PointType.text);
+    }
+    // A segmented run is one the user did not author character by character —
+    // a place name completed as a unit. Typing *into* it makes it ordinary
+    // text, because from here on it is being authored by hand and deleting a
+    // whole word at a time is no longer what its own content means. Upstream
+    // does the same, and the mode is the only thing that changes.
+    if (node.isSegmented && caret.offset < node.getTextContentSize()) {
+      final plain = _makeTextNode(
+        node.getTextContent(),
+        node.getFormat(),
+        node.getStyle(),
+      )..setDetail(node.getDetail());
+      node.replace(plain);
+      node = plain;
     }
     if (node.getFormat() == format && node.getStyle() == style) {
       node.spliceText(caret.offset, 0, text);
@@ -1407,10 +1421,15 @@ extension on RangeSelection {
 
     if (start.key == end.key && startNode is TextNode) {
       final size = startNode.getTextContentSize();
+      // Read the offsets *before* splitting: a split carries the selection
+      // into the parts it produced, so afterwards these points describe the
+      // new runs and no longer say where the split was asked for.
+      final from = start.offset;
+      final to = end.offset;
       var target = startNode;
-      if (start.offset > 0 || end.offset < size) {
-        final parts = startNode.splitText([start.offset, end.offset]);
-        target = start.offset > 0 ? parts[1] : parts[0];
+      if (from > 0 || to < size) {
+        final parts = startNode.splitText([from, to]);
+        target = from > 0 ? parts[1] : parts[0];
       }
       anchor.set(target.key, 0, PointType.text);
       focus.set(target.key, target.getTextContentSize(), PointType.text);

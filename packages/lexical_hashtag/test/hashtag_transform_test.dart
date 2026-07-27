@@ -99,6 +99,60 @@ void main() {
     });
   });
 
+  group('typed one character at a time', () {
+    /// Typing goes through the editing commands, so this editor has them.
+    LexicalEditor typing() {
+      final editor = LexicalEditor(nodes: hashtagNodes);
+      registerRichText(editor);
+      registerHashtag(editor);
+      return editor;
+    }
+
+    // The way a tag is actually written, and the case a whole-line test cannot
+    // see: the transform replaces the run *under the caret*, so the caret has
+    // to survive that and stay in the tag. It did not, and everything typed
+    // after the first letter went into the text before the tag instead.
+    test('grows with each keystroke, and the caret stays in it', () {
+      final editor = typing();
+      _write(editor, 'los ');
+      editor.update(() {
+        (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode)
+            .select(4, 4);
+      }, discrete: true);
+
+      for (final char in ['#', 'f', 'l', 'u']) {
+        editor.dispatchCommand(insertTextCommand, char);
+      }
+      expect(_runs(editor), ['text:los ', 'hashtag:#flu']);
+
+      final caret = editor.read(() {
+        final selection = $getSelection()! as RangeSelection;
+        return (
+          text: selection.anchor.getNode()!.getTextContent(),
+          offset: selection.anchor.offset,
+        );
+      });
+      expect(caret.text, '#flu');
+      expect(caret.offset, 4);
+    });
+
+    test('a space ends the tag and the text after it is ordinary', () {
+      final editor = typing();
+      _write(editor, 'los ');
+      editor.update(() {
+        (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode)
+            .select(4, 4);
+      }, discrete: true);
+
+      for (final char in ['#', 'a', 'b', ' ', 'c']) {
+        editor.dispatchCommand(insertTextCommand, char);
+      }
+      expect(_runs(editor), ['text:los ', 'hashtag:#ab', 'text: c']);
+    });
+  });
+
   test('a document with hashtags still round-trips', () {
     final editor = _editor();
     _write(editor, 'siehe #flutter');

@@ -144,10 +144,14 @@ List<List<TextNode>> _selectedRuns(RangeSelection selection) {
 
   if (start.key == end.key) {
     final size = startNode.getTextContentSize();
+    // Offsets before splits: a split carries the selection into the parts it
+    // produced, so these points then describe the parts, not the request.
+    final from = start.offset;
+    final to = end.offset;
     var target = startNode;
-    if (start.offset > 0 || end.offset < size) {
-      final parts = startNode.splitText([start.offset, end.offset]);
-      target = start.offset > 0 ? parts[1] : parts[0];
+    if (from > 0 || to < size) {
+      final parts = startNode.splitText([from, to]);
+      target = from > 0 ? parts[1] : parts[0];
     }
     selection.anchor.set(target.key, 0, PointType.text);
     selection.focus.set(
@@ -160,13 +164,15 @@ List<List<TextNode>> _selectedRuns(RangeSelection selection) {
     ];
   }
 
+  final endOffset = end.offset;
+  final startOffset = start.offset;
   var last = endNode;
-  if (end.offset > 0 && end.offset < endNode.getTextContentSize()) {
-    last = endNode.splitText([end.offset])[0];
+  if (endOffset > 0 && endOffset < endNode.getTextContentSize()) {
+    last = endNode.splitText([endOffset])[0];
   }
   var first = startNode;
-  if (start.offset > 0 && start.offset < startNode.getTextContentSize()) {
-    first = startNode.splitText([start.offset])[1];
+  if (startOffset > 0 && startOffset < startNode.getTextContentSize()) {
+    first = startNode.splitText([startOffset])[1];
   }
 
   selection.anchor.set(first.key, 0, PointType.text);

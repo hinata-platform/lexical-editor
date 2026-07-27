@@ -314,6 +314,7 @@ class TextNode extends LexicalNode {
     }
     parts.add(text.substring(start));
 
+    final originalKey = self.key;
     final writableSelf = getWritable<TextNode>()..textInternal = parts.first;
     final result = <TextNode>[writableSelf];
     var previous = writableSelf;
@@ -328,6 +329,12 @@ class TextNode extends LexicalNode {
       result.add(node);
       previous = node;
     }
+
+    // The caret has to come along: it named this node at an offset that only
+    // made sense before the split, and leaving it there sends the next
+    // keystroke into the wrong run.
+    $moveSelectionPointsAfterSplit(originalKey, result);
+
     return result;
   }
 

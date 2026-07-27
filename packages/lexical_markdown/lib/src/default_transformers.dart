@@ -167,7 +167,7 @@ const List<TextFormatTransformer> defaultTextFormatTransformers = [
   TextFormatTransformer(tag: '~~', format: TextFormat.strikethrough),
   TextFormatTransformer(tag: '*', format: TextFormat.italic),
   TextFormatTransformer(tag: '_', format: TextFormat.italic),
-  TextFormatTransformer(tag: '`', format: TextFormat.code),
+  TextFormatTransformer(tag: '`', format: TextFormat.code, literal: true),
 ];
 
 /// Ordinary markdown: headings, quotes, lists, code, links and formatting.

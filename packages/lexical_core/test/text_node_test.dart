@@ -109,6 +109,82 @@ void main() {
       }, discrete: true);
     });
 
+    test('the caret comes along into the part it now belongs to', () {
+      // Otherwise it keeps naming this node at an offset longer than the node
+      // now is, and the next keystroke lands in the run before the split —
+      // which is what a hashtag being typed used to do with the characters
+      // after its first.
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode();
+        $getRoot().append(paragraph);
+        final text = $createTextNode('abcdef');
+        paragraph.append(text);
+        text.select(5, 5);
+
+        final parts = text.splitText([2]);
+        final selection = $getSelection()! as RangeSelection;
+        expect(selection.anchor.key, parts[1].key);
+        expect(selection.anchor.offset, 3);
+        expect(selection.focus.key, parts[1].key);
+        expect(selection.focus.offset, 3);
+      }, discrete: true);
+    });
+
+    test('a range across the split keeps both of its ends', () {
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode();
+        $getRoot().append(paragraph);
+        final text = $createTextNode('abcdef');
+        paragraph.append(text);
+        text.select(1, 5);
+
+        final parts = text.splitText([3]);
+        final selection = $getSelection()! as RangeSelection;
+        expect(selection.anchor.key, parts[0].key);
+        expect(selection.anchor.offset, 1);
+        expect(selection.focus.key, parts[1].key);
+        expect(selection.focus.offset, 2);
+      }, discrete: true);
+    });
+
+    test('a backwards range keeps its direction', () {
+      // anchor after focus is a right-to-left drag, and the direction is part
+      // of the selection's meaning — not something to normalize away.
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode();
+        $getRoot().append(paragraph);
+        final text = $createTextNode('abcdef');
+        paragraph.append(text);
+        text.select(5, 1);
+
+        final parts = text.splitText([3]);
+        final selection = $getSelection()! as RangeSelection;
+        expect(selection.anchor.key, parts[1].key);
+        expect(selection.anchor.offset, 2);
+        expect(selection.focus.key, parts[0].key);
+        expect(selection.focus.offset, 1);
+      }, discrete: true);
+    });
+
+    test('a caret exactly on the split lands at the end of the first part', () {
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode();
+        $getRoot().append(paragraph);
+        final text = $createTextNode('abcdef');
+        paragraph.append(text);
+        text.select(3, 3);
+
+        final parts = text.splitText([3]);
+        final selection = $getSelection()! as RangeSelection;
+        expect(selection.anchor.key, parts[0].key);
+        expect(selection.anchor.offset, 3);
+      }, discrete: true);
+    });
+
     test('offsets at the edges are ignored', () {
       final editor = LexicalEditor();
       editor.update(() {

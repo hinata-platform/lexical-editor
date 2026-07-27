@@ -285,7 +285,11 @@ final class HtmlImport {
           return children;
         }
         if (children.isEmpty) return const [];
-        return [block($createParagraphNode()..appendAll(children))];
+        // Deliberately not `block(...)`: that converts the children a second
+        // time, and appending both copies pasted every `<div>`'s text twice.
+        final paragraph = $createParagraphNode()..appendAll(children);
+        _applyBlockStyle(paragraph, element, style);
+        return [paragraph];
 
       default:
         return convertChildren(element, format: format, depth: depth);

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.4
+
+Two importer bugs, both of which changed what a document says.
+
+**A code span is taken exactly as written.** `` `a **b**` `` is the characters
+`a **b**` in markdown, so parsing emphasis inside it invented formatting the
+author never wrote — and exported as `` `a `**`b`** ``, which is neither the
+same document nor valid markdown. Inline parsing now stops inside a span
+declared `literal`, which the backtick transformer is.
+
+**A backslash-escaped delimiter is a character, not a delimiter.** `\*kein
+Stern\*` came back as emphasis with the backslashes stranded in the text.
+Both are what CommonMark and upstream do.
+
 ## 1.7.3
 
 No library changes. The packages version in lockstep — they are one library

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.4
+
+No library changes. The packages version in lockstep — they are one library
+split for pay-for-what-you-use, not a set of independent projects — so this
+release keeps the set on one version. See `lexical_core` for what changed.
+
 ## 1.7.3
 
 **Backspace at the start of a leading quote un-quotes it, and an empty leading

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.4
+
+**A repaint boundary per block when the document does not scroll.** The caret
+blinks by marking one block needs-paint, twice a second, forever — and without
+a boundary that repainted every block in the document, as did every keystroke.
+The scrolling path has always had this from `ListView`; the embedded path, the
+one an app uses when the editor sits inside its own scroll view, did not.
+
+See `lexical_core` for the selection fix that a split now performs, which this
+package's caret depends on.
+
 ## 1.7.3
 
 No library changes. The packages version in lockstep — they are one library

@@ -177,10 +177,15 @@ List<List<TextNode>> _selectedRuns(RangeSelection selection) {
 
   if (start.key == end.key) {
     final size = startNode.getTextContentSize();
+    // Read the offsets before splitting: the split carries the selection into
+    // the parts it produced, so afterwards these points describe those parts
+    // rather than where the split was asked for.
+    final from = start.offset;
+    final to = end.offset;
     var target = startNode;
-    if (start.offset > 0 || end.offset < size) {
-      final parts = startNode.splitText([start.offset, end.offset]);
-      target = start.offset > 0 ? parts[1] : parts[0];
+    if (from > 0 || to < size) {
+      final parts = startNode.splitText([from, to]);
+      target = from > 0 ? parts[1] : parts[0];
     }
     selection.anchor.set(target.key, 0, PointType.text);
     selection.focus.set(
@@ -193,16 +198,17 @@ List<List<TextNode>> _selectedRuns(RangeSelection selection) {
     ];
   }
 
-  // The end first: splitting the start node would otherwise invalidate an
-  // offset into the same node — and they are only the same node in the branch
-  // above, but the order costs nothing and the rule is easy to get wrong.
+  // Offsets first, splits second — a split moves the selection points it
+  // covers, so reading one afterwards reads the new position.
+  final endOffset = end.offset;
+  final startOffset = start.offset;
   var last = endNode;
-  if (end.offset > 0 && end.offset < endNode.getTextContentSize()) {
-    last = endNode.splitText([end.offset])[0];
+  if (endOffset > 0 && endOffset < endNode.getTextContentSize()) {
+    last = endNode.splitText([endOffset])[0];
   }
   var first = startNode;
-  if (start.offset > 0 && start.offset < startNode.getTextContentSize()) {
-    first = startNode.splitText([start.offset])[1];
+  if (startOffset > 0 && startOffset < startNode.getTextContentSize()) {
+    first = startNode.splitText([startOffset])[1];
   }
 
   // Re-anchoring on whole nodes lets the core's own walk enumerate the range,

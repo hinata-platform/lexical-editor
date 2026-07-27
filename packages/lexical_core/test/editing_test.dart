@@ -528,6 +528,58 @@ void main() {
     });
   });
 
+  group('segmented runs', () {
+    LexicalEditor place() {
+      final editor = _richText();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()..append(
+              $createTextNode('New York')..setMode(TextMode.segmented),
+            ),
+          );
+      }, discrete: true);
+      return editor;
+    }
+
+    TextMode modeOf(LexicalEditor editor) => editor.read(
+      () =>
+          (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                  as TextNode)
+              .getMode(),
+    );
+
+    test('typing inside one makes it ordinary text', () {
+      // It was completed as a unit; from the moment it is edited by hand,
+      // deleting a whole word at a time is no longer what its content means.
+      final editor = place();
+      _select(editor, 0, 3);
+      editor.dispatchCommand(insertTextCommand, 'X');
+
+      expect(_blocks(editor), ['NewX York']);
+      expect(modeOf(editor), TextMode.normal);
+    });
+
+    test('typing at its end leaves it as it was', () {
+      final editor = place();
+      _select(editor, 0, 8);
+      editor.dispatchCommand(insertTextCommand, '!');
+
+      expect(_blocks(editor), ['New York!']);
+      expect(modeOf(editor), TextMode.segmented);
+    });
+
+    test('backspace still takes a whole segment', () {
+      final editor = place();
+      _select(editor, 0, 8);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_blocks(editor), ['New ']);
+      expect(modeOf(editor), TextMode.segmented);
+    });
+  });
+
   group('deleteWord', () {
     test('removes the preceding word', () {
       final editor = _richText();

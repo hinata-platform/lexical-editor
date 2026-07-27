@@ -281,6 +281,39 @@ void main() {
       });
     });
 
+    test('a code span is taken exactly as written', () {
+      // In markdown the content of a code span is characters, not syntax.
+      // Parsing emphasis in there invents formatting nobody wrote — and
+      // exports as `` `a `**`b`** ``, which no longer says the same thing.
+      final editor = _from('ein `code mit **stern**` darin');
+      final runs = editor.read(
+        () => ($getRoot().getFirstChild()! as ElementNode).children
+            .whereType<TextNode>()
+            .map((node) => (node.getTextContent(), node.getFormat()))
+            .toList(),
+      );
+      expect(runs, [
+        ('ein ', 0),
+        ('code mit **stern**', TextFormat.code.bit),
+        (' darin', 0),
+      ]);
+      expect(_to(editor), 'ein `code mit **stern**` darin');
+    });
+
+    test('an escaped delimiter is a character, not a delimiter', () {
+      // `\*` is how an author writes an asterisk. Treating it as emphasis
+      // loses the asterisks and leaves the backslashes stranded in the text.
+      final editor = _from(r'ein \*kein Stern\* mehr');
+      final runs = editor.read(
+        () => ($getRoot().getFirstChild()! as ElementNode).children
+            .whereType<TextNode>()
+            .map((node) => (node.getTextContent(), node.getFormat()))
+            .toList(),
+      );
+      expect(runs, [(r'ein \*kein Stern\* mehr', 0)]);
+      expect(_to(editor), r'ein \*kein Stern\* mehr');
+    });
+
     test('an unpaired delimiter is literal text', () {
       final editor = _from('2 * 3 = 6');
       expect(

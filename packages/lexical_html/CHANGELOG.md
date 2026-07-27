@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.4
+
+**A block wrapper contributes its text once.** A `<div>` holding only inline
+content becomes a paragraph — and that paragraph was built from the converted
+children *and* filled again by converting the element a second time, so every
+such `div` was pasted into the document twice. Its alignment survives as
+before.
+
 ## 1.7.3
 
 No library changes. The packages version in lockstep — they are one library
