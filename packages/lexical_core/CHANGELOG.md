@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.2
+
+**Text typed at the edge of an inline element that refuses it is written
+beside the element, not inside it.** `canInsertTextBefore` and
+`canInsertTextAfter` have been part of the model since the port began, and
+until now nothing consulted them: a character typed in front of a link — the
+caret Enter leaves at a link's first letter, or a tap on it — was swallowed by
+the anchor, and everything typed there became part of the link. `insertText`
+now escapes the outermost inline ancestor that refuses the edge, as upstream
+does. The rule applies at that element's outer edge only; between two of its
+own letters the character is part of its content, as before.
+
 ## 1.7.1
 
 No library changes. The packages version in lockstep — they are one library

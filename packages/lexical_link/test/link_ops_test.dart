@@ -258,6 +258,63 @@ void main() {
     });
   });
 
+  group('typing at a link', () {
+    /// A paragraph of `die ` and a link around `Doku`, caret at [offset]
+    /// inside the link's own text.
+    LexicalEditor withCaret(int offset) {
+      final editor = _document(['die Doku']);
+      _select(editor, 4, 8);
+      editor.update(() => $toggleLink('https://lexical.dev'), discrete: true);
+      editor.update(() {
+        (_links(editor).single.getFirstChild()! as TextNode).select(
+          offset,
+          offset,
+        );
+      }, discrete: true);
+      return editor;
+    }
+
+    void type(LexicalEditor editor, String text) => editor.update(
+      () => ($getSelection()! as RangeSelection).insertText(text),
+      discrete: true,
+    );
+
+    test('its front writes in front of it, not into it', () {
+      final editor = withCaret(0);
+      type(editor, 'X');
+      expect(_shape(editor), 'die X[https://lexical.dev]Doku');
+      expect(editor.read(() => _links(editor).single.getTextContent()), 'Doku');
+    });
+
+    test('its end writes after it, so the link stops growing', () {
+      final editor = withCaret(4);
+      type(editor, 'X');
+      expect(_shape(editor), 'die [https://lexical.dev]DokuX');
+      expect(editor.read(() => _links(editor).single.getTextContent()), 'Doku');
+    });
+
+    test('inside it the text belongs to the link', () {
+      final editor = withCaret(2);
+      type(editor, 'X');
+      expect(_shape(editor), 'die [https://lexical.dev]DoXku');
+    });
+
+    test('after Enter in front of it, the new line is not part of it', () {
+      // How the bug was met in practice: Enter at the link's start pushes it
+      // down and leaves the caret at the link's first letter, where every
+      // character typed used to be absorbed by the anchor.
+      final editor = withCaret(0);
+      editor.update(
+        () => ($getSelection()! as RangeSelection).insertParagraph(),
+        discrete: true,
+      );
+      type(editor, 'Neu');
+
+      expect(_shape(editor), 'die ');
+      expect(_shape(editor, paragraph: 1), 'Neu[https://lexical.dev]Doku');
+    });
+  });
+
   group('an emptied link', () {
     test('removes itself rather than staying behind invisibly', () {
       // A link with no children renders nothing, so an anchor left over from

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.2
+
+No changes in this package, but the one 1.7.1 announced now actually happens:
+**typing at a link's edge writes beside it.** `canInsertTextBefore` and
+`canInsertTextAfter` were set to `false` here in 1.7.1, and nothing in the
+core consulted them, so a character typed in front of a link still became part
+of the link. `lexical_core` 1.7.2 is where that is fixed.
+
 ## 1.7.1
 
 **A link that is emptied removes itself.** It renders nothing, so an anchor

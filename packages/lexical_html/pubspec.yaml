@@ -2,7 +2,7 @@ name: lexical_html
 description: >-
   HTML import and export for lexical_core: render a document to HTML, and
   parse pasted HTML back into nodes. Pure Dart.
-version: 1.7.1
+version: 1.7.2
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

@@ -1059,6 +1059,21 @@ Point _insertTextAt(
   final node = caret.getNode();
 
   if (node is TextNode && caret.type == PointType.text) {
+    // Some inline elements do not take text at their edge: a character typed
+    // against a link is written *beside* it. Checked before anything else
+    // because it decides which parent the run belongs to, and the caret
+    // arrives here pointing at the text node *inside* the element — after
+    // Enter in front of a link, or after a tap on its first letter.
+    final escape = _inlineEdgeToEscape(node, caret.offset);
+    if (escape != null) {
+      final fresh = _makeTextNode(text, format, style);
+      if (escape.before) {
+        escape.element.insertBefore(fresh);
+      } else {
+        escape.element.insertAfter(fresh);
+      }
+      return Point(fresh.key, text.length, PointType.text);
+    }
     // A token is atomic: text typed at its edge becomes a sibling, never part
     // of the token's label. Otherwise typing next to a mention would silently
     // rewrite the entity's name.
@@ -1100,6 +1115,56 @@ Point _insertTextAt(
   }
 
   return caret;
+}
+
+/// The inline element that text typed at [offset] in [node] belongs outside of.
+///
+/// A link is the case this exists for: its text is the link's *label*, so a
+/// character typed against either end of it is new text next to the link, not
+/// a silent extension of what the anchor covers. `canInsertTextBefore` and
+/// `canInsertTextAfter` are how an element says so — declared here since the
+/// port began, but until now consulted nowhere, which is why typing in front
+/// of a link swallowed the typing.
+///
+/// Only the element's *outer* edge counts. The caret has to sit at the start
+/// (or end) of the text node and that node has to be the first (or last)
+/// child all the way up, otherwise the caret is inside the label and the
+/// character is simply part of it. The walk keeps the outermost element that
+/// refuses, so a link inside something that does accept text is left at the
+/// link's edge rather than the outer one's.
+({ElementNode element, bool before})? _inlineEdgeToEscape(
+  TextNode node,
+  int offset,
+) {
+  // The end first, as upstream does: in an empty run both edges are the same
+  // position and one of them has to answer.
+  if (offset >= node.getTextContentSize()) {
+    final blocked = _blockedInlineAncestor(node, before: false);
+    if (blocked != null) return (element: blocked, before: false);
+  }
+  if (offset <= 0) {
+    final blocked = _blockedInlineAncestor(node, before: true);
+    if (blocked != null) return (element: blocked, before: true);
+  }
+  return null;
+}
+
+/// The outermost inline ancestor of [node] that refuses text at its edge.
+ElementNode? _blockedInlineAncestor(LexicalNode node, {required bool before}) {
+  ElementNode? blocked;
+  var current = node;
+  while (true) {
+    final sibling = before
+        ? current.getPreviousSibling()
+        : current.getNextSibling();
+    if (sibling != null) return blocked;
+    final parent = current.getParent();
+    if (parent == null || !parent.isInline) return blocked;
+    if (before ? !parent.canInsertTextBefore : !parent.canInsertTextAfter) {
+      blocked = parent;
+    }
+    current = parent;
+  }
 }
 
 TextNode _makeTextNode(String text, int format, String style) {

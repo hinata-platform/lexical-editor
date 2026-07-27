@@ -34,6 +34,82 @@ void _seedWithToken(LexicalEditor editor) {
   }, discrete: true);
 }
 
+/// An inline element that does or does not take text at its edge — a link,
+/// stripped down to the one property this file is about.
+class _InlineWrapNode extends ElementNode {
+  _InlineWrapNode({this.sealed = true});
+
+  final bool sealed;
+
+  @override
+  String get type => 'inline-wrap';
+
+  @override
+  bool get isInline => true;
+
+  @override
+  bool get canInsertTextBefore => !sealed;
+
+  @override
+  bool get canInsertTextAfter => !sealed;
+
+  @override
+  _InlineWrapNode clone() => _InlineWrapNode(sealed: sealed);
+}
+
+/// A paragraph of `die ` followed by an inline element wrapping `Doku`.
+LexicalEditor _sealedInline({bool sealed = true}) {
+  final editor = LexicalEditor(
+    nodes: [
+      NodeSpec<_InlineWrapNode>(
+        type: 'inline-wrap',
+        create: _InlineWrapNode.new,
+      ),
+    ],
+  );
+  registerRichText(editor);
+  editor.update(() {
+    $getRoot()
+      ..clear()
+      ..append(
+        $createParagraphNode()
+          ..append($createTextNode('die '))
+          ..append(
+            _InlineWrapNode(sealed: sealed)..append($createTextNode('Doku')),
+          ),
+      );
+  }, discrete: true);
+  return editor;
+}
+
+/// A collapsed caret at [offset] inside the inline element's own text.
+void _selectSealed(LexicalEditor editor, int offset) {
+  editor.update(() {
+    final paragraph = $getRoot().getFirstChild()! as ElementNode;
+    final inside =
+        (paragraph.getLastChild()! as ElementNode).getFirstChild()! as TextNode;
+    $setSelection(
+      RangeSelection(
+        Point(inside.key, offset, PointType.text),
+        Point(inside.key, offset, PointType.text),
+      ),
+    );
+  }, discrete: true);
+}
+
+/// The first paragraph's shape, with the inline element's text in `<>`.
+String _shape(LexicalEditor editor) => editor.read(() {
+  final buffer = StringBuffer();
+  for (final child in ($getRoot().getFirstChild()! as ElementNode).children) {
+    if (child is _InlineWrapNode) {
+      buffer.write('<${child.getTextContent()}>');
+    } else {
+      buffer.write(child.getTextContent());
+    }
+  }
+  return buffer.toString();
+});
+
 /// Puts a collapsed caret, or a range, into the text of block [block].
 void _select(
   LexicalEditor editor,
@@ -140,6 +216,54 @@ void main() {
       }, discrete: true);
       editor.dispatchCommand(removeTextCommand, null);
       expect(_blocks(editor), ['Hallo ']);
+    });
+
+    test('at an inline element that refuses text, writes beside it', () {
+      // What `canInsertTextBefore`/`canInsertTextAfter` are for. A link's text
+      // is its label, so a character typed against either end is new text next
+      // to the link — not a silent extension of what the anchor covers.
+      for (final atEnd in [false, true]) {
+        final editor = _sealedInline();
+        _selectSealed(editor, atEnd ? 4 : 0);
+        editor.dispatchCommand(insertTextCommand, 'X');
+        expect(_shape(editor), atEnd ? 'die <Doku>X' : 'die X<Doku>');
+
+        // The caret came along, so the next keystroke continues the new run
+        // instead of dropping back inside the element.
+        editor.dispatchCommand(insertTextCommand, 'Y');
+        expect(_shape(editor), atEnd ? 'die <Doku>XY' : 'die XY<Doku>');
+      }
+    });
+
+    test('inside the element it is ordinary text', () {
+      // The rule is about the element's outer edge only; between two of its
+      // own letters the character is plainly part of the label.
+      final editor = _sealedInline();
+      _selectSealed(editor, 2);
+      editor.dispatchCommand(insertTextCommand, 'X');
+      expect(_shape(editor), 'die <DoXku>');
+    });
+
+    test('an inline element that accepts text keeps it', () {
+      final editor = _sealedInline(sealed: false);
+      _selectSealed(editor, 0);
+      editor.dispatchCommand(insertTextCommand, 'X');
+      expect(_shape(editor), 'die <XDoku>');
+    });
+
+    test('the run beside it merges with the text already there', () {
+      // Normalization does this, which is why escaping the element may create
+      // a fresh run without fragmenting the document.
+      final editor = _sealedInline();
+      _selectSealed(editor, 0);
+      editor.dispatchCommand(insertTextCommand, 'X');
+      expect(
+        editor.read(
+          () => ($getRoot().getFirstChild()! as ElementNode).childrenSize,
+        ),
+        2,
+      );
+      expect(_blocks(editor), ['die XDoku']);
     });
 
     test('newlines are inserted verbatim', () {
