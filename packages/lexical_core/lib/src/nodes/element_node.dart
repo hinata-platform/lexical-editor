@@ -325,6 +325,22 @@ abstract class ElementNode extends LexicalNode {
     return paragraph;
   }
 
+  /// Handles backspace at the very start of this element, with nothing before
+  /// it to delete.
+  ///
+  /// The counterpart of [insertNewAfter]: Enter asks a block what comes after
+  /// it, backspace asks it what it collapses into. Without it the first block
+  /// of a document is a trap — the first item of a list at the top of a
+  /// document has nothing before it, so backspace has nothing to delete and
+  /// simply does nothing, and there is no way out of the list with the
+  /// keyboard. A list item becomes a paragraph, a quote dissolves, and that
+  /// rule belongs to the node that knows it.
+  ///
+  /// Returns whether it handled the keystroke; `false` lets the deletion take
+  /// its ordinary course. Implementations that move content are responsible
+  /// for placing the selection.
+  bool collapseAtStart() => false;
+
   // ---------------------------------------------------------------------
   // Mutation
   // ---------------------------------------------------------------------

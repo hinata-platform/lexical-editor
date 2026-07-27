@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.3
+
+A review of selection against every node type the set ships, and the four
+things it found. All of them are keypresses that did nothing, which is the
+worst way for an editor to fail: nothing to undo, nothing to report.
+
+**Crossing an inline element.** A link's outer edge and the position beside it
+are the same place on screen, so a keypress that only crossed that edge moved
+nothing and deleted nothing: backspace immediately behind a link, forward
+delete immediately in front of one, and an arrow that appeared to be stuck. A
+step now goes *through* the edge and takes a real character. The same step
+from an element point no longer skips a whole link in one press.
+
+**Backspace at the very start of a block.** With nothing before it there is no
+character to delete, and the key was simply swallowed — a list, a quote or an
+empty line at the top of a document had no keyboard way out. Blocks can now
+say what they collapse into, through the new `ElementNode.collapseAtStart`,
+which is upstream's hook and the counterpart of `insertNewAfter`: Enter asks a
+block what comes after it, backspace asks what it becomes. A paragraph drops a
+blank first line; `lexical_rich_text` and `lexical_list` implement the rest.
+
+**Block decorators.** A divider holds no text, so backspace under one and
+forward delete above one had no character to work on and did nothing at all —
+inserted and then unremovable. They are removed now, and an arrow steps across
+one instead of stopping dead. (Upstream turns the caret into a node selection
+so the decorator is highlighted first; nothing in this port can render that
+state, so the press deletes, and history can undo it.)
+
+**Inline insertion.** Pasted or generated inline content went into whatever
+node the caret was in, so a run pasted with the caret at a link's edge came out
+wearing the link — while the same characters *typed* would not have. It goes
+into the nearest block now, splitting the inline elements around the caret, as
+upstream does. Word-wise deletion across a node boundary also takes a word
+rather than the single character it used to.
+
 ## 1.7.2
 
 **Text typed at the edge of an inline element that refuses it is written

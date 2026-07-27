@@ -85,4 +85,55 @@ void main() {
       expect(_texts(editor), ['Zitat\n']);
     });
   });
+
+  group('backspace at the very start', () {
+    test('a leading quote un-quotes itself', () {
+      // Nothing before it, so there is no character to delete. Without the
+      // collapse a quote at the top of a document could never be undone with
+      // the keyboard.
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createQuoteNode()..append($createTextNode('Zitat')));
+      }, discrete: true);
+      _caretAt(editor, 0, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_types(editor), ['paragraph']);
+      expect(_texts(editor), ['Zitat']);
+    });
+
+    test('an empty leading heading becomes a paragraph', () {
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createHeadingNode(HeadingTag.h2))
+          ..append($createParagraphNode()..append($createTextNode('Text')));
+      }, discrete: true);
+      editor.update(() {
+        ($getRoot().getFirstChild()! as ElementNode).select(0, 0);
+      }, discrete: true);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_types(editor), ['paragraph', 'paragraph']);
+    });
+
+    test('a heading with words in it keeps them', () {
+      // The safe half of upstream's rule: a document does not lose its title
+      // to a stray keypress at the very start of the text.
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createHeadingNode()..append($createTextNode('Titel')));
+      }, discrete: true);
+      _caretAt(editor, 0, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_types(editor), ['heading']);
+      expect(_texts(editor), ['Titel']);
+    });
+  });
 }

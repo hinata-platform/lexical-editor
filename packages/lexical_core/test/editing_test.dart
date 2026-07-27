@@ -57,27 +57,40 @@ class _InlineWrapNode extends ElementNode {
   _InlineWrapNode clone() => _InlineWrapNode(sealed: sealed);
 }
 
-/// A paragraph of `die ` followed by an inline element wrapping `Doku`.
-LexicalEditor _sealedInline({bool sealed = true}) {
+/// A block-level decorator — a divider, in every editor that has one.
+class _RuleNode extends DecoratorNode {
+  @override
+  String get type => 'rule';
+
+  @override
+  bool get isInline => false;
+
+  @override
+  _RuleNode clone() => _RuleNode();
+}
+
+/// A paragraph of `die `, an inline element wrapping `Doku`, and [tail].
+LexicalEditor _sealedInline({bool sealed = true, String tail = ''}) {
   final editor = LexicalEditor(
     nodes: [
       NodeSpec<_InlineWrapNode>(
         type: 'inline-wrap',
         create: _InlineWrapNode.new,
       ),
+      NodeSpec<_RuleNode>(type: 'rule', create: _RuleNode.new),
     ],
   );
   registerRichText(editor);
   editor.update(() {
+    final paragraph = $createParagraphNode()
+      ..append($createTextNode('die '))
+      ..append(
+        _InlineWrapNode(sealed: sealed)..append($createTextNode('Doku')),
+      );
+    if (tail.isNotEmpty) paragraph.append($createTextNode(tail));
     $getRoot()
       ..clear()
-      ..append(
-        $createParagraphNode()
-          ..append($createTextNode('die '))
-          ..append(
-            _InlineWrapNode(sealed: sealed)..append($createTextNode('Doku')),
-          ),
-      );
+      ..append(paragraph);
   }, discrete: true);
   return editor;
 }
@@ -92,6 +105,20 @@ void _selectSealed(LexicalEditor editor, int offset) {
       RangeSelection(
         Point(inside.key, offset, PointType.text),
         Point(inside.key, offset, PointType.text),
+      ),
+    );
+  }, discrete: true);
+}
+
+/// A collapsed caret in the text node at [index] of the first paragraph.
+void _selectSibling(LexicalEditor editor, int index, int offset) {
+  editor.update(() {
+    final paragraph = $getRoot().getFirstChild()! as ElementNode;
+    final text = paragraph.getChildAtIndex(index)! as TextNode;
+    $setSelection(
+      RangeSelection(
+        Point(text.key, offset, PointType.text),
+        Point(text.key, offset, PointType.text),
       ),
     );
   }, discrete: true);
@@ -384,6 +411,120 @@ void main() {
 
       editor.dispatchCommand(deleteCharacterCommand, false);
       expect(_blocks(editor), ['cc  bitte']);
+    });
+  });
+
+  group('crossing an inline element', () {
+    // Its outer edge and the position beside it are one place on screen, so a
+    // keypress that only crosses that edge appears to do nothing at all.
+    test('backspace after one deletes its last character', () {
+      final editor = _sealedInline(sealed: false, tail: ' dazu');
+      _selectSibling(editor, 2, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+      expect(_shape(editor), 'die <Dok> dazu');
+    });
+
+    test('forward delete before one deletes its first character', () {
+      final editor = _sealedInline(sealed: false, tail: ' dazu');
+      _selectSibling(editor, 0, 4);
+      editor.dispatchCommand(deleteCharacterCommand, false);
+      expect(_shape(editor), 'die <oku> dazu');
+    });
+
+    test('an arrow steps into it rather than over it', () {
+      final editor = _sealedInline(sealed: false, tail: ' dazu');
+      _selectSibling(editor, 0, 4);
+      editor.update(() {
+        expect(
+          ($getSelection()! as RangeSelection).moveCaret(backwards: false),
+          isTrue,
+        );
+      }, discrete: true);
+      expect(_caretText(editor), 'Doku');
+      expect(_caret(editor).offset, 1);
+    });
+
+    test('the whole element is not skipped in one press', () {
+      // Reaching the element's own text is the only way its last character can
+      // ever be deleted.
+      final editor = _sealedInline(sealed: false, tail: ' dazu');
+      _selectSibling(editor, 2, 0);
+      editor.update(() {
+        ($getSelection()! as RangeSelection).moveCaret(backwards: true);
+      }, discrete: true);
+      expect(_caretText(editor), 'Doku');
+      expect(_caret(editor).offset, 3);
+    });
+  });
+
+  group('block decorators', () {
+    LexicalEditor divided() {
+      final editor = _sealedInline();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createParagraphNode()..append($createTextNode('davor')))
+          ..append(_RuleNode())
+          ..append($createParagraphNode()..append($createTextNode('danach')));
+      }, discrete: true);
+      return editor;
+    }
+
+    List<String> types(LexicalEditor editor) =>
+        editor.read(() => $getRoot().children.map((n) => n.type).toList());
+
+    test('backspace under one removes it', () {
+      // It holds no text, so there is no character to delete and without this
+      // the key does nothing: a divider could be inserted and never removed.
+      final editor = divided();
+      _select(editor, 2, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+      expect(types(editor), ['paragraph', 'paragraph']);
+      expect(_blocks(editor), ['davor', 'danach']);
+    });
+
+    test('forward delete above one removes it', () {
+      final editor = divided();
+      _select(editor, 0, 5);
+      editor.dispatchCommand(deleteCharacterCommand, false);
+      expect(types(editor), ['paragraph', 'paragraph']);
+    });
+
+    test('an arrow steps across it', () {
+      final editor = divided();
+      _select(editor, 0, 5);
+      editor.update(() {
+        ($getSelection()! as RangeSelection).moveCaret(backwards: false);
+      }, discrete: true);
+      expect(types(editor), ['paragraph', 'rule', 'paragraph']);
+      expect(_caretText(editor), 'danach');
+    });
+  });
+
+  group('collapsing at the start', () {
+    test('an empty first line goes, and the caret moves on', () {
+      final editor = _richText();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createParagraphNode())
+          ..append($createParagraphNode()..append($createTextNode('Text')));
+      }, discrete: true);
+      editor.update(() {
+        ($getRoot().getFirstChild()! as ElementNode).select(0, 0);
+      }, discrete: true);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_blocks(editor), ['Text']);
+      expect(_caretText(editor), 'Text');
+    });
+
+    test('a first line with words in it stays', () {
+      final editor = _richText();
+      _seed(editor, ['Hallo']);
+      _select(editor, 0, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+      expect(_blocks(editor), ['Hallo']);
     });
   });
 

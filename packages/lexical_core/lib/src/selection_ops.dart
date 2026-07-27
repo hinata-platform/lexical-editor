@@ -20,6 +20,7 @@ library;
 import 'package:characters/characters.dart';
 
 import 'keys.dart';
+import 'nodes/decorator_node.dart';
 import 'nodes/element_node.dart';
 import 'nodes/lexical_node.dart';
 import 'nodes/line_break_node.dart';
@@ -469,12 +470,19 @@ extension RangeSelectionEditing on RangeSelection {
       removeText();
       return;
     }
+    if (_deleteAdjacentDecorator(backwards: backwards)) return;
     final moved = _movePoint(
       focus,
       backwards: backwards,
       unit: _Unit.character,
     );
-    if (moved == null) return;
+    if (moved == null) {
+      // Nowhere to delete towards: the caret is at the very start of the
+      // document, or of a shadow root. That is where a block gets to say what
+      // it collapses into rather than the keystroke being swallowed.
+      if (backwards) _collapseBlockAtStart(focus);
+      return;
+    }
     _deleteTowards(moved, backwards: backwards);
   }
 
@@ -485,6 +493,7 @@ extension RangeSelectionEditing on RangeSelection {
       removeText();
       return;
     }
+    if (_deleteAdjacentDecorator(backwards: backwards)) return;
     final moved = _movePoint(focus, backwards: backwards, unit: _Unit.word);
     if (moved == null) return;
     _deleteTowards(moved, backwards: backwards);
@@ -1175,36 +1184,27 @@ TextNode _makeTextNode(String text, int format, String style) {
 }
 
 extension on RangeSelection {
+  /// Splices inline [nodes] in at the caret, as children of its **block**.
+  ///
+  /// Upstream's rule, and the one that matters here: pasted or generated
+  /// content is inserted into the nearest block, splitting whatever inline
+  /// elements the caret happened to be inside. Inserting into the caret's
+  /// immediate parent instead would quietly adopt the content — a run pasted
+  /// while the caret sits in a link would come out as part of the link, which
+  /// is not what was copied and not what typing the same characters does.
   void _insertInline(List<LexicalNode> nodes) {
     final node = anchor.getNode();
-    LexicalNode? anchorNode;
+    if (node == null) return;
+    final block = _blockOf(node);
 
-    if (node is TextNode && anchor.type == PointType.text) {
-      final size = node.getTextContentSize();
-      if (anchor.offset <= 0) {
-        final previous = node.getPreviousSibling();
-        if (previous == null) {
-          node.getParentOrThrow().splice(node.indexWithinParent, 0, nodes);
-          anchorNode = nodes.last;
-        } else {
-          anchorNode = previous;
-        }
-      } else if (anchor.offset >= size) {
-        anchorNode = node;
-      } else {
-        anchorNode = node.splitText([anchor.offset]).first;
-      }
-      if (anchorNode != nodes.last) {
-        var previous = anchorNode;
-        for (final insert in nodes) {
-          previous.insertAfter(insert);
-          previous = insert;
-        }
-      }
-    } else if (node is ElementNode) {
-      node.splice(anchor.offset.clamp(0, node.childrenSize), 0, nodes);
+    if (block is RootNode) {
+      // Inline content cannot be a child of the root; it needs a line to live
+      // on. This is the empty document, where the caret is on the root itself.
+      final paragraph = $createParagraphNode()..appendAll(nodes);
+      block.splice(anchor.offset.clamp(0, block.childrenSize), 0, [paragraph]);
     } else {
-      return;
+      final after = _splitInlineAt(block, anchor);
+      block.splice(after == null ? 0 : after.indexWithinParent + 1, 0, nodes);
     }
 
     final last = nodes.last;
@@ -1262,37 +1262,8 @@ extension on RangeSelection {
 
   /// Splits [block] at [point] and returns the nodes that move to a new block.
   List<LexicalNode> _splitBlockContentAt(ElementNode block, Point point) {
-    final node = point.getNode();
-    if (node == null) return const [];
-
-    LexicalNode? stayAfter;
-    if (point.type == PointType.text && node is TextNode) {
-      final size = node.getTextContentSize();
-      if (point.offset <= 0) {
-        stayAfter = node.getPreviousSibling();
-        if (stayAfter == null && node.getParent()?.key != block.key) {
-          // Nested at the very start of an inline element: split above it.
-          stayAfter = _liftToBlockChild(block, node).getPreviousSibling();
-        }
-      } else if (point.offset >= size) {
-        stayAfter = _liftToBlockChild(block, node);
-      } else {
-        stayAfter = _liftToBlockChild(
-          block,
-          node.splitText([point.offset]).first,
-        );
-      }
-    } else if (node is ElementNode) {
-      if (node.key == block.key) {
-        stayAfter = node.getChildAtIndex(point.offset - 1);
-      } else {
-        final index = point.offset;
-        final child = node.getChildAtIndex(index - 1);
-        stayAfter = child == null
-            ? _liftToBlockChild(block, node).getPreviousSibling()
-            : _liftToBlockChild(block, child);
-      }
-    }
+    if (point.getNode() == null) return const [];
+    final stayAfter = _splitInlineAt(block, point);
 
     final tail = <LexicalNode>[];
     var cursor = stayAfter == null
@@ -1307,6 +1278,51 @@ extension on RangeSelection {
       node.remove(preserveEmptyParent: true);
     }
     return tail;
+  }
+}
+
+/// Splits the inline elements around [point] and returns the child of [block]
+/// the split falls *after* — `null` when it falls before the first child.
+///
+/// The one place that answers "where in this block is the caret, really".
+/// Both callers need the same answer: Enter moves everything after that point
+/// to a new block, and an inline insertion puts its content there. Doing it
+/// once is also what keeps a link from being torn in half by one operation and
+/// adopted whole by the other.
+LexicalNode? _splitInlineAt(ElementNode block, Point point) {
+  final node = point.getNode();
+  if (node == null) return null;
+
+  if (point.type == PointType.text && node is TextNode) {
+    final size = node.getTextContentSize();
+    if (point.offset > 0 && point.offset < size) {
+      return _liftToBlockChild(block, node.splitText([point.offset]).first);
+    }
+    if (point.offset >= size) return _liftToBlockChild(block, node);
+    // At the very start of the run: everything from here on moves, so the
+    // split goes above whatever precedes it — inside an inline element that
+    // means splitting the element itself.
+    final previous = node.getPreviousSibling();
+    if (previous != null) return _liftToBlockChild(block, previous);
+    return _childOfBlock(block, node).getPreviousSibling();
+  }
+
+  if (node is ElementNode) {
+    if (node.key == block.key) return node.getChildAtIndex(point.offset - 1);
+    final child = node.getChildAtIndex(point.offset - 1);
+    if (child != null) return _liftToBlockChild(block, child);
+    return _childOfBlock(block, node).getPreviousSibling();
+  }
+  return null;
+}
+
+/// The ancestor of [node] that is a direct child of [block], or [node].
+LexicalNode _childOfBlock(ElementNode block, LexicalNode node) {
+  var current = node;
+  while (true) {
+    final parent = current.getParent();
+    if (parent == null || parent.key == block.key) return current;
+    current = parent;
   }
 }
 
@@ -1341,6 +1357,38 @@ LexicalNode _liftToBlockChild(ElementNode block, LexicalNode node) {
 enum _Unit { character, word }
 
 extension on RangeSelection {
+  /// Removes the block decorator the caret is about to run into, if there is
+  /// one. See [_adjacentBlockDecorator].
+  bool _deleteAdjacentDecorator({required bool backwards}) {
+    final decorator = _adjacentBlockDecorator(focus, backwards: backwards);
+    if (decorator == null) return false;
+    decorator.remove(preserveEmptyParent: true);
+    // The caret was at its block's edge and stays there; only the document
+    // changed.
+    dirty = true;
+    return true;
+  }
+
+  /// Offers each element from [point] up the chance to collapse.
+  ///
+  /// The walk stops at the first node that has something before it — from
+  /// there an ordinary deletion has somewhere to go — and at a root, which is
+  /// where the document ends. See [ElementNode.collapseAtStart].
+  void _collapseBlockAtStart(Point point) {
+    var node = point.getNode();
+    while (node != null) {
+      if (node is ElementNode) {
+        if (node.collapseAtStart()) {
+          dirty = true;
+          return;
+        }
+        if (node is RootNode || node.isShadowRoot) return;
+      }
+      if (node.getPreviousSibling() != null) return;
+      node = node.getParent();
+    }
+  }
+
   void _deleteTowards(Point moved, {required bool backwards}) {
     final anchorCopy = Point(anchor.key, anchor.offset, anchor.type);
     final caret = backwards
@@ -1431,7 +1479,7 @@ Point? _movePoint(Point from, {required bool backwards, required _Unit unit}) {
       }
       return Point(node.key, offset, PointType.text);
     }
-    return _crossBoundary(node, backwards: backwards);
+    return _crossBoundary(node, backwards: backwards, unit: unit);
   }
 
   if (node is ElementNode) {
@@ -1455,6 +1503,13 @@ Point? _movePoint(Point from, {required bool backwards, required _Unit unit}) {
                 PointType.text,
               );
       }
+      // A link is a *container* of text, not one opaque thing: stepping onto
+      // it from beside it has to land inside it, or the whole link is skipped
+      // in one keypress and its last character can never be deleted.
+      if (child is ElementNode && child.isInline) {
+        final inner = _stepIntoInline(child, backwards: true, unit: unit);
+        if (inner != null) return inner;
+      }
       return Point(node.key, index - 1, PointType.element);
     }
     if (!backwards && index < node.childrenSize) {
@@ -1470,16 +1525,28 @@ Point? _movePoint(Point from, {required bool backwards, required _Unit unit}) {
                 PointType.text,
               );
       }
+      if (child is ElementNode && child.isInline) {
+        final inner = _stepIntoInline(child, backwards: false, unit: unit);
+        if (inner != null) return inner;
+      }
       return Point(node.key, index + 1, PointType.element);
     }
-    return _crossBoundary(node, backwards: backwards);
+    return _crossBoundary(node, backwards: backwards, unit: unit);
   }
 
   return null;
 }
 
-/// The position just outside [node]'s block, in the given direction.
-Point? _crossBoundary(LexicalNode node, {required bool backwards}) {
+/// The position one [unit] away from [node]'s edge, across whatever is next.
+///
+/// [unit] matters as soon as the step lands in a neighbouring run: word-wise
+/// deletion that crosses from one text node into another has to take a word
+/// out of it, not the single character a grapheme step would.
+Point? _crossBoundary(
+  LexicalNode node, {
+  required bool backwards,
+  _Unit unit = _Unit.character,
+}) {
   // Inside the block first: a previous or next inline sibling, walking out of
   // any inline elements on the way.
   var current = node;
@@ -1503,12 +1570,35 @@ Point? _crossBoundary(LexicalNode node, {required bool backwards}) {
         return backwards
             ? Point(
                 sibling.key,
-                _previousGrapheme(text, text.length),
+                unit == _Unit.word
+                    ? _previousWord(text, text.length)
+                    : _previousGrapheme(text, text.length),
                 PointType.text,
               )
-            : Point(sibling.key, _nextGrapheme(text, 0), PointType.text);
+            : Point(
+                sibling.key,
+                unit == _Unit.word
+                    ? _nextWord(text, 0)
+                    : _nextGrapheme(text, 0),
+                PointType.text,
+              );
       }
       if (sibling is ElementNode) {
+        // An inline element's outer edge and the position beside it are the
+        // *same* place on screen — the caret between `die ` and a link is one
+        // position, not two. Stopping at the edge would make a keypress do
+        // nothing at all: an arrow that appears not to move, and a backspace
+        // that deletes no character because both ends of the range it just
+        // built resolve to the same spot. So step through the edge and take a
+        // real character.
+        if (sibling.isInline) {
+          final inner = _stepIntoInline(
+            sibling,
+            backwards: backwards,
+            unit: unit,
+          );
+          if (inner != null) return inner;
+        }
         final inner = backwards
             ? _lastPointIn(sibling)
             : _firstPointIn(sibling);
@@ -1535,10 +1625,97 @@ Point? _crossBoundary(LexicalNode node, {required bool backwards}) {
   return backwards ? _lastPointIn(neighbour) : _firstPointIn(neighbour);
 }
 
+/// One character into [inline] from the edge the caret is arriving at.
+///
+/// Not the edge itself: see the call site. Returns `null` when there is
+/// nothing inside to step onto, in which case the caller falls back to the
+/// element's boundary.
+Point? _stepIntoInline(
+  ElementNode inline, {
+  required bool backwards,
+  _Unit unit = _Unit.character,
+}) {
+  var current = inline;
+  while (true) {
+    final child = backwards ? current.getLastChild() : current.getFirstChild();
+    if (child == null) return null;
+    if (child is TextNode) {
+      final text = child.getTextContent();
+      if (text.isEmpty) return null;
+      if (child.isToken) {
+        // Atomic, so the step takes the whole of it.
+        return backwards
+            ? Point(child.key, 0, PointType.text)
+            : Point(child.key, text.length, PointType.text);
+      }
+      return backwards
+          ? Point(
+              child.key,
+              unit == _Unit.word
+                  ? _previousWord(text, text.length)
+                  : _previousGrapheme(text, text.length),
+              PointType.text,
+            )
+          : Point(
+              child.key,
+              unit == _Unit.word ? _nextWord(text, 0) : _nextGrapheme(text, 0),
+              PointType.text,
+            );
+    }
+    if (child is ElementNode && child.isInline) {
+      current = child;
+      continue;
+    }
+    // A decorator or a line break: one unit, so the step lands past it.
+    return Point(
+      current.key,
+      backwards ? current.childrenSize - 1 : 1,
+      PointType.element,
+    );
+  }
+}
+
+/// The block decorator immediately [backwards] of [point], if the caret sits
+/// at the edge of its block and that is what it would run into next.
+///
+/// A block image between two paragraphs is not text and has no character to
+/// delete, so without this backspace above or below one does nothing at all
+/// and there is no way to remove it with the keyboard. Upstream turns the
+/// range selection into a *node* selection here so the image is highlighted
+/// and the second press deletes it; this port has no way to render that
+/// state, so the press deletes it — which history can undo.
+DecoratorNode? _adjacentBlockDecorator(Point point, {required bool backwards}) {
+  final node = point.getNode();
+  if (node == null) return null;
+  if (!(backwards
+      ? $isAtStartOfNode(point, _blockOf(node))
+      : $isAtEndOfNode(point, _blockOf(node)))) {
+    return null;
+  }
+  LexicalNode? current = _blockOf(node);
+  while (current != null && current is! RootNode) {
+    final sibling = backwards
+        ? current.getPreviousSibling()
+        : current.getNextSibling();
+    if (sibling != null) {
+      return sibling is DecoratorNode && !sibling.isInline ? sibling : null;
+    }
+    current = current.getParent();
+  }
+  return null;
+}
+
 ElementNode? _previousBlockOf(ElementNode block) {
   LexicalNode? current = block;
   while (current != null && current is! RootNode) {
-    final previous = current.getPreviousSibling();
+    var previous = current.getPreviousSibling();
+    // A block decorator — an image on its own line — is not a block anyone can
+    // put a caret in, so it is stepped over rather than treated as the end of
+    // the document. Deleting *into* one is intercepted before movement ever
+    // runs; see [_adjacentBlockDecorator].
+    while (previous is DecoratorNode && !previous.isInline) {
+      previous = previous.getPreviousSibling();
+    }
     if (previous is ElementNode) {
       var candidate = previous;
       while (true) {
@@ -1560,7 +1737,10 @@ ElementNode? _previousBlockOf(ElementNode block) {
 ElementNode? _nextBlockOf(ElementNode block) {
   LexicalNode? current = block;
   while (current != null && current is! RootNode) {
-    final next = current.getNextSibling();
+    var next = current.getNextSibling();
+    while (next is DecoratorNode && !next.isInline) {
+      next = next.getNextSibling();
+    }
     if (next is ElementNode) {
       var candidate = next;
       while (true) {

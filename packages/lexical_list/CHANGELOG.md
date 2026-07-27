@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.3
+
+**Backspace at the start of the first item leaves the list.** It had nothing
+before it to delete, so the key did nothing and a list at the top of a document
+was a trap with no keyboard way out. The item becomes a paragraph and the items
+below it stay a list of their own; a *nested* item steps out one level instead,
+the same ladder Shift-Tab and Enter on an empty item walk. Upstream's rule,
+through the new `ElementNode.collapseAtStart`.
+
 ## 1.7.2
 
 No library changes. The packages version in lockstep — they are one library

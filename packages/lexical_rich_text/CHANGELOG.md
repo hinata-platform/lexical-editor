@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.3
+
+**Backspace at the start of a leading quote un-quotes it, and an empty leading
+heading becomes a paragraph.** With nothing before them there was no character
+to delete and the key did nothing, so a quote at the top of a document could
+not be undone with the keyboard. Both are upstream's rules, through the new
+`ElementNode.collapseAtStart`; a heading with words in it keeps them.
+
+**A divider can be removed again.** See `lexical_core` — backspace under a
+block decorator, or forward delete above one, now removes it instead of doing
+nothing.
+
 ## 1.7.2
 
 No library changes. The packages version in lockstep — they are one library

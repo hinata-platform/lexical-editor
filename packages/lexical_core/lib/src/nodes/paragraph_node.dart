@@ -1,6 +1,7 @@
 /// The default block element.
 library;
 
+import '../selection_ops.dart';
 import '../updates.dart';
 import 'element_node.dart';
 import 'text_node.dart';
@@ -29,6 +30,34 @@ class ParagraphNode extends ElementNode {
 
   @override
   ParagraphNode clone() => ParagraphNode();
+
+  @override
+  bool collapseAtStart() {
+    // A blank first line is the one thing backspace can do something about
+    // when there is nothing before it: remove the line and move on to the
+    // next. A paragraph with words in it stays — there is nothing to collapse
+    // a paragraph *into*.
+    final first = getFirstChild();
+    final blank =
+        first == null || (first is TextNode && first.getTextContent().isEmpty);
+    if (!blank) return false;
+    // The caret moves into the neighbour before the line goes, so it lands on
+    // real content rather than on an index that shifts when this one is
+    // removed.
+    final next = getNextSibling();
+    if (next is ElementNode) {
+      next.selectStart();
+      remove();
+      return true;
+    }
+    final previous = getPreviousSibling();
+    if (previous is ElementNode) {
+      previous.selectEnd();
+      remove();
+      return true;
+    }
+    return false;
+  }
 
   @override
   Map<String, Object?> exportJson() {

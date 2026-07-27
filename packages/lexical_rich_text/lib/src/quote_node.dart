@@ -18,6 +18,18 @@ class QuoteNode extends ElementNode {
   QuoteNode clone() => QuoteNode();
 
   @override
+  bool collapseAtStart() {
+    // Backspace at the start of a quote un-quotes it. Without this a quote at
+    // the top of a document cannot be undone with the keyboard at all: there
+    // is nothing before it to delete, so the key does nothing.
+    final paragraph = $createParagraphNode();
+    $copyBlockFormatIndent(this, paragraph);
+    replace(paragraph, includeChildren: true);
+    paragraph.selectStart();
+    return true;
+  }
+
+  @override
   ElementNode insertNewAfter({required bool isAtEnd}) {
     // Enter always leaves the quote, even from the middle of one — that is
     // what Lexical web does, and a document edited on both must behave the

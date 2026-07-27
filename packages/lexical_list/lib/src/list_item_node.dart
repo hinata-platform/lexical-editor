@@ -3,6 +3,8 @@ library;
 
 import 'package:lexical_core/lexical_core.dart';
 
+import 'list_node.dart';
+
 /// One entry in a list.
 ///
 /// A list item holds either inline content or a nested list — the latter is
@@ -56,6 +58,50 @@ class ListItemNode extends ElementNode {
     final item = $createListItemNode(checked == null ? null : false);
     insertAfter(item);
     return item;
+  }
+
+  @override
+  bool collapseAtStart() {
+    // Backspace at the start of the first item is the way out of a list. With
+    // nothing before it there is no character to delete, so without this the
+    // key does nothing and a list at the top of a document cannot be undone
+    // with the keyboard at all.
+    final list = getParent();
+    if (list is! ListNode) return false;
+    if (isNestedListHolder) return false;
+
+    // A nested item steps out one level rather than leaving the list
+    // altogether — the same ladder Shift-Tab and Enter on an empty item walk.
+    var outer = list.getParent();
+    while (outer != null && outer is! ListItemNode) {
+      outer = outer.getParent();
+    }
+    if (outer is ListItemNode) {
+      final following = getNextSiblings();
+      if (following.isNotEmpty) {
+        append($createListNode(list.listType)..appendAll(following));
+      }
+      outer.insertAfter(this);
+      if (list.isEmpty) list.remove();
+      if (outer.isEmpty) outer.remove();
+      selectStart();
+      return true;
+    }
+
+    final paragraph = $createParagraphNode()..appendAll(children.toList());
+    final following = getNextSiblings();
+    if (following.isNotEmpty) {
+      // The items below stay a list of their own rather than being dragged
+      // into the paragraph.
+      list.insertAfter(
+        $createListNode(list.listType, list.start)..appendAll(following),
+      );
+    }
+    list.insertAfter(paragraph);
+    remove();
+    if (list.isEmpty) list.remove();
+    paragraph.selectStart();
+    return true;
   }
 
   /// An item holding only a nested list is a structural wrapper, not content.

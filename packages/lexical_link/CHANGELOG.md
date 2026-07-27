@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.3
+
+No changes in this package, but three things about editing at a link's edge
+are fixed in `lexical_core` 1.7.3: backspace immediately behind a link now
+takes a character of it rather than doing nothing, pasted content at its edge
+is no longer adopted into the link, and word-wise deletion across its edge
+takes a word instead of one letter.
+
 ## 1.7.2
 
 No changes in this package, but the one 1.7.1 announced now actually happens:

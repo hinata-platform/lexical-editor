@@ -146,6 +146,54 @@ void main() {
     });
   });
 
+  group('backspace at the start of the first item', () {
+    test('leaves the list, keeping the items below it a list', () {
+      // The first item has nothing before it, so there is no character to
+      // delete: without the collapse a list at the top of a document is a
+      // trap with no keyboard way out.
+      final editor = _editor();
+      _seed(editor, ['eins', 'zwei'], type: ListType.number);
+      _caretAtItem(editor, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_outline(editor), ['paragraph:eins', 'list:zwei']);
+    });
+
+    test('a single item leaves no empty list behind', () {
+      final editor = _editor();
+      _seed(editor, ['eins']);
+      _caretAtItem(editor, 0);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      expect(_outline(editor), ['paragraph:eins']);
+    });
+
+    test('a nested item steps out one level instead', () {
+      final editor = _editor();
+      _seed(editor, ['eins', 'zwei']);
+      _caretAtItem(editor, 1);
+      editor.dispatchCommand(indentContentCommand, null);
+
+      editor.update(() {
+        final outer = $getRoot().getFirstChild()! as ListNode;
+        final holder = outer.getFirstChild()! as ListItemNode;
+        final nested = holder.getLastChild()! as ListNode;
+        (nested.getFirstChild()! as ListItemNode).selectStart();
+      }, discrete: true);
+      editor.dispatchCommand(deleteCharacterCommand, true);
+
+      // Out of the nesting, still a list: two items side by side.
+      expect(
+        editor.read(
+          () => ($getRoot().getFirstChild()! as ListNode).children
+              .map((item) => item.getTextContent())
+              .toList(),
+        ),
+        ['eins', 'zwei'],
+      );
+    });
+  });
+
   test('numbering follows the new item', () {
     final editor = _editor();
     _seed(editor, ['eins', 'zwei'], type: ListType.number);

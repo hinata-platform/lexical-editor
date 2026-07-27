@@ -299,6 +299,54 @@ void main() {
       expect(_shape(editor), 'die [https://lexical.dev]DoXku');
     });
 
+    test('content inserted at its edge is not adopted by it', () {
+      // Paste, a mention, a line break — anything that arrives as nodes rather
+      // than as keystrokes goes into the *block*, so it does not come out
+      // wearing the link when the same characters typed would not.
+      final editor = withCaret(0);
+      editor.update(() {
+        ($getSelection()! as RangeSelection).insertNodes([
+          $createTextNode('NEU'),
+        ]);
+      }, discrete: true);
+
+      expect(_shape(editor), 'die NEU[https://lexical.dev]Doku');
+      expect(editor.read(() => _links(editor).single.getTextContent()), 'Doku');
+    });
+
+    test('content inserted inside it splits it rather than joining it', () {
+      final editor = withCaret(2);
+      editor.update(() {
+        ($getSelection()! as RangeSelection).insertNodes([
+          $createTextNode('-'),
+        ]);
+      }, discrete: true);
+
+      expect(
+        _shape(editor),
+        'die [https://lexical.dev]Do-[https://lexical.dev]ku',
+      );
+    });
+
+    test('word deletion from just after it takes its word, not one letter', () {
+      final editor = _document(['die Doku dazu']);
+      _select(editor, 4, 8);
+      editor.update(() => $toggleLink('https://lexical.dev'), discrete: true);
+      editor.update(() {
+        // Caret at the start of the run that follows the link.
+        final block = $getRoot().getFirstChild()! as ElementNode;
+        (block.getLastChild()! as TextNode).select(0, 0);
+      }, discrete: true);
+      editor.update(
+        () => ($getSelection()! as RangeSelection).deleteWord(backwards: true),
+        discrete: true,
+      );
+
+      // The link's only word went, so the emptied link went with it.
+      expect(_shape(editor), 'die  dazu');
+      expect(_links(editor), isEmpty);
+    });
+
     test('after Enter in front of it, the new line is not part of it', () {
       // How the bug was met in practice: Enter at the link's start pushes it
       // down and leaves the caret at the link's first letter, where every

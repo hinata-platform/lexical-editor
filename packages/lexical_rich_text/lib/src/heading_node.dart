@@ -69,6 +69,21 @@ class HeadingNode extends ElementNode {
       getWritable<HeadingNode>().._tag = value;
 
   @override
+  bool collapseAtStart() {
+    // An *empty* heading becomes a paragraph — the way out of a heading typed
+    // by mistake. One with words in it stays a heading: upstream's rule, and
+    // the safe one, since a document does not lose its title to a stray
+    // keypress at the very start of the text.
+    if (isEmpty) {
+      final paragraph = $createParagraphNode();
+      $copyBlockFormatIndent(this, paragraph);
+      replace(paragraph, includeChildren: true);
+      paragraph.selectStart();
+    }
+    return true;
+  }
+
+  @override
   ElementNode insertNewAfter({required bool isAtEnd}) {
     // Enter at the end of a heading starts body text; Enter inside it splits
     // the heading in two. Both match Lexical web, and the first is the one
