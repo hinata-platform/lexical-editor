@@ -134,9 +134,24 @@ jobs:
         if: github.event_name == 'push' || inputs.dry_run == false
         run: |
           set -euo pipefail
+          version="$(grep -E '^version:' packages/lexical_core/pubspec.yaml \
+            | head -1 | cut -d' ' -f2)"
           # In dependency order: lexical_flutter cannot resolve until
           # lexical_core is on pub.dev.
           for package in $(grep -v '^#' .github/publish-order.txt); do
+            # Resumable, because a release can stop halfway through for
+            # reasons that have nothing to do with this repository — pub.dev
+            # rate-limits publishing per day, and nineteen packages is a
+            # meaningful part of that budget. Re-running then has to continue
+            # the set rather than fail on the first package that is already
+            # up, since the alternative is publishing the rest by hand.
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+              "https://pub.dev/api/packages/$package/versions/$version" \
+              || echo 000)"
+            if [ "$code" = "200" ]; then
+              echo "== $package $version is already on pub.dev, skipping"
+              continue
+            fi
             echo "== publishing $package"
             (cd "packages/$package" && flutter pub publish --force)
           done
