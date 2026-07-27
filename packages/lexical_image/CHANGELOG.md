@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.6.1
+
+**An image no longer leaks a decoded picture on every rebuild.** The size a
+picture reports about itself was read from a listener added inside `build`, so
+every build added another one and nothing ever removed them. A listener owns
+the handle it is given; none of those handles were released, and a completer
+with listeners is pinned in the application's image cache — so every picture
+ever shown stayed in memory for the life of the process, and an editor, where
+a rebuild is a keystroke, added a listener per keystroke. The stream is
+resolved in `didChangeDependencies` and `didUpdateWidget` now, the way
+Flutter's own `Image` does it, and released in `dispose`.
+
+That is also what makes the read safe. `ImageStream.addListener` calls its
+listener **synchronously** when the picture is already decoded — which it is
+every time after the first — so from inside a build it ran a `setState` the
+framework does not allow there. The completer catches that and reports it as
+an image *error*, and the picture draws its "could not be loaded" stand-in
+having loaded perfectly.
+
+**A picture that fails is no longer broken until the application restarts.**
+Flutter's image cache never forgets a failure: the completer that reported one
+stays in the cache, and every later request for that address — another
+document, another screen, an hour later — is answered with the remembered
+error instead of a request. One dropped connection meant nothing with that
+address ever rendered again. A failed picture is evicted now, so the next time
+it is built it is fetched.
+
 ## 1.6.0
 
 **An image that was never resized has drag handles now.** They need geometry,

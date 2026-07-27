@@ -1,7 +1,7 @@
 name: lexical_table
 description: >-
   Table, row and cell nodes for lexical_core, wire-compatible with Lexical's @lexical/table. Pure Dart.
-version: 1.6.0
+version: 1.6.1
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

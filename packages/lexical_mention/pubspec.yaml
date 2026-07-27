@@ -3,7 +3,7 @@ description: >-
   Typed @mention nodes for lexical_core - users, issues, documents or any
   custom kind - with trigger matching and a debounced, cancelling search
   controller. Pure Dart.
-version: 1.6.0
+version: 1.6.1
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 

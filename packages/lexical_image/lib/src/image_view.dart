@@ -63,7 +63,6 @@ class _DataUriImage extends MemoryImage {
   int get hashCode => Object.hash(uri, scale);
 }
 
-
 /// How the selection chrome around an editable image is drawn.
 ///
 /// The handles, the outline and the caption caret used to be one hard-coded
@@ -223,6 +222,18 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   /// The image's own size, once it is known.
   Size? _intrinsic;
 
+  /// What [LexicalImageView.src] resolved to, kept between builds.
+  ImageProvider<Object>? _provider;
+
+  /// The stream [_provider] resolved to, and the listener watching it.
+  ///
+  /// Held so that it can be **removed**. A listener that is added and never
+  /// taken off keeps the completer alive in the application's image cache for
+  /// as long as the process runs, and every call hands over a fresh handle on
+  /// a decoded picture that nothing will ever release.
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
   bool get _showHandles => widget.editable && (_hovered || _touched);
 
   Size? get _size {
@@ -257,6 +268,112 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     final height = widget.height;
     if (width != null && height != null && height > 0) return width / height;
     return null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant LexicalImageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A different address is a different picture, and the size of the last one
+    // must not outlive it.
+    if (widget.src != oldWidget.src) _intrinsic = null;
+    _resolveImage();
+  }
+
+  @override
+  void dispose() {
+    _stopListening();
+    super.dispose();
+  }
+
+  /// Points the size listener at whatever [LexicalImageView.src] resolves to
+  /// now.
+  ///
+  /// Resolving **here** rather than in `build` is the whole point, and the
+  /// reason is not tidiness. `ImageStream.addListener` calls its listener
+  /// *synchronously* when the picture is already decoded — which it is every
+  /// time but the first — and a listener that calls `setState` from inside a
+  /// build throws. The completer catches that throw and reports it as an
+  /// **image error**: the picture that had just loaded perfectly draws its
+  /// placeholder instead, and because the error sticks to the completer the
+  /// image cache is holding, every later attempt at the same address fails the
+  /// same way for as long as the process lives. Merely rebuilding an image
+  /// broke it permanently.
+  ///
+  /// [State.didChangeDependencies] and [State.didUpdateWidget] are where the
+  /// framework allows this call, which is where Flutter's own `Image` makes
+  /// it.
+  ///
+  /// Resolving is also not free, and the cost is not the lookup: a provider
+  /// whose picture is not in the cache **starts a fetch**. A provider behind
+  /// an API has to evict itself when a request fails — otherwise one timeout
+  /// is remembered as "this picture is broken" for the life of the process —
+  /// so after a failure it is exactly the provider that is not in the cache.
+  /// Asking it to resolve again is asking the server again. Once per rebuild
+  /// is not a rate anything should be asked at.
+  void _resolveImage() {
+    final provider = widget.resolver(widget.src);
+    // Already listening to exactly this picture. Note what is *not* asked:
+    // whether the cache still holds it. It may well not — see above — and
+    // asking would be the storm.
+    if (provider == _provider && _stream != null) return;
+    _provider = provider;
+    if (provider == null) {
+      _stopListening();
+      return;
+    }
+    final stream = provider.resolve(createLocalImageConfiguration(context));
+    // The same picture as before: the listener already on it is the one that
+    // would be added, so adding it again would only duplicate it.
+    if (stream.key == _stream?.key) return;
+    _stopListening();
+    final listener = ImageStreamListener(_onImage, onError: _onImageError);
+    _stream = stream;
+    _listener = listener;
+    stream.addListener(listener);
+  }
+
+  void _stopListening() {
+    final listener = _listener;
+    if (listener != null) _stream?.removeListener(listener);
+    _stream = null;
+    _listener = null;
+  }
+
+  /// The image's own size is what keeps a drag proportional before any size
+  /// has been chosen.
+  void _onImage(ImageInfo info, bool synchronousCall) {
+    final size = Size(
+      info.image.width.toDouble(),
+      info.image.height.toDouble(),
+    );
+    // A listener owns the handle it is given. Not disposing it holds a decoded
+    // bitmap for the life of the process — once per frame, for a GIF.
+    info.dispose();
+    if (!mounted || _intrinsic == size) return;
+    setState(() => _intrinsic = size);
+  }
+
+  /// A picture that cannot be loaded has no size to report; the [Image] below
+  /// draws the placeholder.
+  ///
+  /// It is also **taken out of the image cache**, and that is the important
+  /// part. Flutter's cache never forgets a failure: the completer that
+  /// reported one stays in it, and every later request for that address — a
+  /// different document, a different screen, an hour later — is answered with
+  /// the remembered error rather than a request. One dropped connection then
+  /// means that picture is broken until the application is restarted. Evicting
+  /// makes the failure last exactly as long as the reason for it: the next
+  /// time the image is built, it is fetched again.
+  void _onImageError(Object _, StackTrace? _) {
+    _provider?.evict().ignore();
+    if (!mounted || _intrinsic == null) return;
+    setState(() => _intrinsic = null);
   }
 
   void _onDragStart(Size? displayed, Offset origin) {
@@ -367,30 +484,13 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   );
 
   Widget _image(BuildContext context) {
-    final provider = widget.resolver(widget.src);
+    final provider = _provider;
     if (provider == null) return _placeholder(context);
     return Image(
       image: provider,
       fit: BoxFit.contain,
       semanticLabel: widget.altText.isEmpty ? null : widget.altText,
       errorBuilder: (context, _, _) => _placeholder(context),
-      frameBuilder: (context, child, frame, _) {
-        // The image's own size is what keeps a drag proportional before any
-        // size has been chosen.
-        final stream = provider.resolve(createLocalImageConfiguration(context));
-        stream.addListener(
-          ImageStreamListener((info, _) {
-            final size = Size(
-              info.image.width.toDouble(),
-              info.image.height.toDouble(),
-            );
-            if (mounted && _intrinsic != size) {
-              setState(() => _intrinsic = size);
-            }
-          }),
-        );
-        return child;
-      },
     );
   }
 

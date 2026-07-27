@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -481,10 +483,7 @@ void main() {
       // report them in.
       final box = tester.widget<SizedBox>(
         find
-            .ancestor(
-              of: find.byType(Image),
-              matching: find.byType(SizedBox),
-            )
+            .ancestor(of: find.byType(Image), matching: find.byType(SizedBox))
             .first,
       );
       expect(box.width, isNull);
@@ -562,6 +561,163 @@ void main() {
 
       await pump(tester, 1000);
       expect(tester.getSize(find.byType(Image)), const Size(900, 600));
+    });
+  });
+
+  group('an image that is already decoded', () {
+    // The state every picture is in from the second time it is shown: the
+    // bytes are in the image cache, and the completer hands them to a new
+    // listener *synchronously*, inside whatever call added it.
+    const marker = ValueKey<String>('placeholder');
+
+    /// A 900x600 picture, decoded before the test starts.
+    ///
+    /// Made in `setUp` rather than in the test: decoding is real asynchronous
+    /// work, and inside `testWidgets` the clock is fake — awaiting it there
+    /// hangs the test and trips the framework's own async guard.
+    late ui.Image decoded;
+
+    setUp(() async {
+      imageCache
+        ..clear()
+        ..clearLiveImages();
+      decoded = await createTestImage(width: 900, height: 600);
+    });
+
+    Future<void> pump(
+      WidgetTester tester,
+      ImageProvider<Object> provider, {
+      String altText = '',
+    }) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 300,
+              child: LexicalImageView(
+                editor: _editor(),
+                nodeKey: const NodeKey('1'),
+                src: 'decoded',
+                altText: altText,
+                captionsEnabled: false,
+                resolver: (_) => provider,
+                placeholderBuilder: (context, src) =>
+                    const SizedBox(key: marker, width: 8, height: 8),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('draws at its own size, and not the placeholder', (
+      tester,
+    ) async {
+      // Reading the size now happens outside the build, and the picture is
+      // already decoded when the listener is attached — so the listener is
+      // called *synchronously*, from inside `didChangeDependencies`. That the
+      // size still arrives, and that nothing is reported as an image error, is
+      // what this pins: a `setState` from the wrong place there is caught by
+      // the completer and reported as a failed image, and the picture draws
+      // its "could not be loaded" stand-in instead.
+      final provider = _DecodedImage(decoded);
+
+      await pump(tester, provider);
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(marker), findsNothing);
+      // The size it reported was adopted, scaled into the column: the listener
+      // did its job rather than merely not crashing.
+      expect(tester.getSize(find.byType(Image)), const Size(300, 200));
+    });
+
+    testWidgets('is listened to once, however often it is rebuilt', (
+      tester,
+    ) async {
+      final provider = _DecodedImage(decoded);
+
+      await pump(tester, provider);
+      final settled = provider.completer.listeners;
+
+      for (final altText in ['eins', 'zwei', 'drei', 'vier', 'fünf']) {
+        await pump(tester, provider, altText: altText);
+      }
+
+      expect(
+        provider.completer.listeners,
+        settled,
+        reason: 'a listener per build is a decoded picture leaked per build',
+      );
+    });
+
+    testWidgets('that failed is not fetched again on every rebuild', (
+      tester,
+    ) async {
+      // A provider behind an API evicts itself when a request fails — it has
+      // to, or one timeout is remembered as "this picture is broken" for the
+      // life of the process. Which means that after a failure, resolving it
+      // again is a fresh request to the server. In an editor a rebuild is a
+      // keystroke, and nothing should ask a server anything per keystroke.
+      final provider = _FailingImage();
+
+      await pump(tester, provider);
+      expect(provider.loads, 1);
+      expect(find.byKey(marker), findsOneWidget);
+
+      for (final altText in ['eins', 'zwei', 'drei', 'vier', 'fünf']) {
+        await pump(tester, provider, altText: altText);
+      }
+
+      expect(
+        provider.loads,
+        1,
+        reason: 'a rebuild asked the server for the picture all over again',
+      );
+    });
+
+    testWidgets('that failed is not remembered as broken forever', (
+      tester,
+    ) async {
+      // The other half of what was reported: once one picture had failed,
+      // nothing would render again. Flutter's image cache keeps the completer
+      // that reported the failure, so every later request for that address is
+      // answered with the remembered error instead of a request — for the life
+      // of the process, in every document. Closing the page and opening it
+      // again has to be enough to try again.
+      final provider = _FailingImage();
+
+      await pump(tester, provider);
+      expect(provider.loads, 1);
+      expect(find.byKey(marker), findsOneWidget);
+
+      // The document is closed, and opened again.
+      await tester.pumpWidget(const SizedBox());
+      await pump(tester, provider);
+
+      expect(
+        provider.loads,
+        2,
+        reason: 'the failure outlived the reason for it',
+      );
+    });
+
+    testWidgets('lets go of the picture when it goes away', (tester) async {
+      final provider = _DecodedImage(decoded);
+
+      await pump(tester, provider);
+      expect(imageCache.liveImageCount, 1);
+
+      await tester.pumpWidget(const SizedBox());
+
+      expect(
+        imageCache.liveImageCount,
+        0,
+        reason: 'a listener that is never removed pins the image in the cache',
+      );
+      expect(provider.completer.listeners, 0);
     });
   });
 
@@ -706,6 +862,73 @@ class _ImageHostState extends State<_ImageHost> {
       captionsEnabled: false,
     );
   });
+}
+
+/// A picture that is decoded before anyone asks for it.
+///
+/// Not a contrivance: it is what the image cache holds for every address that
+/// has been shown once, and the second showing is where the bug lived.
+class _DecodedImage extends ImageProvider<_DecodedImage> {
+  _DecodedImage(this.image);
+
+  final ui.Image image;
+
+  late final _CountingCompleter completer = _CountingCompleter(
+    SynchronousFuture<ImageInfo>(ImageInfo(image: image)),
+  );
+
+  @override
+  Future<_DecodedImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture<_DecodedImage>(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _DecodedImage key,
+    ImageDecoderCallback decode,
+  ) => completer;
+}
+
+/// A picture whose request fails, and which does nothing about it.
+///
+/// Shaped after `NetworkImage`: it leaves the failure in the image cache,
+/// which is where "this picture is broken until the app restarts" comes from.
+class _FailingImage extends ImageProvider<_FailingImage> {
+  /// How many times the bytes have been asked for.
+  int loads = 0;
+
+  @override
+  Future<_FailingImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture<_FailingImage>(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _FailingImage key,
+    ImageDecoderCallback decode,
+  ) {
+    loads++;
+    return OneFrameImageStreamCompleter(
+      Future<ImageInfo>.error(StateError('the request failed')),
+    );
+  }
+}
+
+/// Counts what is listening to it, which is the leak made visible.
+class _CountingCompleter extends OneFrameImageStreamCompleter {
+  _CountingCompleter(super.image);
+
+  int listeners = 0;
+
+  @override
+  void addListener(ImageStreamListener listener) {
+    listeners++;
+    super.addListener(listener);
+  }
+
+  @override
+  void removeListener(ImageStreamListener listener) {
+    listeners--;
+    super.removeListener(listener);
+  }
 }
 
 /// The one image node in the document, wherever it sits. Read scope only.
