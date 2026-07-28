@@ -15,9 +15,9 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  lexical_core: ^1.7.0
-  lexical_flutter: ^1.7.0
-  lexical_mention: ^1.7.0
+  lexical_core: ^1.7.4
+  lexical_flutter: ^1.7.4
+  lexical_mention: ^1.7.4
   meta: ^1.15.0
 
 dev_dependencies:

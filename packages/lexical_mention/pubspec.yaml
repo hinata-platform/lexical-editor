@@ -13,7 +13,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_core: ^1.7.0
+  lexical_core: ^1.7.4
   meta: ^1.15.0
 
 dev_dependencies:

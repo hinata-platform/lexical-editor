@@ -13,11 +13,11 @@ environment:
 resolution: workspace
 
 dependencies:
-  lexical_code: ^1.7.0
-  lexical_core: ^1.7.0
-  lexical_link: ^1.7.0
-  lexical_list: ^1.7.0
-  lexical_rich_text: ^1.7.0
+  lexical_code: ^1.7.4
+  lexical_core: ^1.7.4
+  lexical_link: ^1.7.4
+  lexical_list: ^1.7.4
+  lexical_rich_text: ^1.7.4
   meta: ^1.15.0
 
 dev_dependencies:

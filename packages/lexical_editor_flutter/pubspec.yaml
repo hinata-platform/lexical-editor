@@ -16,20 +16,20 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  lexical_code: ^1.7.0
-  lexical_core: ^1.7.0
-  lexical_embed: ^1.7.0
-  lexical_flutter: ^1.7.0
-  lexical_hashtag: ^1.7.0
-  lexical_history: ^1.7.0
-  lexical_image: ^1.7.0
-  lexical_link: ^1.7.0
-  lexical_list: ^1.7.0
-  lexical_mark: ^1.7.0
-  lexical_mention: ^1.7.0
-  lexical_mention_flutter: ^1.7.0
-  lexical_rich_text: ^1.7.0
-  lexical_table: ^1.7.0
+  lexical_code: ^1.7.4
+  lexical_core: ^1.7.4
+  lexical_embed: ^1.7.4
+  lexical_flutter: ^1.7.4
+  lexical_hashtag: ^1.7.4
+  lexical_history: ^1.7.5
+  lexical_image: ^1.7.4
+  lexical_link: ^1.7.4
+  lexical_list: ^1.7.4
+  lexical_mark: ^1.7.4
+  lexical_mention: ^1.7.4
+  lexical_mention_flutter: ^1.7.4
+  lexical_rich_text: ^1.7.4
+  lexical_table: ^1.7.4
   meta: ^1.15.0
 
 dev_dependencies:
