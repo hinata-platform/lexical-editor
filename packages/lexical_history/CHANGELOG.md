@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.7.5
+
+**Moving the caret is no longer an undo step.** Every commit that dirtied no
+node — a click, an arrow key, selecting a range — pushed an entry onto the undo
+stack, so the first undo after clicking around only put the caret back and
+appeared to do nothing, and each of those pushes cleared the redo stack, which
+meant clicking anywhere after an undo threw the redo away. A caret position is
+not a change to the document. It still ends the current typing run, because
+text typed, caret moved, text typed again is two edits and undo should take
+them one at a time. This is what upstream does.
+
+**A node that is marked dirty but comes out unchanged does not become an entry
+either** — a transform that reverted the edit, or a write of the value that was
+already there. There is nothing for an undo to step back over.
+
+Released on its own rather than in lockstep with the set: nothing else changed,
+and nineteen uploads is a tenth of pub.dev's daily budget.
+
 ## 1.7.4
 
 No library changes. The packages version in lockstep — they are one library

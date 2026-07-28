@@ -244,6 +244,81 @@ void main() {
     });
   });
 
+  group('a moved caret is not an edit', () {
+    test('moving it creates no undo entry', () {
+      final editor = _seeded();
+      final history = HistoryState();
+      registerHistory(editor, state: history);
+
+      for (final offset in [3, 1, 2]) {
+        editor.update(
+          () => _firstText().select(offset, offset),
+          discrete: true,
+        );
+      }
+
+      expect(history.undoDepth, 0);
+      expect(history.canUndo, isFalse);
+    });
+
+    test('selecting a range creates no undo entry', () {
+      final editor = _seeded();
+      final history = HistoryState();
+      registerHistory(editor, state: history);
+
+      editor.update(() => _firstText().select(0, 3), discrete: true);
+
+      expect(history.undoDepth, 0);
+    });
+
+    test('moving it after an undo keeps the redo', () {
+      final editor = _seeded();
+      final history = HistoryState();
+      registerHistory(editor, state: history);
+
+      editor.update(
+        () => _firstText().setTextContent('abcd'),
+        discrete: true,
+        tags: {historyPushTag},
+      );
+      editor.dispatchCommand(undoCommand, null);
+      expect(history.canRedo, isTrue);
+
+      editor.update(() => _firstText().select(1, 1), discrete: true);
+
+      expect(history.canRedo, isTrue);
+      expect(history.undoDepth, 0);
+      editor.dispatchCommand(redoCommand, null);
+      expect(editor.read(() => $getRoot().getTextContent()), 'abcd');
+    });
+
+    test('moving it does end the typing run', () {
+      final editor = _seeded();
+      final history = HistoryState();
+      registerHistory(editor, state: history);
+
+      editor.update(() => _firstText().setTextContent('abcd'), discrete: true);
+      expect(history.undoDepth, 1);
+
+      editor.update(() => _firstText().select(0, 0), discrete: true);
+      editor.update(() => _firstText().setTextContent('abcde'), discrete: true);
+
+      // Two edits with a click between them are two steps, not one.
+      expect(history.undoDepth, 2);
+    });
+
+    test('a dirty node that ends up unchanged creates no entry', () {
+      final editor = _seeded();
+      final history = HistoryState();
+      registerHistory(editor, state: history);
+
+      // Marks the node dirty — and writes exactly what was already there.
+      editor.update(() => _firstText().setTextContent('abc'), discrete: true);
+
+      expect(history.undoDepth, 0);
+    });
+  });
+
   group('classification', () {
     test('an undo itself is never recorded', () {
       final editor = _seeded();

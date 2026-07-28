@@ -1,6 +1,8 @@
 /// Undo and redo over immutable editor-state snapshots.
 library;
 
+import 'dart:convert';
+
 import 'package:lexical_core/lexical_core.dart';
 import 'package:meta/meta.dart';
 
@@ -222,6 +224,26 @@ HistoryMergeAction _decide(HistoryState history, EditorUpdate update) {
   if (update.hasTag(historyMergeTag)) return HistoryMergeAction.merge;
   if (history._current == null) return HistoryMergeAction.push;
 
+  // A commit that dirtied no node changed no character: the caret moved, and
+  // where someone last clicked is not a step in the document's history.
+  // Recording it makes undo appear broken — the text before and after the
+  // entry is identical, so the first undo only moves the caret back — and,
+  // worse, pushing clears the redo stack, so clicking anywhere after an undo
+  // throws the redo away. `isFullReconcile` is excluded because a state
+  // installed wholesale carries no dirty sets to reason about and *is* a step.
+  if (!update.isFullReconcile &&
+      update.dirtyLeaves.isEmpty &&
+      update.dirtyElements.isEmpty) {
+    // The run ends all the same: text typed, caret moved, text typed again is
+    // two edits, not one, and undo should take them one at a time.
+    history
+      .._lastChangeType = HistoryChangeType.other
+      .._lastChangeKey = null;
+    return update.editorState.selection == null
+        ? HistoryMergeAction.discard
+        : HistoryMergeAction.merge;
+  }
+
   final change = classifyChange(update);
   final sameRun =
       change.type != HistoryChangeType.other &&
@@ -232,7 +254,52 @@ HistoryMergeAction _decide(HistoryState history, EditorUpdate update) {
     .._lastChangeType = change.type
     .._lastChangeKey = change.key;
 
-  return sameRun ? HistoryMergeAction.merge : HistoryMergeAction.push;
+  if (sameRun) return HistoryMergeAction.merge;
+
+  // A node can be marked dirty and end up identical — a transform that undid
+  // the edit, or a write of the value that was already there. Nothing about
+  // the document differs, so there is nothing for an undo to step back over.
+  if (update.dirtyLeaves.length == 1 && _leafUnchanged(update)) {
+    return HistoryMergeAction.merge;
+  }
+
+  return HistoryMergeAction.push;
+}
+
+/// Whether the single dirty leaf of [update] came out of it unchanged.
+bool _leafUnchanged(EditorUpdate update) {
+  final previousSelection = update.previousEditorState.selection;
+  final nextSelection = update.editorState.selection;
+  // Deleting a line leaves its remaining text node untouched while the
+  // selection moves out of the element and into that text. The node compares
+  // equal, but the document lost a line: that is a step, and it must push.
+  if (previousSelection is RangeSelection &&
+      nextSelection is RangeSelection &&
+      previousSelection.anchor.type == PointType.element &&
+      previousSelection.focus.type == PointType.element &&
+      nextSelection.anchor.type == PointType.text &&
+      nextSelection.focus.type == PointType.text) {
+    return false;
+  }
+
+  final key = update.dirtyLeaves.single;
+  final before = update.previousEditorState.nodeMap[key];
+  final after = update.editorState.nodeMap[key];
+  if (before is! TextNode || after is! TextNode) return false;
+  final beforeParent = update.previousEditorState.read(
+    () => before.getParent()?.key,
+  );
+  final afterParent = update.editorState.read(() => after.getParent()?.key);
+  if (beforeParent != afterParent) return false;
+
+  // Comparing the serialized form rather than field by field, so a node type
+  // that carries extra state is compared by all of it. Key order is stable
+  // for a given type, which is what makes encoding a sound comparison.
+  final beforeJson = jsonEncode(
+    update.previousEditorState.read(before.exportJson),
+  );
+  final afterJson = jsonEncode(update.editorState.read(after.exportJson));
+  return beforeJson == afterJson;
 }
 
 /// The classification of a single commit.
