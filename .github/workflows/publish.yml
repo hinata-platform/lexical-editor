@@ -99,25 +99,68 @@ jobs:
       - name: Publish order still covers every package
         run: dart tool/check_publish_order.dart
 
-      # A tag that disagrees with the pubspecs would publish versions nobody
-      # asked for, and a publish cannot be undone. Refuse before uploading
-      # anything rather than discovering it halfway through the set.
-      - name: Tag and pubspec versions agree
-        if: startsWith(github.ref, 'refs/tags/')
+      # A release does not have to be the whole set. Lockstep is the default —
+      # the packages are one library split up, so a change in the core ships
+      # everywhere — but a fix that touches one package would otherwise cost
+      # nineteen of pub.dev's two hundred daily uploads to deliver one.
+      #
+      # So the tag names the version and each pubspec answers for itself: a
+      # package whose version equals the tag is part of this release, and one
+      # that is still on its previous version is untouched and left alone. A
+      # lockstep release is then just the case where every pubspec agrees,
+      # which is what the previous "versions must all match" check enforced.
+      #
+      # The one thing this cannot catch is a *forgotten* bump — a set meant to
+      # ship whole with one package left behind looks exactly like a
+      # deliberate partial release. Both lists are therefore written to the run
+      # summary, where the omission is visible without opening the log.
+      - name: Work out which packages this release covers
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME#v}"
-          echo "tag version: $tag"
-          fail=0
-          for pubspec in packages/*/pubspec.yaml; do
-            grep -qE '^publish_to:[[:space:]]*none' "$pubspec" && continue
-            version="$(grep -E '^version:' "$pubspec" | head -1 | cut -d' ' -f2)"
-            if [ "$version" != "$tag" ]; then
-              echo "::error file=$pubspec::$pubspec is $version, tag says $tag"
-              fail=1
+          all="$(grep -v '^#' .github/publish-order.txt)"
+          if [ "${GITHUB_REF_TYPE:-branch}" != "tag" ]; then
+            # A manual dispatch validates everything; there is no tag to scope
+            # the release to, and validation cannot publish anything.
+            echo "RELEASE_SCOPE=$(echo $all)" >> "$GITHUB_ENV"
+            echo "RELEASE_VERSION=$(grep -E '^version:' \
+              packages/lexical_core/pubspec.yaml | head -1 | cut -d' ' -f2)" \
+              >> "$GITHUB_ENV"
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          scope=""
+          : > /tmp/held.md
+          for package in $all; do
+            have="$(grep -E '^version:' "packages/$package/pubspec.yaml" \
+              | head -1 | cut -d' ' -f2)"
+            if [ "$have" = "$version" ]; then
+              scope="$scope $package"
+            else
+              echo "- \`$package\` stays at $have" >> /tmp/held.md
             fi
           done
-          exit $fail
+          if [ -z "$scope" ]; then
+            echo "::error::No package is at $version, so this tag would"
+            echo "::error::publish nothing. Bump the packages you mean to"
+            echo "::error::release, then move the tag."
+            exit 1
+          fi
+          {
+            echo "### Releasing $version"
+            echo
+            for package in $scope; do echo "- \`$package\`"; done
+            if [ -s /tmp/held.md ]; then
+              echo
+              echo "Not part of this release:"
+              echo
+              cat /tmp/held.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "releasing:$scope"
+          echo "not releasing:"
+          cat /tmp/held.md
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "RELEASE_SCOPE=$(echo $scope)" >> "$GITHUB_ENV"
 
       # Everything is validated before anything is uploaded. Publishing is
       # irreversible, so a set that fails halfway is the outcome worth
@@ -125,7 +168,7 @@ jobs:
       - name: Validate every package
         run: |
           set -euo pipefail
-          for package in $(grep -v '^#' .github/publish-order.txt); do
+          for package in $RELEASE_SCOPE; do
             echo "== $package"
             (cd "packages/$package" && flutter pub publish --dry-run)
           done
@@ -134,11 +177,10 @@ jobs:
         if: github.event_name == 'push' || inputs.dry_run == false
         run: |
           set -euo pipefail
-          version="$(grep -E '^version:' packages/lexical_core/pubspec.yaml \
-            | head -1 | cut -d' ' -f2)"
+          version="$RELEASE_VERSION"
           # In dependency order: lexical_flutter cannot resolve until
           # lexical_core is on pub.dev.
-          for package in $(grep -v '^#' .github/publish-order.txt); do
+          for package in $RELEASE_SCOPE; do
             # Resumable, because a release can stop halfway through for
             # reasons that have nothing to do with this repository — pub.dev
             # rate-limits publishing per day, and nineteen packages is a

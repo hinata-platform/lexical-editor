@@ -4,7 +4,9 @@ Nineteen packages, one version, one tag.
 
 They are one library split so that an application pays only for what it uses —
 not a set of independent projects — so they version in lockstep. `v1.1.0`
-releases the set, and CI refuses a tag that disagrees with the pubspecs.
+releases the set. A tag releases exactly the packages that carry its version,
+so a fix confined to one package can also ship on its own; see
+[Releasing one package on its own](#releasing-one-package-on-its-own).
 
 ## The steady state
 
@@ -15,9 +17,10 @@ git push origin v1.0.1
 
 `.github/workflows/publish.yml` then:
 
-1. checks the tag against every pubspec version,
+1. works out which packages the tag releases — those whose pubspec carries its
+   version, which for a lockstep release is all of them,
 2. checks `.github/publish-order.txt` still covers every publishable package,
-3. runs `pub publish --dry-run` over **every package**,
+3. runs `pub publish --dry-run` over every package it is about to release,
 4. publishes them, in dependency order.
 
 Steps 1–3 exist because publishing cannot be undone. A set that fails halfway
@@ -99,21 +102,40 @@ Leave "Require GitHub Actions environment" off, or set it to `pub.dev` and add
 `environment: pub.dev` to the job in `publish.yml`. Enabling it on pub.dev
 without adding it to the workflow rejects every publish.
 
-## When the versions have to diverge
+## Releasing one package on its own
 
-Lockstep is a decision, not a law. The day one package needs a patch the others
-do not, switch that package's pub.dev tag pattern to
-`{{package}}-v{{version}}`, tag it `lexical_table-v1.0.1`, and give the
-workflow a second trigger for that pattern. The order file and the version
-check are then per-package rather than global — which is more machinery, so it
-is worth deferring until something actually needs it.
+Lockstep is a decision, not a law, and a change confined to one package is a
+poor reason to spend nineteen of pub.dev's two hundred daily uploads. Bump only
+that package and tag its version:
+
+```sh
+# packages/lexical_history/pubspec.yaml: version: 1.7.5
+git tag v1.7.5
+git push origin v1.7.5
+```
+
+The workflow reads each pubspec and releases the packages whose version equals
+the tag; the rest are reported in the run summary as untouched and skipped.
+Nothing on pub.dev has to change: the `v{{version}}` tag pattern is checked per
+package against *that package's* version, so `v1.7.5` matches for the package
+being uploaded and never comes up for the others.
+
+The set is then on mixed versions, which is fine as long as it still resolves —
+`check_publish_order.dart` verifies that every constraint one package places on
+another is satisfied by what is in the repository. Widen the constraint or hold
+the version back if it is not.
+
+The one thing this cannot tell you is that you *forgot* a bump: a set meant to
+ship whole with one package left behind looks exactly like a deliberate partial
+release. The run summary lists both sides for that reason — read it.
 
 ## What CI already guarantees
 
 - `dart tool/check_publish_order.dart` — every publishable package is in the
-  release order, exactly once, after everything it depends on, and they all
-  carry the same version. A package added to the repository but not to that
-  file would otherwise be released never, and nobody would notice.
+  release order, exactly once, after everything it depends on, and every
+  version in the repository satisfies the constraints the others place on it.
+  A package added to the repository but not to that file would otherwise be
+  released never, and nobody would notice.
 - `pub publish --dry-run` per package, on every pull request.
 - The example apps build and their tests pass, so a published example is not a
   broken first impression.
