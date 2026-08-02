@@ -26,12 +26,15 @@
       "deviceId": "chrome"
     },
     {
-      "name": "Example — lexical_editor_flutter (macOS)",
+      // Native desktop target — resolves per host OS.
+      "name": "Example — lexical_editor_flutter (Desktop)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "cwd": "packages/lexical_editor_flutter/example",
-      "deviceId": "macos"
+      "deviceId": "macos",
+      "windows": { "deviceId": "windows" },
+      "linux": { "deviceId": "linux" }
     }
   ]
 }
