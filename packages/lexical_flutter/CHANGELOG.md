@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.6
+
+**Selecting from right to left is possible again.** Dragging leftwards left
+exactly one character selected — the one between the last two pointer
+positions — and every further move dragged that sliver along instead of
+growing it. Two things had to be true at once, and both are fixed here.
+
+The drag extended from whatever the anchor happened to be by the time the next
+pointer move arrived, rather than from where the drag began. It now spans from
+its own origin: both ends are written on every move. A long press keeps the
+word it picked out while the finger travels past either side of it, which is
+the same fix — the base a touch drag extends from is a range, not a point.
+
+And the anchor was moving underneath it. Half the platforms cannot express the
+direction of a selection: iOS and macOS carry it as an `NSRange`, which has a
+location and a length and nothing else, so a backwards selection came straight
+back with its ends in document order and the model believed it. The model now
+keeps the direction — a range it already holds is not news — and the platform
+is told the range rather than argued with about the direction, which also ends
+the push-and-echo loop that would otherwise never settle. Shift-left, which
+stopped after one character for the same reason, works too.
+
 ## 1.7.4
 
 **A repaint boundary per block when the document does not scroll.** The caret

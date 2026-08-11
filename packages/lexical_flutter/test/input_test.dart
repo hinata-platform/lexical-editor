@@ -283,6 +283,83 @@ void main() {
       );
     });
 
+    test('a platform without a direction cannot flip the selection', () {
+      // iOS and macOS hold the selection as a location and a length, so a
+      // backwards range comes back with its ends in document order. Believing
+      // it swaps the anchor and the focus, and the next extend then moves the
+      // end that was meant to stand still — which is what made selecting from
+      // right to left impossible.
+      final editor = _editor();
+      _seed(editor, ['Hallo Welt']);
+      _caret(editor, 0, 8, toOffset: 2);
+      final input = _primed(editor);
+      expect(
+        input.lastKnownValue.selection,
+        const TextSelection(baseOffset: 8, extentOffset: 2),
+      );
+
+      input.applyDeltasForTesting([
+        TextEditingDeltaNonTextUpdate(
+          oldText: input.lastKnownValue.text,
+          selection: const TextSelection(baseOffset: 2, extentOffset: 8),
+          composing: TextRange.empty,
+        ),
+      ]);
+
+      expect(
+        editor.read(() {
+          final selection = $getSelection()! as RangeSelection;
+          return (selection.anchor.offset, selection.focus.offset);
+        }),
+        (8, 2),
+      );
+    });
+
+    test('a direction the platform dropped is not pushed at it again', () {
+      // The other half of the same story: re-stating our direction on every
+      // echo is a conversation that never ends, and no `NSRange` can hold the
+      // answer. What the platform is told is the range.
+      final editor = _editor();
+      _seed(editor, ['Hallo Welt']);
+      _caret(editor, 0, 8, toOffset: 2);
+      final input = _primed(editor);
+
+      input.applyDeltasForTesting([
+        TextEditingDeltaNonTextUpdate(
+          oldText: input.lastKnownValue.text,
+          selection: const TextSelection(baseOffset: 2, extentOffset: 8),
+          composing: TextRange.empty,
+        ),
+      ]);
+
+      expect(input.lastKnownValue.selection.start, 2);
+      expect(input.lastKnownValue.selection.end, 8);
+      expect(input.lastKnownValue.selection.baseOffset, 2);
+    });
+
+    test('a selection the platform really did move is applied', () {
+      final editor = _editor();
+      _seed(editor, ['Hallo Welt']);
+      _caret(editor, 0, 8, toOffset: 2);
+      final input = _primed(editor);
+
+      input.applyDeltasForTesting([
+        TextEditingDeltaNonTextUpdate(
+          oldText: input.lastKnownValue.text,
+          selection: const TextSelection(baseOffset: 3, extentOffset: 9),
+          composing: TextRange.empty,
+        ),
+      ]);
+
+      expect(
+        editor.read(() {
+          final selection = $getSelection()! as RangeSelection;
+          return (selection.anchor.offset, selection.focus.offset);
+        }),
+        (3, 9),
+      );
+    });
+
     test('the composing region stays out of the editor state', () {
       final editor = _editor();
       _seed(editor, ['']);

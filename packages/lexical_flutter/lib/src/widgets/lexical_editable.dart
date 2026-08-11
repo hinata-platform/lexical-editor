@@ -287,6 +287,22 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// are dragging, they are looking at where they are pointing.
   bool _draggingSelection = false;
 
+  /// What the pointer drag in progress must keep selected, in document order.
+  ///
+  /// A drag spans from where it began, so **both** ends are written on every
+  /// move rather than only the moving one. Extending from whatever the anchor
+  /// happens to be by then is what makes a right-to-left selection impossible:
+  /// the platform hands the value back with the ends in document order — an
+  /// `NSRange` has a location and a length and no direction — and the swapped
+  /// anchor then pins the wrong end, leaving the one character between two
+  /// pointer moves selected.
+  ///
+  /// The two are the same point for a plain drag and the word a long press
+  /// picked out for a touch one, which is what keeps that word whole while the
+  /// finger travels past either side of it.
+  ResolvedPoint? _dragBaseStart;
+  ResolvedPoint? _dragBaseEnd;
+
   FocusNode get _focusNode =>
       widget.focusNode ?? (_ownedFocusNode ??= FocusNode());
 
@@ -746,9 +762,10 @@ class LexicalEditableState extends State<LexicalEditable> {
     return (block: block.key, point: block.offsets.pointFor(position.offset));
   }
 
-  void _placeCaret(Offset globalPosition, {required bool extend}) {
+  /// Moves the caret to [globalPosition]; false when nothing was there.
+  bool _placeCaret(Offset globalPosition, {required bool extend}) {
     final hit = pointAt(globalPosition);
-    if (hit == null) return;
+    if (hit == null) return false;
     widget.editor.update(() {
       final selection = $getSelection();
       if (selection is RangeSelection) {
@@ -767,6 +784,7 @@ class LexicalEditableState extends State<LexicalEditable> {
         ),
       );
     });
+    return true;
   }
 
   /// Moves one end of the selection to [globalPosition].
@@ -823,22 +841,87 @@ class LexicalEditableState extends State<LexicalEditable> {
     });
   }
 
+  /// Remembers what the drag starting now must keep selected.
+  ///
+  /// Read back off the model rather than taken from the pointer, so a long
+  /// press that selected a word hands the whole word over — see
+  /// [_dragBaseStart].
+  void _rememberDragBase() {
+    widget.editor.read(() {
+      final selection = $getSelection();
+      if (selection is! RangeSelection) {
+        _dragBaseStart = null;
+        _dragBaseEnd = null;
+        return;
+      }
+      final (start, end) = selection.orderedPoints;
+      _dragBaseStart = ResolvedPoint(start.key, start.offset, start.type);
+      _dragBaseEnd = ResolvedPoint(end.key, end.offset, end.type);
+    });
+  }
+
+  void _endDrag() {
+    _dragBaseStart = null;
+    _dragBaseEnd = null;
+  }
+
+  /// Spans the selection from the base of the drag in progress to [position].
+  void _extendDragTo(Offset position) {
+    final base = _dragBaseStart;
+    final baseEnd = _dragBaseEnd;
+    // No base means no drag start was seen — a stray move. Extending from the
+    // model's own anchor is the best that can be said about it.
+    if (base == null || baseEnd == null) {
+      _placeCaret(position, extend: true);
+      return;
+    }
+    final hit = pointAt(position);
+    if (hit == null) return;
+    widget.editor.update(() {
+      final selection = $getSelection();
+      if (selection is! RangeSelection) return;
+      selection
+        ..anchor.set(base.key, base.offset, base.type)
+        ..focus.set(hit.point.key, hit.point.offset, hit.point.type)
+        ..dirty = true;
+      // Dragged past the base's own start: the far end of it is the one that
+      // stands still, so the word a long press picked out stays selected
+      // whichever side the finger wanders to.
+      if (baseEnd != base && selection.isBackward) {
+        selection.anchor.set(baseEnd.key, baseEnd.offset, baseEnd.type);
+      }
+    });
+  }
+
   void _onDragStart(DragStartDetails details) {
     requestFocus();
     hideToolbar();
     if (!widget.enableInteractiveSelection) return;
     _draggingSelection = true;
-    _placeCaret(details.globalPosition, extend: false);
+    // A press that landed on nothing leaves no base behind: the drag then has
+    // no origin of its own, and extending an older selection from wherever it
+    // happens to be beats spanning from a point the user never pointed at.
+    if (_placeCaret(details.globalPosition, extend: false)) {
+      _rememberDragBase();
+    } else {
+      _endDrag();
+    }
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
     if (!widget.enableInteractiveSelection) return;
-    _placeCaret(details.globalPosition, extend: true);
+    _extendDragTo(details.globalPosition);
   }
 
   void _onDragEnd(DragEndDetails details) {
     _draggingSelection = false;
+    _endDrag();
     if (_selection?.hasRange ?? false) showToolbar();
+  }
+
+  void _onDragCancel() {
+    _draggingSelection = false;
+    _endDrag();
   }
 
   // -------------------------------------------------------------------
@@ -1264,14 +1347,17 @@ class LexicalEditableState extends State<LexicalEditable> {
                           requestFocus();
                           hideToolbar();
                           _selectWordAt(details.globalPosition);
+                          _rememberDragBase();
                           if (_wantsHandles) showHandles();
                         }
                         ..onLongPressMoveUpdate = (details) {
-                          _placeCaret(details.globalPosition, extend: true);
+                          _extendDragTo(details.globalPosition);
                         }
                         ..onLongPressEnd = (_) {
+                          _endDrag();
                           if (_selection?.hasRange ?? false) showToolbar();
-                        },
+                        }
+                        ..onLongPressCancel = _endDrag,
                     ),
                 // Mouse and trackpad only: a touch drag has to reach the
                 // scrollable, or the document cannot be scrolled at all. Touch
@@ -1289,7 +1375,11 @@ class LexicalEditableState extends State<LexicalEditable> {
                       (instance) => instance
                         ..onStart = _onDragStart
                         ..onUpdate = _onDragUpdate
-                        ..onEnd = _onDragEnd,
+                        ..onEnd = _onDragEnd
+                        // A drag the arena takes away mid-way must not leave
+                        // its base behind: the next one would then span from
+                        // wherever this one began.
+                        ..onCancel = _onDragCancel,
                     ),
               },
               child: document,

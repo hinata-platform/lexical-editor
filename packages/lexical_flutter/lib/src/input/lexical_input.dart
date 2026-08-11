@@ -196,9 +196,28 @@ class LexicalInput implements DeltaTextInputClient {
     }
     _window = window;
     _anchor = WindowAnchor(window.blockKey, window.start, window.end);
-    if (!force && window.value == _lastKnownValue) return;
+    if (!force && _platformHolds(window.value)) return;
     _lastKnownValue = window.value;
     _connection?.setEditingState(window.value);
+  }
+
+  /// Whether the platform already holds [value], give or take the *direction*
+  /// of its selection.
+  ///
+  /// Direction is left out of the comparison because half the platforms cannot
+  /// carry it: iOS and macOS hold the selection as a location and a length,
+  /// so a backwards range comes back with its ends in document order. Pushing
+  /// our own direction at such a platform on every echo is a conversation that
+  /// never ends, and it could not hold the answer anyway. The model keeps the
+  /// direction — see [_applySelection] — and the platform is told the range.
+  bool _platformHolds(TextEditingValue value) {
+    final ours = value.selection;
+    final theirs = _lastKnownValue.selection;
+    return value.text == _lastKnownValue.text &&
+        value.composing == _lastKnownValue.composing &&
+        ours.isValid == theirs.isValid &&
+        ours.start == theirs.start &&
+        ours.end == theirs.end;
   }
 
   // -------------------------------------------------------------------
@@ -375,6 +394,21 @@ class LexicalInput implements DeltaTextInputClient {
   void _applySelection(TextSelection selection) {
     final window = _window;
     if (window == null || !selection.isValid) return;
+    // The range we last reported, handed straight back. That is what a
+    // platform without a direction does — iOS and macOS both carry the
+    // selection as an `NSRange`, which has a location and a length and nothing
+    // else — and taking it at face value swaps the anchor and the focus of
+    // every backwards selection. The next extend then moves the end that was
+    // meant to stand still, which is why a right-to-left drag used to collapse
+    // to the single character between two pointer moves, and why shift-left
+    // stopped after one. The model already holds this range, and it is the one
+    // that knows which end the user is dragging.
+    final reported = _lastKnownValue.selection;
+    if (reported.isValid &&
+        reported.start == selection.start &&
+        reported.end == selection.end) {
+      return;
+    }
     editor.update(() {
       final current = $getSelection();
       if (current is! RangeSelection) return;

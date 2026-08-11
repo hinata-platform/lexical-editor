@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -309,5 +310,167 @@ void main() {
       expect(_state.remoteCaretRects, isEmpty);
       expect(_block(0).render.foreignSelections, isEmpty);
     });
+  });
+
+  group('dragging out a selection', () {
+    /// Reports the anchor and the focus, in that order — which end is which is
+    /// the whole point here, so they are never put in document order.
+    (int, int) points(LexicalEditor editor) => editor.read(() {
+      final selection = $getSelection()! as RangeSelection;
+      return (selection.anchor.offset, selection.focus.offset);
+    });
+
+    /// Hands the value back the way a platform with no notion of direction
+    /// does: iOS and macOS both carry the selection as a location and a
+    /// length, so what comes back has its ends in document order.
+    void echoWithoutDirection(WidgetTester tester) {
+      final state = tester.testTextInput.editingState;
+      if (state == null) return;
+      final base = state['selectionBase'] as int;
+      final extent = state['selectionExtent'] as int;
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: state['text'] as String,
+          selection: TextSelection(
+            baseOffset: base < extent ? base : extent,
+            extentOffset: base < extent ? extent : base,
+          ),
+        ),
+      );
+    }
+
+    /// Drags with the mouse and reports the anchor after every move, so a
+    /// drag that re-anchors on itself is visible rather than only its result.
+    Future<List<int>> mouseDrag(
+      WidgetTester tester,
+      LexicalEditor editor,
+      Offset from,
+      Offset to, {
+      bool echo = false,
+    }) async {
+      final anchors = <int>[];
+      final gesture = await tester.startGesture(
+        from,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+      for (var step = 1; step <= 8; step++) {
+        await gesture.moveTo(Offset.lerp(from, to, step / 8)!);
+        await tester.pump(const Duration(milliseconds: 16));
+        if (echo) {
+          echoWithoutDirection(tester);
+          await tester.pump();
+        }
+        anchors.add(points(editor).$1);
+      }
+      await gesture.up();
+      await tester.pump();
+      return anchors;
+    }
+
+    testWidgets('left to right leaves the anchor where it began', (
+      tester,
+    ) async {
+      final editor = _editor(['Hallo schöne weite Welt']);
+      await _pump(tester, editor);
+      final render = _block(0).render;
+      final anchors = await mouseDrag(
+        tester,
+        editor,
+        render.localToGlobal(const Offset(4, 6)),
+        render.localToGlobal(const Offset(110, 6)),
+        echo: true,
+      );
+
+      final (anchor, focus) = points(editor);
+      expect(anchors.toSet(), hasLength(1));
+      expect(anchor, lessThan(focus));
+      expect(focus - anchor, greaterThan(4));
+    });
+
+    testWidgets('right to left survives a platform without a direction', (
+      tester,
+    ) async {
+      // The regression this pins: every echo swapped the anchor and the
+      // focus, so each move re-anchored on the previous one and the selection
+      // never grew past the single character between two pointer positions.
+      final editor = _editor(['Hallo schöne weite Welt']);
+      await _pump(tester, editor);
+      final render = _block(0).render;
+      final anchors = await mouseDrag(
+        tester,
+        editor,
+        render.localToGlobal(const Offset(110, 6)),
+        render.localToGlobal(const Offset(4, 6)),
+        echo: true,
+      );
+
+      final (anchor, focus) = points(editor);
+      expect(anchors.toSet(), hasLength(1));
+      expect(focus, lessThan(anchor));
+      expect(anchor - focus, greaterThan(4));
+    });
+
+    testWidgets('right to left reaches back over an earlier block', (
+      tester,
+    ) async {
+      final editor = _editor(['Erster Absatz hier', 'Zweiter Absatz hier']);
+      await _pump(tester, editor);
+      await mouseDrag(
+        tester,
+        editor,
+        _block(1).render.localToGlobal(const Offset(90, 6)),
+        _block(0).render.localToGlobal(const Offset(10, 6)),
+        echo: true,
+      );
+
+      final selection = editor.read($resolveDocumentSelection);
+      expect(selection!.spans, hasLength(2));
+    });
+
+    testWidgets(
+      'a long press keeps its word while the finger passes either side',
+      (tester) async {
+        final editor = _editor(['Hallo schöne weite Welt']);
+        await _pump(tester, editor);
+        final render = _block(0).render;
+        // Inside "schöne", so there is a word on both sides of it. The test
+        // font draws one glyph per font size, so this is the tenth character.
+        final onWord = render.localToGlobal(const Offset(9 * 14 + 4, 6));
+
+        final gesture = await tester.startGesture(onWord);
+        await tester.pump(const Duration(milliseconds: 600));
+        final (wordStart, wordEnd) = editor.read(() {
+          final selection = $getSelection()! as RangeSelection;
+          final (start, end) = selection.orderedPoints;
+          return (start.offset, end.offset);
+        });
+        expect(wordEnd, greaterThan(wordStart));
+
+        // Left of the word: the word's far end is the one that stands still.
+        await gesture.moveTo(render.localToGlobal(const Offset(1 * 14 + 4, 6)));
+        await tester.pump();
+        echoWithoutDirection(tester);
+        await tester.pump();
+        var (anchor, focus) = points(editor);
+        expect(anchor, wordEnd);
+        expect(focus, lessThan(wordStart));
+
+        // Back to the right of it, and the near end takes over again.
+        await gesture.moveTo(
+          render.localToGlobal(const Offset(20 * 14 + 4, 6)),
+        );
+        await tester.pump();
+        echoWithoutDirection(tester);
+        await tester.pump();
+        (anchor, focus) = points(editor);
+        expect(anchor, wordStart);
+        expect(focus, greaterThan(wordEnd));
+
+        await gesture.up();
+        await tester.pump();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+    );
   });
 }
