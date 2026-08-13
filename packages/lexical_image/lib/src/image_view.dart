@@ -8,6 +8,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lexical_core/lexical_core.dart';
 
+import 'blur_hash.dart';
 import 'image_node.dart';
 import 'image_resize.dart';
 
@@ -155,6 +156,7 @@ class LexicalImageView extends StatefulWidget {
     required this.src,
     super.key,
     this.altText = '',
+    this.blurHash = '',
     this.width,
     this.height,
     this.caption,
@@ -182,6 +184,14 @@ class LexicalImageView extends StatefulWidget {
 
   /// The alternative text, used for semantics.
   final String altText;
+
+  /// A BlurHash of the picture, or `''`.
+  ///
+  /// Drawn while the image loads and left in place if it never does. A blurred
+  /// version of the actual picture is a better answer than a grey rectangle in
+  /// both cases — and it costs no request, because the hash travelled inside
+  /// the document.
+  final String blurHash;
 
   /// How the selection chrome — outline, handles, caption caret — is drawn.
   final LexicalImageStyle style;
@@ -512,25 +522,57 @@ class _LexicalImageViewState extends State<LexicalImageView> {
   Widget _image(BuildContext context) {
     final provider = _provider;
     if (provider == null) return _placeholder(context);
-    return Image(
+    final image = Image(
       image: provider,
       fit: BoxFit.contain,
       semanticLabel: widget.altText.isEmpty ? null : widget.altText,
       errorBuilder: (context, _, _) => _placeholder(context),
+      // Fade the picture in over whatever is underneath it. Without a blur to
+      // reveal there is nothing under it and this is the plain appearance the
+      // widget always had.
+      frameBuilder: !_hasBlurHash
+          ? null
+          : (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded) return child;
+              return AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                child: child,
+              );
+            },
+    );
+    if (!_hasBlurHash) return image;
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [Positioned.fill(child: _blur()), image],
     );
   }
 
-  Widget _placeholder(BuildContext context) =>
-      widget.placeholderBuilder?.call(context, widget.src) ??
-      Container(
-        constraints: const BoxConstraints(minWidth: 96, minHeight: 96),
-        color: const Color(0x14000000),
-        alignment: Alignment.center,
-        child: Text(
-          widget.altText.isEmpty ? '🖼' : widget.altText,
-          textAlign: TextAlign.center,
-        ),
-      );
+  bool get _hasBlurHash => isBlurHash(widget.blurHash);
+
+  /// The document's own blurred copy of this picture.
+  Widget _blur() => Image(
+    image: BlurHashImage(widget.blurHash),
+    fit: BoxFit.cover,
+    // A hash that does not decode is not worth a broken frame: the ordinary
+    // placeholder is still underneath.
+    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+  );
+
+  Widget _placeholder(BuildContext context) {
+    if (_hasBlurHash) return _blur();
+    return widget.placeholderBuilder?.call(context, widget.src) ??
+        Container(
+          constraints: const BoxConstraints(minWidth: 96, minHeight: 96),
+          color: const Color(0x14000000),
+          alignment: Alignment.center,
+          child: Text(
+            widget.altText.isEmpty ? '🖼' : widget.altText,
+            textAlign: TextAlign.center,
+          ),
+        );
+  }
 
   Widget _outline(BuildContext context) => IgnorePointer(
     child: DecoratedBox(

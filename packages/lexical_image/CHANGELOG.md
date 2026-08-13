@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.8.0
+
+**An image can carry a BlurHash, and a document opens showing its pictures.**
+Until now a picture appeared only once its bytes had arrived, so a document
+full of images opened as a column of empty boxes that filled in one by one —
+worst exactly where images matter most.
+
+`ImageNode` gains `blurHash`: ~30 characters that *are* a blurred copy of the
+picture, so `LexicalImageView` paints it in the first frame and fades the real
+image in over it. A hash that never resolves into an image simply stays; a
+blurred version of the actual picture is a better answer than a grey rectangle
+in that case too.
+
+The field is written **only when it holds something**, which is the whole of
+the compatibility story: an image that arrived from a Lexical client exports
+the fields it arrived with and no others, so the strict round trip these
+packages are built on stays a fixed point, and a document written here loads in
+a web client, which ignores members it does not know.
+
+Decoding is implemented here rather than taken from a package — a hundred lines
+of arithmetic that has not changed since the format was published, against a
+dependency in every application that draws an image. `BlurHashImage`,
+`blurHashPixels` and `isBlurHash` are exported for hosts that want to draw the
+same placeholder elsewhere.
+
 ## 1.7.4
 
 No library changes. The packages version in lockstep — they are one library

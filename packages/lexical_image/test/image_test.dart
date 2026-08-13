@@ -145,6 +145,78 @@ void main() {
       expect(image['caption'], isA<Map<String, Object?>>());
     });
 
+    test('a BlurHash is absent from an image that has none', () {
+      // The compatibility promise in one assertion: an image that came from a
+      // Lexical client exports the fields it arrived with and no others, so a
+      // web round trip stays a fixed point.
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()..append($createImageNode(src: 'a.png')),
+          );
+      }, discrete: true);
+
+      expect(
+        _imageJson(editor.editorState.toJson()),
+        isNot(contains('blurHash')),
+      );
+    });
+
+    test('a BlurHash round-trips when there is one', () {
+      const hash = 'LEHV6nWB2yk8pyo0adR*.7kCMdnj';
+      final editor = _editor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createImageNode(src: 'a.png', blurHash: hash)),
+          );
+      }, discrete: true);
+
+      final json = editor.editorState.toJson();
+      expect(_imageJson(json)['blurHash'], hash);
+
+      final reopened = _editor();
+      reopened.setEditorState(reopened.parseEditorState(json));
+      reopened.read(() {
+        expect(_theImage().blurHash, hash);
+      });
+    });
+
+    test('a hostile blurHash is a string or it is nothing', () {
+      final editor = _editor();
+      final json = <String, Object?>{
+        'root': <String, Object?>{
+          'children': <Object?>[
+            <String, Object?>{
+              'altText': '',
+              'blurHash': 42,
+              'caption': {'editorState': null},
+              'height': 0,
+              'maxWidth': 500,
+              'showCaption': false,
+              'src': 'a.png',
+              'type': 'image',
+              'version': 1,
+              'width': 0,
+            },
+          ],
+          'direction': null,
+          'format': '',
+          'indent': 0,
+          'type': 'root',
+          'version': 1,
+        },
+      };
+      editor.setEditorState(editor.parseEditorState(json));
+      editor.read(() {
+        expect(($getRoot().getFirstChild()! as ImageNode).blurHash, '');
+      });
+    });
+
     test('a hostile size cannot reach the layout', () {
       final editor = _editor();
       final json = <String, Object?>{

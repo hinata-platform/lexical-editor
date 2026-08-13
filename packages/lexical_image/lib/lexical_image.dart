@@ -43,6 +43,7 @@ import 'package:lexical_core/lexical_core.dart';
 
 import 'src/image_node.dart';
 
+export 'src/blur_hash.dart' show BlurHashImage, blurHashPixels, isBlurHash;
 export 'src/image_commands.dart'
     show
         ImageAttributes,

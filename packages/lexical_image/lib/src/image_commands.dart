@@ -19,6 +19,7 @@ final class ImageAttributes {
     this.height = 0,
     this.maxWidth = ImageNode.defaultMaxWidth,
     this.caption,
+    this.blurHash = '',
   });
 
   /// Where the image comes from.
@@ -39,6 +40,10 @@ final class ImageAttributes {
   /// An initial caption as plain text, or `null` for none.
   final String? caption;
 
+  /// A BlurHash of the picture, or `''` — what the reader sees until the
+  /// image itself has loaded.
+  final String blurHash;
+
   @override
   bool operator ==(Object other) =>
       other is ImageAttributes &&
@@ -47,11 +52,12 @@ final class ImageAttributes {
       other.width == width &&
       other.height == height &&
       other.maxWidth == maxWidth &&
-      other.caption == caption;
+      other.caption == caption &&
+      other.blurHash == blurHash;
 
   @override
   int get hashCode =>
-      Object.hash(src, altText, width, height, maxWidth, caption);
+      Object.hash(src, altText, width, height, maxWidth, caption, blurHash);
 }
 
 /// Inserts an image at the selection.
@@ -80,6 +86,7 @@ void $insertImage(ImageAttributes attributes) {
     width: attributes.width,
     height: attributes.height,
     maxWidth: attributes.maxWidth,
+    blurHash: attributes.blurHash,
   );
   if (attributes.caption != null) image.setCaptionText(attributes.caption);
 
@@ -135,6 +142,7 @@ imageDecoratorBuilders({
       nodeKey: image.key,
       src: image.src,
       altText: image.altText,
+      blurHash: image.blurHash,
       // The node says "the image's own size" with `0`; the view says it with
       // `null`. Passing the zero straight through made `SizedBox` force every
       // image that had never been resized to 0×0 — inserted, stored, exported

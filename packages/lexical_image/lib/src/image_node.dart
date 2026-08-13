@@ -39,6 +39,16 @@ import 'package:lexical_core/lexical_core.dart';
 /// against a running Lexical automatically, which is exactly why the fixture
 /// in this package's tests is written out in full.
 ///
+/// ## `blurHash`, the one addition
+///
+/// [blurHash] is the single field here that upstream has no notion of, and it
+/// is **written only when it holds something**. An image that arrived from a
+/// Lexical client therefore exports exactly the fields it arrived with, and one
+/// written here loads in a web client, which ignores members it does not know.
+/// That is the whole of the compatibility story; the alternative — a side table
+/// keyed by URL — would have made a placeholder cost a second request, which is
+/// the very thing a placeholder exists to avoid.
+///
 /// ## The caption
 ///
 /// Upstream's caption is a **nested editor**: a second editor instance per
@@ -61,13 +71,15 @@ class ImageNode extends DecoratorNode {
     double maxWidth = defaultMaxWidth,
     bool showCaption = false,
     Map<String, Object?>? caption,
+    String blurHash = '',
   }) : _src = src,
        _altText = altText,
        _width = width,
        _height = height,
        _maxWidth = maxWidth,
        _showCaption = showCaption,
-       _caption = caption;
+       _caption = caption,
+       _blurHash = blurHash;
 
   /// What the playground uses when nothing else is given.
   static const double defaultMaxWidth = 500;
@@ -79,6 +91,7 @@ class ImageNode extends DecoratorNode {
   double _maxWidth;
   bool _showCaption;
   Map<String, Object?>? _caption;
+  String _blurHash;
 
   @override
   String get type => 'image';
@@ -107,6 +120,7 @@ class ImageNode extends DecoratorNode {
     maxWidth: _maxWidth,
     showCaption: _showCaption,
     caption: _caption,
+    blurHash: _blurHash,
   );
 
   @override
@@ -119,6 +133,7 @@ class ImageNode extends DecoratorNode {
     _maxWidth = prev._maxWidth;
     _showCaption = prev._showCaption;
     _caption = prev._caption;
+    _blurHash = prev._blurHash;
   }
 
   /// Where the image comes from: a URL, a data URI, an asset path.
@@ -143,6 +158,18 @@ class ImageNode extends DecoratorNode {
   /// Whether a caption is shown.
   bool get showCaption => getLatest<ImageNode>()._showCaption;
 
+  /// A BlurHash of the image, or `''` when none is known.
+  ///
+  /// What it buys is the first frame: the hash *is* a blurred copy of the
+  /// picture, so a document opens showing its images rather than a grid of
+  /// empty boxes that fill in as bytes arrive.
+  ///
+  /// This is the one field here that the Lexical playground does not have. It
+  /// is written **only when set** (see [exportJson]), so a document that came
+  /// from the web round-trips byte for byte, and a document written here loads
+  /// in a web client that simply ignores what it does not know.
+  String get blurHash => getLatest<ImageNode>()._blurHash;
+
   /// The caption's nested editor state, verbatim, or `null`.
   ///
   /// Preserved rather than interpreted: this port cannot edit a nested
@@ -164,6 +191,10 @@ class ImageNode extends DecoratorNode {
   /// Sets the alternative text.
   ImageNode setAltText(String value) =>
       getWritable<ImageNode>().._altText = value;
+
+  /// Sets (or with `''` clears) the BlurHash placeholder.
+  ImageNode setBlurHash(String value) =>
+      getWritable<ImageNode>().._blurHash = value;
 
   /// Resizes the image. Zero means "as large as it comes".
   ImageNode setSize(double width, double height) {
@@ -215,6 +246,10 @@ class ImageNode extends DecoratorNode {
   Map<String, Object?> exportJson() => {
     ...super.exportJson(),
     'altText': _altText,
+    // Absent unless set, and that is the whole contract: an image that came
+    // from a Lexical client exports exactly the fields it arrived with, so the
+    // strict round trip this port is built on stays byte for byte intact.
+    if (_blurHash.isNotEmpty) 'blurHash': _blurHash,
     'caption': {'editorState': _caption ?? _emptyCaptionState()},
     'height': _asWire(_height),
     'maxWidth': _asWire(_maxWidth),
@@ -230,6 +265,8 @@ class ImageNode extends DecoratorNode {
     _src = src is String ? src : '';
     final altText = json['altText'];
     _altText = altText is String ? altText : '';
+    final blurHash = json['blurHash'];
+    _blurHash = blurHash is String ? blurHash : '';
     _width = _dimension(json['width']);
     _height = _dimension(json['height']);
     final maxWidth = json['maxWidth'];
@@ -307,6 +344,7 @@ ImageNode $createImageNode({
   double maxWidth = ImageNode.defaultMaxWidth,
   bool showCaption = false,
   Map<String, Object?>? caption,
+  String blurHash = '',
 }) => $applyNodeReplacement(
   ImageNode(
     src: src,
@@ -316,5 +354,6 @@ ImageNode $createImageNode({
     maxWidth: maxWidth,
     showCaption: showCaption,
     caption: caption,
+    blurHash: blurHash,
   ),
 );
