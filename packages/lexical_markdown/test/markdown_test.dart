@@ -61,11 +61,11 @@ void main() {
       // emphasis, and an inline rule that sees them first turns the line into
       // a stray asterisk rather than a break.
       for (final marker in ['---', '***', '___', '-----', '  ---  ']) {
-        expect(
-          _types(_from('davor\n\n$marker\n\ndanach')),
-          ['paragraph', 'horizontalrule', 'paragraph'],
-          reason: '$marker did not become a break',
-        );
+        expect(_types(_from('davor\n\n$marker\n\ndanach')), [
+          'paragraph',
+          'horizontalrule',
+          'paragraph',
+        ], reason: '$marker did not become a break');
       }
     });
 

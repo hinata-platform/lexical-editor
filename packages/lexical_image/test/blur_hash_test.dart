@@ -24,11 +24,8 @@ final String _flat = 'L0M{oP${'fQ' * 11}';
 /// the left edge, `−1` at the right.
 final String _leftBright = 'L~Eyb[~q${'fQ' * 10}';
 
-({int r, int g, int b}) _pixel(Uint8List pixels, int index) => (
-  r: pixels[index * 4],
-  g: pixels[index * 4 + 1],
-  b: pixels[index * 4 + 2],
-);
+({int r, int g, int b}) _pixel(Uint8List pixels, int index) =>
+    (r: pixels[index * 4], g: pixels[index * 4 + 1], b: pixels[index * 4 + 2]);
 
 int _luma(({int r, int g, int b}) pixel) => pixel.r + pixel.g + pixel.b;
 

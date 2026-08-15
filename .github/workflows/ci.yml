@@ -13,6 +13,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Pinned, because `channel: stable` silently moves under the repository. A new
+# stable brings a new formatter — 3.47 reformatted files nobody had touched —
+# and one-shot project migrators that rewrite checked-in analysis_options.yaml,
+# so an unrelated commit fails on drift it did not cause. Bumping this is a
+# deliberate pull request whose diff shows exactly what the new SDK changed.
+env:
+  FLUTTER_VERSION: 3.47.0
+
 jobs:
   dart:
     name: analyze & test
@@ -23,6 +31,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Resolve workspace
         run: flutter pub get
@@ -61,6 +70,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - run: flutter pub get
 
@@ -126,6 +136,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
       - run: flutter pub get
       - working-directory: packages/${{ matrix.package }}
         run: flutter pub publish --dry-run

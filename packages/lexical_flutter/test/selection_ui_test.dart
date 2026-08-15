@@ -92,101 +92,91 @@ void main() {
   });
 
   group('handles', () {
-    testWidgets(
-      'a long press selects a word and raises the handles',
-      (tester) async {
-        final editor = _editor(['Hallo schöne Welt']);
-        await _pump(tester, editor);
+    testWidgets('a long press selects a word and raises the handles', (
+      tester,
+    ) async {
+      final editor = _editor(['Hallo schöne Welt']);
+      await _pump(tester, editor);
 
-        final origin = _block(0).render.localToGlobal(Offset.zero);
-        final gesture = await tester.startGesture(origin + const Offset(45, 6));
-        await tester.pump(const Duration(milliseconds: 600));
-        await gesture.up();
-        await tester.pump();
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(45, 6));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.up();
+      await tester.pump();
 
-        expect(_state.selectionEndpoints, isNotNull);
-        expect(_state.selectionEndpoints!.isCollapsed, isFalse);
-        // Two handles, one per end of the selection.
-        expect(find.byType(CustomPaint, skipOffstage: false), findsWidgets);
-        expect(_state.toolbarVisible, isTrue);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.android),
-    );
+      expect(_state.selectionEndpoints, isNotNull);
+      expect(_state.selectionEndpoints!.isCollapsed, isFalse);
+      // Two handles, one per end of the selection.
+      expect(find.byType(CustomPaint, skipOffstage: false), findsWidgets);
+      expect(_state.toolbarVisible, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-    testWidgets(
-      'the toolbar offers what the selection allows',
-      (tester) async {
-        final editor = _editor(['Hallo Welt']);
-        await _pump(tester, editor);
+    testWidgets('the toolbar offers what the selection allows', (tester) async {
+      final editor = _editor(['Hallo Welt']);
+      await _pump(tester, editor);
 
-        _select(editor, 0, 5);
-        await tester.pump();
-        final withRange = _state.contextMenuButtonItems
-            .map((item) => item.type)
-            .toList();
-        expect(withRange, contains(ContextMenuButtonType.copy));
-        expect(withRange, contains(ContextMenuButtonType.cut));
-        expect(withRange, isNot(contains(ContextMenuButtonType.selectAll)));
+      _select(editor, 0, 5);
+      await tester.pump();
+      final withRange = _state.contextMenuButtonItems
+          .map((item) => item.type)
+          .toList();
+      expect(withRange, contains(ContextMenuButtonType.copy));
+      expect(withRange, contains(ContextMenuButtonType.cut));
+      expect(withRange, isNot(contains(ContextMenuButtonType.selectAll)));
 
-        _select(editor, 2, 2);
-        await tester.pump();
-        final collapsed = _state.contextMenuButtonItems
-            .map((item) => item.type)
-            .toList();
-        // Nothing is selected, so Cut and Copy are left out rather than shown
-        // greyed — which is what every platform's own menu does.
-        expect(collapsed, isNot(contains(ContextMenuButtonType.copy)));
-        expect(collapsed, contains(ContextMenuButtonType.selectAll));
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.android),
-    );
+      _select(editor, 2, 2);
+      await tester.pump();
+      final collapsed = _state.contextMenuButtonItems
+          .map((item) => item.type)
+          .toList();
+      // Nothing is selected, so Cut and Copy are left out rather than shown
+      // greyed — which is what every platform's own menu does.
+      expect(collapsed, isNot(contains(ContextMenuButtonType.copy)));
+      expect(collapsed, contains(ContextMenuButtonType.selectAll));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-    testWidgets(
-      'the toolbar shows the platform menu and a tap dismisses it',
-      (tester) async {
-        final editor = _editor(['Hallo Welt']);
-        await _pump(tester, editor);
+    testWidgets('the toolbar shows the platform menu and a tap dismisses it', (
+      tester,
+    ) async {
+      final editor = _editor(['Hallo Welt']);
+      await _pump(tester, editor);
 
-        _select(editor, 0, 5);
-        await tester.pump();
-        _state.showToolbar();
-        await tester.pump();
-        expect(find.text('Copy'), findsOneWidget);
+      _select(editor, 0, 5);
+      await tester.pump();
+      _state.showToolbar();
+      await tester.pump();
+      expect(find.text('Copy'), findsOneWidget);
 
-        await tester.tapAt(_block(0).render.localToGlobal(const Offset(4, 6)));
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(_state.toolbarVisible, isFalse);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.android),
-    );
+      await tester.tapAt(_block(0).render.localToGlobal(const Offset(4, 6)));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(_state.toolbarVisible, isFalse);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-    testWidgets(
-      'dragging an end of the selection moves only that end',
-      (tester) async {
-        final editor = _editor(['Hallo schöne Welt']);
-        await _pump(tester, editor);
+    testWidgets('dragging an end of the selection moves only that end', (
+      tester,
+    ) async {
+      final editor = _editor(['Hallo schöne Welt']);
+      await _pump(tester, editor);
 
-        _select(editor, 0, 5);
-        await tester.pump();
-        final before = editor.read(
-          () => ($getSelection()! as RangeSelection).orderedPoints.$1.offset,
-        );
+      _select(editor, 0, 5);
+      await tester.pump();
+      final before = editor.read(
+        () => ($getSelection()! as RangeSelection).orderedPoints.$1.offset,
+      );
 
-        final render = _block(0).render;
-        _state.extendSelectionTo(
-          render.localToGlobal(const Offset(80, 6)),
-          movingStart: false,
-        );
-        await tester.pump();
+      final render = _block(0).render;
+      _state.extendSelectionTo(
+        render.localToGlobal(const Offset(80, 6)),
+        movingStart: false,
+      );
+      await tester.pump();
 
-        final (start, end) = editor.read(
-          () => ($getSelection()! as RangeSelection).orderedPoints,
-        );
-        expect(start.offset, before);
-        expect(end.offset, greaterThan(5));
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.android),
-    );
+      final (start, end) = editor.read(
+        () => ($getSelection()! as RangeSelection).orderedPoints,
+      );
+      expect(start.offset, before);
+      expect(end.offset, greaterThan(5));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   });
 
   group('endpoints', () {

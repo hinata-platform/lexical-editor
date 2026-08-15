@@ -32,6 +32,10 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Kept in step with ci.yml, so the published demo is the build CI approved.
+env:
+  FLUTTER_VERSION: 3.47.0
+
 jobs:
   build:
     name: build the example for the web
@@ -42,6 +46,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       # The workspace resolves from the repository root; the example's own
       # path dependencies then point at this checkout rather than at pub.dev.

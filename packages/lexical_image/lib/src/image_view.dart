@@ -545,7 +545,10 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     if (!_hasBlurHash) return image;
     return Stack(
       fit: StackFit.passthrough,
-      children: [Positioned.fill(child: _blur()), image],
+      children: [
+        Positioned.fill(child: _blur()),
+        image,
+      ],
     );
   }
 

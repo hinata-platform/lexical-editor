@@ -31,6 +31,11 @@ permissions:
   id-token: write   # pub.dev authenticates this run by its OIDC token
   contents: read
 
+# Kept in step with ci.yml: a release must be built by the same SDK that
+# validated it, or the first build of a version is the one nothing tested.
+env:
+  FLUTTER_VERSION: 3.47.0
+
 jobs:
   publish:
     name: publish to pub.dev
@@ -68,6 +73,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       # Having the OIDC token is not the same as pub having it. `setup-dart`
       # performs this exchange as part of its own setup, which is why the

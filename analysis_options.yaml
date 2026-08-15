@@ -12,6 +12,13 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - "tool/fixtures/node_modules/**"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:
