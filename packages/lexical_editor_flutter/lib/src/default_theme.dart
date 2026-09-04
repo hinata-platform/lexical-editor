@@ -234,15 +234,26 @@ BlockMarker? _listMarker(
   final list = node.getParent();
   if (list is! ListNode) return null;
 
+  // One line of body text. Markers are centred against it rather than hung
+  // from the top of the block: a bullet belongs beside the line it introduces,
+  // level with the words, and a tick box is a square with no baseline to sit
+  // on — which is why it used to need a hand-picked padding to look right, and
+  // still did not at other text sizes.
+  final line = (body.fontSize ?? 16) * (body.height ?? 1.2);
+
   switch (list.listType) {
     case ListType.bullet:
       return BlockMarker(
         width: 24,
+        height: line,
+        alignment: Alignment.centerRight,
         child: Text('•', style: body.copyWith(color: palette.muted)),
       );
     case ListType.number:
       return BlockMarker(
         width: 28,
+        height: line,
+        alignment: Alignment.centerRight,
         child: Text(
           '${node.value}.',
           style: body.copyWith(color: palette.muted),
@@ -252,7 +263,8 @@ BlockMarker? _listMarker(
       final checked = node.checked ?? false;
       return BlockMarker(
         width: 24,
-        alignment: Alignment.topCenter,
+        height: line,
+        alignment: Alignment.center,
         child: _Checkbox(
           checked: checked,
           palette: palette,
@@ -352,9 +364,7 @@ class _CheckboxState extends State<_Checkbox> {
           : null,
     );
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 3),
-      child: editor == null
+    return editor == null
           ? box
           : Semantics(
               checked: checked,
@@ -390,8 +400,7 @@ class _CheckboxState extends State<_Checkbox> {
                 onPointerCancel: (_) => _downAt = null,
                 child: box,
               ),
-            ),
-    );
+            );
   }
 }
 

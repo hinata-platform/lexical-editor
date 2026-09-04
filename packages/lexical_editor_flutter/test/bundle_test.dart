@@ -259,6 +259,39 @@ void main() {
       expect(content.left, greaterThan(marker.right));
     });
 
+    testWidgets('a marker sits level with the line it introduces', (
+      tester,
+    ) async {
+      // Hung from the top of the block, a bullet rides above the words and a
+      // tick box — a square with no baseline to sit on — needed a hand-picked
+      // padding to look almost right, and did not at other text sizes.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.bullet)
+              ..append($createListItemNode()..append($createTextNode('er/ihm'))),
+          );
+      }, discrete: true);
+      await _pump(tester, editor);
+
+      final marker = tester.getRect(find.text('•'));
+      final line = tester.getRect(
+        find.descendant(
+          of: find.byType(LexicalEditorField),
+          matching: find.byType(Expanded),
+        ),
+      );
+
+      // Centres within half a line of each other. Exact equality is not the
+      // test: a glyph's ink box is not its line box.
+      expect(
+        (marker.center.dy - line.center.dy).abs(),
+        lessThan(line.height / 2),
+      );
+    });
+
     testWidgets('a checkbox can be ticked, and unticked again', (tester) async {
       // The box was drawn and nothing else: no gesture anywhere in the marker,
       // so a check list could be written but never actually checked off.

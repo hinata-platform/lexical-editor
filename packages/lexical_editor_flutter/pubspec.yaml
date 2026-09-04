@@ -3,7 +3,7 @@ description: >-
   Batteries-included Lexical editor for Flutter: every node type registered,
   a default theme with presenters for each of them, history, and one widget
   that puts it together.
-version: 1.7.4
+version: 1.9.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -19,7 +19,7 @@ dependencies:
   lexical_code: ^1.7.4
   lexical_core: ^1.7.4
   lexical_embed: ^1.7.4
-  lexical_flutter: ^1.7.4
+  lexical_flutter: ^1.9.0
   lexical_hashtag: ^1.7.4
   lexical_history: ^1.7.5
   lexical_image: ^1.7.4

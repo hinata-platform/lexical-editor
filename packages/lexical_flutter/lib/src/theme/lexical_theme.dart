@@ -68,6 +68,7 @@ class BlockMarker {
     this.width = 28,
     this.alignment = Alignment.topRight,
     this.gap = 6,
+    this.height,
   });
 
   /// The marker widget.
@@ -78,6 +79,16 @@ class BlockMarker {
 
   /// How the marker sits inside its reserved box.
   final AlignmentGeometry alignment;
+
+  /// Height of the reserved box, or null to let it match the block.
+  ///
+  /// Set it to one line's height and the marker centres against the *first*
+  /// line rather than against the whole item: a bullet belongs beside the line
+  /// it introduces, not halfway down a paragraph that happens to wrap five
+  /// times. It is also what lets a tick box — which is a square, not a glyph
+  /// sitting on a baseline — line up with the words instead of being nudged
+  /// into place with a hand-picked padding.
+  final double? height;
 
   /// Blank space between the reserved box and the block's content.
   ///
