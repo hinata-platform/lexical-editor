@@ -318,17 +318,19 @@ void main() {
         );
         await tester.pump();
 
-        // What the eye reads as the middle of a line is the x-height band —
-        // the body of the lowercase letters — not the middle of the line box,
-        // which at hinata's 1.68 line height is mostly leading.
+        // The x-height band — the body of the lowercase letters, measured up
+        // from the baseline — is what the eye reads as the middle of a line.
+        // With a generous line height the box's own middle sits some three
+        // pixels above it, which is exactly how far the markers used to float.
+        final em = style.fontSize!;
         final painter = TextPainter(
           text: TextSpan(text: 'x', style: style),
           textDirection: TextDirection.ltr,
         )..layout();
-        final em = style.fontSize!;
-        final wanted =
-            painter.computeDistanceToActualBaseline(TextBaseline.alphabetic) -
-            em * 0.52 / 2;
+        final painterBaseline = painter.computeDistanceToActualBaseline(
+          TextBaseline.alphabetic,
+        );
+        final wanted = painterBaseline - em * 0.52 / 2;
         painter.dispose();
 
         final lines = find.descendant(
@@ -360,12 +362,56 @@ void main() {
           reason: 'the tick box is off the x-height band at $label',
         );
 
-        // A number is type, and type sits on the baseline it shares with the
-        // words — moving it onto a band would be the wrong fix for a glyph.
+        // The number too, measured through its ink: a digit runs cap-height to
+        // baseline, so its centre is half a cap above its own box's baseline.
+        // The number is checked against the other two rather than against a
+        // formula: where a digit's ink sits inside its line box cannot be read
+        // off the font, so the thing worth holding is that all three markers
+        // agree — a reader sees them in one list, not one at a time.
+        // Every marker sits in the middle of its column, so the distance from
+        // the marker to the words is the same in any kind of list.
+        final column = tester.getRect(
+          find.ancestor(of: _bullet, matching: find.byType(SizedBox)).first,
+        );
         expect(
-          tester.getRect(find.text('1.')).top - tester.getRect(lines.at(1)).top,
-          closeTo(0, 0.5),
-          reason: 'the number left the text baseline at $label',
+          tester.getRect(_bullet).center.dx,
+          closeTo(column.center.dx, 1.0),
+          reason: 'the bullet is not centred in its column at $label',
+        );
+        expect(
+          tester.getRect(find.text('1.')).center.dx,
+          closeTo(column.center.dx, 1.0),
+          reason: 'the number is not centred in its column at $label',
+        );
+
+        // One column for every kind of list: a bulleted item and a numbered
+        // one start their words in the same place, so a document of mixed
+        // lists does not step in and out as the reader goes down it.
+        for (var i = 1; i < 3; i++) {
+          expect(
+            tester.getRect(lines.at(i)).left,
+            closeTo(tester.getRect(lines.at(0)).left, 0.5),
+            reason: 'list $i indents its text differently at $label',
+          );
+        }
+
+        // Ink against ink: the bullet's circle *is* its ink, and a digit's
+        // centre sits a calibrated fraction of the em above its box's
+        // baseline — see _digitInkAboveBaseline for why that one is measured.
+        final numberInk =
+            tester.getRect(find.text('1.')).top +
+            painterBaseline -
+            em * 0.42 -
+            tester.getRect(lines.at(1)).top;
+        expect(
+          numberInk,
+          greaterThan(0),
+          reason: 'the number never left the top of its box at $label',
+        );
+        expect(
+          (numberInk - centreIn(_bullet, 0)).abs(),
+          lessThanOrEqualTo(1.0),
+          reason: 'the number and the bullet disagree at $label',
         );
       });
     }

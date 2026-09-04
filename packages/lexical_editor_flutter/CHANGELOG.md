@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.9.1
+
+**List markers sit on the line, not above it.** A bullet, a number and a tick
+box were each aligned by a different rule, so a document that mixed the three
+stepped up and down as the reader went through it — and all three read as
+floating over their text rather than level with it. They now share one column
+and one target: the middle of the line box, which is what the caret spans and
+therefore the height everything else is compared against.
+
+The number is the exception that needed measuring rather than deriving. A
+digit's ink does not fill its box, and no metric the framework exposes says
+where inside the box it lands, so its centre is a calibrated fraction of the em
+above the baseline — see `_digitInkAboveBaseline` for the measurement and why it
+is not a formula.
+
+Fixes the three marker kinds indenting their text differently, which left a
+mixed list with a ragged left edge.
+
 ## 1.9.0
 
 **Tick boxes tick.** The box in front of a check-list item was painted and never

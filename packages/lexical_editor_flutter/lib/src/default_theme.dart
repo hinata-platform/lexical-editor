@@ -242,31 +242,83 @@ Map<String, TextStyle> defaultCodeHighlightStyles(LexicalPalette palette) {
   return metrics;
 }
 
-/// Where a drawn marker's centre belongs, as an [Alignment] inside a box of
-/// the line's height.
+/// The column every list marker is drawn in.
 ///
-/// Not the middle of the line box, and not the middle of the cap band either.
-/// A generous line height — hinata sets 1.68 — leaves most of the box as
-/// leading, so a shape parked in its middle floats above the words. What the
-/// eye reads as "the middle of the text" is the x-height band: the body of the
-/// lowercase letters, from the baseline up. Ascenders and caps stick out of it
-/// and do not move where the line looks centred.
+/// One width for all three kinds, which is what makes a bulleted list and a
+/// numbered one start their words in the same place — a document of mixed
+/// lists should not step in and out as the reader goes down it. Wide enough
+/// for `10.` without crowding it.
 ///
-/// Measured from the baseline, so it follows the font and the line height
-/// rather than assuming either. [childHeight] is needed because an [Alignment]
-/// addresses the *free* space around a child, not the box: -1 puts the child's
-/// top at the top, not its centre, and ignoring its size leaves the marker out
-/// by half of it.
-Alignment _opticalCentre(
+/// Every marker sits in the middle of that column — a bullet, a tick box and a
+/// number alike — so the distance from the marker to the words is the same in
+/// any list, which is the thing a reader actually sees. Right-setting the
+/// numbers would line `9.` and `10.` up on the dot at the cost of that.
+const double _markerColumn = 28;
+
+/// The fraction of the em a typeface gives its lowercase letters.
+///
+/// Used to find the x-height band from the baseline, which is what the eye
+/// reads as the middle of a line. Near enough across text faces, and only ever
+/// halved, so a face that runs large or small moves a marker by a fraction of
+/// a pixel.
+const double _xHeight = 0.52;
+
+/// Where a digit's ink centre sits inside its own line box, as a distance below
+/// the box's baseline is negative — so this is how far *above* the baseline it
+/// falls, as a fraction of the em.
+///
+/// In principle half the figure height. In practice Flutter exposes line boxes
+/// and baselines but no ink metrics, so the figure height cannot be read off
+/// the font: this is measured against rendered output. It is the one number
+/// here that is calibrated rather than derived, and the tests hold it in place
+/// by checking the number against the drawn markers rather than against the
+/// formula it came from.
+const double _digitInkAboveBaseline = 0.42;
+
+/// How far a number comes down from its line box's top to sit on the band.
+///
+/// Band-relative rather than a fixed fraction of the em: the band moves with
+/// the line height, and a constant nudge would agree with the drawn markers at
+/// one line height and drift from them at every other.
+///
+/// Baseline parity is deliberately given up here. A digit's ink runs to the cap
+/// height while lowercase letters stop at the x-height, so a number sitting
+/// exactly on the shared baseline — which is where it started, and what a word
+/// processor would do — reads as floating above the words next to a bullet that
+/// is centred on them. Matching the other markers is what a reader is actually
+/// comparing.
+double _digitDrop(({double height, double baseline}) line, double em) {
+  final band = line.baseline - em * _xHeight / 2;
+  final ink = line.baseline - em * _digitInkAboveBaseline;
+  return (band - ink).clamp(0.0, line.height);
+}
+
+/// Places a marker so its ink lands on the text's x-height band.
+///
+/// Not the middle of the line box. hinata sets a line height of 1.68 and
+/// Flutter hands the extra leading out in proportion to the font's ascent and
+/// descent, so the letters sit low in their line and its middle is some three
+/// pixels above them — which is exactly how far above the words every marker
+/// was floating. What the eye reads as the middle of a line is the x-height
+/// band: the body of the lowercase letters, measured up from the baseline.
+///
+/// `inkCentre` is where the ink sits inside the child. For a drawn shape that
+/// is the plain middle; for a glyph it is not, and the difference is the point.
+/// `childHeight` matters because an [Alignment] addresses the *free* space
+/// around a child rather than the box, so ignoring the child's size leaves the
+/// marker out by half of it.
+Alignment _onTextBand(
   ({double height, double baseline}) line,
   double em,
-  double childHeight,
-) {
-  const xHeight = 0.52; // of the em, near enough across text faces
-  final centre = line.baseline - em * xHeight / 2;
+  double childHeight, {
+  double? inkCentre,
+  double x = 0,
+}) {
+  final band = line.baseline - em * _xHeight / 2;
   final free = line.height - childHeight;
-  if (free <= 0) return Alignment.center;
-  return Alignment(0, ((centre - childHeight / 2) / free) * 2 - 1);
+  if (free <= 0) return Alignment(x, 0);
+  final top = band - (inkCentre ?? childHeight / 2);
+  return Alignment(x, (top.clamp(0.0, free) / free) * 2 - 1);
 }
 
 BlockMarker? _listMarker(
@@ -293,9 +345,9 @@ BlockMarker? _listMarker(
   switch (list.listType) {
     case ListType.bullet:
       return BlockMarker(
-        width: 24,
+        width: _markerColumn,
         height: line.height,
-        alignment: _opticalCentre(line, em, em * 0.28),
+        alignment: _onTextBand(line, em, em * 0.28),
         // Drawn, not typed. Where a font puts its own `•` is the font's
         // business — some sit near the cap height — and the result is a dot
         // hovering above the words with no way to correct it that does not
@@ -304,21 +356,26 @@ BlockMarker? _listMarker(
         child: _Dot(size: em * 0.28, color: palette.muted),
       );
     case ListType.number:
+      // Nudged down onto the same band the drawn markers land on. See
+      // [_digitDrop] for why this one number is measured rather than derived.
       return BlockMarker(
-        width: 28,
+        width: _markerColumn,
         height: line.height,
-        alignment: Alignment.topRight,
-        child: Text(
-          '${node.value}.',
-          style: body.copyWith(color: palette.muted),
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: EdgeInsets.only(top: _digitDrop(line, em)),
+          child: Text(
+            '${node.value}.',
+            style: body.copyWith(color: palette.muted),
+          ),
         ),
       );
     case ListType.check:
       final checked = node.checked ?? false;
       return BlockMarker(
-        width: 24,
+        width: _markerColumn,
         height: line.height,
-        alignment: _opticalCentre(line, em, 16),
+        alignment: _onTextBand(line, em, 16),
         child: _Checkbox(
           checked: checked,
           palette: palette,
