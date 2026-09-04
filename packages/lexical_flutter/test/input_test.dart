@@ -172,6 +172,38 @@ void main() {
       expect(_blocks(editor), ['ErsterZweiter']);
     });
 
+    test('backspace takes out an empty line the writer just made', () {
+      // An empty block has no character to give, so the platform's deletion
+      // came back as an empty range — identical to the caret we had just
+      // reported, which the window reads as "the selection you told me about"
+      // rather than as an edit. The keystroke was swallowed whole, and an
+      // empty line made with Enter could not be taken back out again.
+      final editor = _editor();
+      _seed(editor, ['Erster', '']);
+      _caret(editor, 1, 0);
+      final input = _primed(editor);
+
+      input.applyDeltasForTesting([_delete(input, 0, 0)]);
+
+      expect(_blocks(editor), ['Erster']);
+    });
+
+    test('several empty lines go one keystroke at a time', () {
+      // The reported case: a few blank lines pressed out in a row, then taken
+      // back one by one. Each one has to answer on its own keystroke.
+      final editor = _editor();
+      _seed(editor, ['Erster', '', '', '']);
+
+      for (var expected = 3; expected > 0; expected--) {
+        expect(_blocks(editor).length, expected + 1);
+        _caret(editor, expected, 0);
+        final input = _primed(editor);
+        input.applyDeltasForTesting([_delete(input, 0, 0)]);
+      }
+
+      expect(_blocks(editor), ['Erster']);
+    });
+
     test('forward delete at a block end merges with the next block', () {
       final editor = _editor();
       _seed(editor, ['Erster', 'Zweiter']);
