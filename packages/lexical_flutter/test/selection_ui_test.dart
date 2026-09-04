@@ -111,6 +111,104 @@ void main() {
       expect(_state.toolbarVisible, isTrue);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+    testWidgets('a tap places the caret on the frame it happened', (
+      tester,
+    ) async {
+      // It used to take 300ms. A TapGestureRecognizer does not win the arena
+      // while a DoubleTapGestureRecognizer is in it with them, so every tap
+      // waited out the double-tap deadline before the caret moved — over a
+      // whole document, that is an editor that looks like it is ignoring taps
+      // and then catching up.
+      final editor = _editor(['Hallo Welt']);
+      await _pump(tester, editor);
+      editor.update(() => $setSelection(null), discrete: true);
+      await tester.pump();
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(40, 6));
+      await gesture.up();
+      await tester.pump();
+
+      expect(editor.read($getSelection), isA<RangeSelection>());
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
+    testWidgets('a second tap still selects the word under it', (tester) async {
+      // The count the double-tap recognizer used to answer, without its price.
+      final editor = _editor(['Hallo schöne Welt']);
+      await _pump(tester, editor);
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      await tester.tapAt(origin + const Offset(45, 6));
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.tapAt(origin + const Offset(45, 6));
+      await tester.pump();
+
+      expect(_state.selectionEndpoints, isNotNull);
+      expect(_state.selectionEndpoints!.isCollapsed, isFalse);
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
+    testWidgets('a long press on an empty document still raises the menu', (
+      tester,
+    ) async {
+      // There is no word to select in an empty document, so the long press
+      // ended with a bare caret — and the menu was gated on there being a
+      // range. Nothing appeared at all, which left no way to paste into an
+      // empty field. A long press is the request for the menu, exactly as a
+      // right-click is; the menu itself decides what it can offer.
+      final editor = _editor(['']);
+      await _pump(tester, editor);
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(4, 6));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.up();
+      await tester.pump();
+
+      expect(_state.toolbarVisible, isTrue);
+      expect(
+        _state.contextMenuButtonItems.map((item) => item.type),
+        contains(ContextMenuButtonType.paste),
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('a suppressed menu still reports that one was asked for', (
+      tester,
+    ) async {
+      // A host that draws its own actions hides this menu, and then has
+      // nothing telling it when to draw them.
+      var asked = 0;
+      final editor = _editor(['']);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LexicalEditable(
+              key: _key,
+              editor: editor,
+              autofocus: true,
+              scrollable: false,
+              cursorBlinkInterval: Duration.zero,
+              onContextMenu: () => asked++,
+              contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+              theme: const LexicalTheme(
+                baseTextStyle: TextStyle(fontSize: 14, height: 1.4),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(4, 6));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.up();
+      await tester.pump();
+
+      expect(asked, 1);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
     testWidgets('the toolbar offers what the selection allows', (tester) async {
       final editor = _editor(['Hallo Welt']);
       await _pump(tester, editor);

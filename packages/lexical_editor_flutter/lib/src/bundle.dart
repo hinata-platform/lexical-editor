@@ -183,6 +183,7 @@ class LexicalEditorField extends StatefulWidget {
     this.editableKey,
     this.mentions,
     this.contextMenuBuilder = defaultLexicalContextMenu,
+    this.onContextMenu,
   });
 
   /// The editor to edit.
@@ -259,6 +260,11 @@ class LexicalEditorField extends StatefulWidget {
   /// contextMenuBuilder: (context, editable) => const SizedBox.shrink(),
   /// ```
   final LexicalContextMenuBuilder contextMenuBuilder;
+
+  /// Called when a context menu is asked for — a long press, or a right-click.
+  ///
+  /// For a host that suppresses [contextMenuBuilder] and draws its own actions.
+  final VoidCallback? onContextMenu;
 
   /// Which node types respond to hover and tap.
   ///
@@ -381,6 +387,7 @@ class _LexicalEditorFieldState extends State<LexicalEditorField> {
       tabBehaviour: widget.tabBehaviour,
       interaction: widget.interaction,
       contextMenuBuilder: widget.contextMenuBuilder,
+      onContextMenu: widget.onContextMenu,
       cursorColor: theme.caretColor,
       cursorWidth: theme.caretWidth,
       selectionColor: theme.selectionColor,

@@ -312,9 +312,10 @@ void main() {
     await tester.pump();
 
     await tester.tapAt(_centreOf(tester, 'LINK'));
-    // The double-tap recognizer shares the arena, so a single tap is only
-    // resolved once its deadline passes — the price of double-tap-to-select.
-    await tester.pump(const Duration(milliseconds: 300));
+    // One frame, not a deadline. A single tap used to wait out the double-tap
+    // recognizer's timeout before anyone heard about it; the serial recognizer
+    // reports each tap with its count instead, so nothing is held back.
+    await tester.pump();
 
     expect(taps, hasLength(1));
     expect(taps.single.type, 'link');
@@ -325,5 +326,7 @@ void main() {
       editor.read(() => $getNodeByKey(anchor.key)?.getTextContent()),
       'LINK',
     );
+    // Let the serial recognizer's "is another tap coming?" timer expire.
+    await tester.pump(const Duration(milliseconds: 400));
   });
 }

@@ -361,7 +361,26 @@ class LexicalInput implements DeltaTextInputClient {
       // an insertion replaces the selection itself rather than deleting it
       // first.
       if (text.isEmpty) {
-        if (needsRemove) editor.dispatchCommand(removeTextCommand, null);
+        if (needsRemove) {
+          editor.dispatchCommand(removeTextCommand, null);
+        } else if (normalized.isCollapsed) {
+          // A deletion that deletes no range: the platform asked for one
+          // character and this block had none to give, which is what an empty
+          // block looks like from the outside. The character it wants is the
+          // block boundary itself, and the core spells that as a character
+          // delete at the edge — the same operation backspace performs.
+          //
+          // Without this the keystroke was swallowed whole: an empty line the
+          // writer had just made with Enter could not be taken back out,
+          // because the range the platform sent was identical to the caret we
+          // had reported and so was read as "the selection you told me about"
+          // rather than as an edit.
+          //
+          // Which edge the caret sits on says which way to delete. On an empty
+          // block both edges are offset zero, and backspace is what put the
+          // line there.
+          editor.dispatchCommand(deleteCharacterCommand, fromFlat <= 0);
+        }
       } else {
         _insertWithBreaks(text, replace: true);
       }

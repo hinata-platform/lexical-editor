@@ -1,6 +1,7 @@
 /// A theme covering every node type this bundle registers.
 library;
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/widgets.dart';
 import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -157,7 +158,8 @@ LexicalTheme defaultLexicalTheme({
       return token == null ? style : style.merge(token);
     },
     markerBuilders: {
-      'listitem': (context, node) => _listMarker(context, node, palette, body),
+      'listitem': (context, node) =>
+          _listMarker(context, node, palette, body, _lineMetrics(body)),
     },
   );
 }
@@ -220,11 +222,59 @@ Map<String, TextStyle> defaultCodeHighlightStyles(LexicalPalette palette) {
 }
 
 /// The bullet, number or checkbox before a list item.
+/// One laid-out line of [style]: its full height, and where its baseline sits.
+///
+/// Both measured, not derived. A style with no explicit `height` takes its line
+/// box from the font's own ascent and descent, and no arithmetic on `fontSize`
+/// reproduces that; a style *with* one adds leading whose split between top and
+/// bottom is the font's business too. Guessing either left markers a couple of
+/// pixels out — exactly the amount that reads as "not quite lined up".
+({double height, double baseline}) _lineMetrics(TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: 'x', style: style),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final metrics = (
+    height: painter.height,
+    baseline: painter.computeDistanceToActualBaseline(TextBaseline.alphabetic),
+  );
+  painter.dispose();
+  return metrics;
+}
+
+/// Where a drawn marker's centre belongs, as an [Alignment] inside a box of
+/// the line's height.
+///
+/// Not the middle of the line box, and not the middle of the cap band either.
+/// A generous line height — hinata sets 1.68 — leaves most of the box as
+/// leading, so a shape parked in its middle floats above the words. What the
+/// eye reads as "the middle of the text" is the x-height band: the body of the
+/// lowercase letters, from the baseline up. Ascenders and caps stick out of it
+/// and do not move where the line looks centred.
+///
+/// Measured from the baseline, so it follows the font and the line height
+/// rather than assuming either. [childHeight] is needed because an [Alignment]
+/// addresses the *free* space around a child, not the box: -1 puts the child's
+/// top at the top, not its centre, and ignoring its size leaves the marker out
+/// by half of it.
+Alignment _opticalCentre(
+  ({double height, double baseline}) line,
+  double em,
+  double childHeight,
+) {
+  const xHeight = 0.52; // of the em, near enough across text faces
+  final centre = line.baseline - em * xHeight / 2;
+  final free = line.height - childHeight;
+  if (free <= 0) return Alignment.center;
+  return Alignment(0, ((centre - childHeight / 2) / free) * 2 - 1);
+}
+
 BlockMarker? _listMarker(
   BuildContext context,
   ElementNode node,
   LexicalPalette palette,
   TextStyle body,
+  ({double height, double baseline}) line,
 ) {
   if (node is! ListItemNode) return null;
   // An item that only holds a nested list is a structural wrapper; giving it
@@ -233,15 +283,31 @@ BlockMarker? _listMarker(
   final list = node.getParent();
   if (list is! ListNode) return null;
 
+  // [line] is one laid-out line of body text. Markers are centred against it
+  // rather than hung from the top of the block: a bullet belongs beside the
+  // line it introduces, level with the words, and a tick box is a square with
+  // no baseline to sit on — which is why it used to need a hand-picked padding
+  // to look right, and still did not at other text sizes.
+  final em = body.fontSize ?? 16;
+
   switch (list.listType) {
     case ListType.bullet:
       return BlockMarker(
         width: 24,
-        child: Text('•', style: body.copyWith(color: palette.muted)),
+        height: line.height,
+        alignment: _opticalCentre(line, em, em * 0.28),
+        // Drawn, not typed. Where a font puts its own `•` is the font's
+        // business — some sit near the cap height — and the result is a dot
+        // hovering above the words with no way to correct it that does not
+        // break at the next typeface. A circle we place ourselves is level
+        // with the text in every face and at every size.
+        child: _Dot(size: em * 0.28, color: palette.muted),
       );
     case ListType.number:
       return BlockMarker(
         width: 28,
+        height: line.height,
+        alignment: Alignment.topRight,
         child: Text(
           '${node.value}.',
           style: body.copyWith(color: palette.muted),
@@ -251,31 +317,111 @@ BlockMarker? _listMarker(
       final checked = node.checked ?? false;
       return BlockMarker(
         width: 24,
-        alignment: Alignment.topCenter,
-        child: _Checkbox(checked: checked, palette: palette, size: 16),
+        height: line.height,
+        alignment: _opticalCentre(line, em, 16),
+        child: _Checkbox(
+          checked: checked,
+          palette: palette,
+          size: 16,
+          itemKey: node.key,
+        ),
       );
   }
 }
 
-class _Checkbox extends StatelessWidget {
+/// The key of the tick box belonging to the check-list item [itemKey].
+///
+/// Published so a host's tests — and its own overlays — can find one box among
+/// many without depending on the private widget that draws it.
+Key checkboxKey(NodeKey itemKey) =>
+    ValueKey<String>('lexical-checkbox-${itemKey.value}');
+
+/// The bullet of an unordered list, drawn rather than typed.
+class _Dot extends StatelessWidget {
+  const _Dot({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+}
+
+/// The box in front of a check-list item, and the thing you tick it with.
+///
+/// Live only while the editor is editable.
+///
+/// Ticking a list off is closer to reading it than to editing it, so it is
+/// tempting to leave the box live everywhere — but a document is rendered
+/// read-only in places where nothing is listening for a change, and there the
+/// tick would set the node, look like it worked and revert on the next rebuild.
+/// A box that reports success for a write nobody saved is worse than one that
+/// does nothing.
+///
+/// So a host that wants tickable checklists in a rendered document says so by
+/// making that editor editable and persisting what it hears back. A consumer
+/// that needs a genuinely inert rendering — an export, a thumbnail — can also
+/// supply its own marker builder, which is what [BlockMarkerBuilder] is for.
+class _Checkbox extends StatefulWidget {
   const _Checkbox({
     required this.checked,
     required this.palette,
     required this.size,
+    required this.itemKey,
   });
 
   final bool checked;
   final LexicalPalette palette;
   final double size;
 
+  /// The item to toggle, looked up afresh on tap.
+  ///
+  /// The key rather than the node: nodes are replaced on every commit, so one
+  /// captured here would be stale by the time it was tapped.
+  final NodeKey itemKey;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 3),
-    child: Container(
-      width: size,
-      height: size,
+  State<_Checkbox> createState() => _CheckboxState();
+}
+
+class _CheckboxState extends State<_Checkbox> {
+  /// Where the finger went down, so a drag can be told from a tap.
+  Offset? _downAt;
+
+  /// Ticks the box.
+  ///
+  /// Discrete because this is a finished user action, not a keystroke waiting
+  /// to be batched with the next one: a deferred commit leaves the box drawn
+  /// in its old state until something else happens to flush the editor, which
+  /// reads as a tap that did nothing.
+  void _toggle(LexicalEditor editor) => editor.update(() {
+    final node = $getNodeByKey(widget.itemKey);
+    if (node is ListItemNode) node.toggleChecked();
+  }, discrete: true);
+
+  @override
+  Widget build(BuildContext context) {
+    // Resolved from this widget's own context, which sits inside the document
+    // that publishes the scope — the context the marker builder was called
+    // with is the document's own, one level above it.
+    final scope = LexicalEditorScope.maybeOf(context);
+    final editor = scope != null && scope.isEditable ? scope : null;
+    final checked = widget.checked;
+    final palette = widget.palette;
+    final box = Container(
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
-        color: checked ? palette.accent : null,
+        // An empty box on a light page was a hairline rectangle the writer had
+        // to hunt for. A tinted fill and a fuller border give it a body, so it
+        // reads as something to press rather than as a rendering artefact.
+        color: checked
+            ? palette.accent
+            : palette.border.withValues(alpha: 0.18),
         border: Border.all(
           color: checked ? palette.accent : palette.border,
           width: 1.5,
@@ -285,8 +431,46 @@ class _Checkbox extends StatelessWidget {
       child: checked
           ? CustomPaint(painter: _CheckPainter(color: palette.surface))
           : null,
-    ),
-  );
+    );
+
+    return editor == null
+        ? box
+        : Semantics(
+            checked: checked,
+            // A tick box is a control, and until now it announced itself as
+            // a decoration: nothing to press, no state to read out.
+            button: true,
+            onTap: () => _toggle(editor),
+            // A Listener rather than a GestureDetector, deliberately.
+            //
+            // The editable arms a SerialTapGestureRecognizer over the whole
+            // document, and that one declares victory aggressively — it
+            // takes the arena regardless of who entered it first, which is
+            // exactly what makes the caret land on the frame it was tapped.
+            // A recognizer here would be competing with it for the same
+            // pointer, and losing.
+            //
+            // Pointer events are dispatched during hit-testing, before any
+            // arena runs at all, so this fires whatever the recognizers
+            // decide between themselves. The slop check is what a tap
+            // recognizer would have given us: a drag that merely begins on
+            // the box scrolls or selects, and leaves the box alone.
+            child: Listener(
+              key: checkboxKey(widget.itemKey),
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (event) => _downAt = event.position,
+              onPointerUp: (event) {
+                final down = _downAt;
+                _downAt = null;
+                if (down == null) return;
+                if ((event.position - down).distance > kTouchSlop) return;
+                _toggle(editor);
+              },
+              onPointerCancel: (_) => _downAt = null,
+              child: box,
+            ),
+          );
+  }
 }
 
 class _CheckPainter extends CustomPainter {
@@ -297,7 +481,10 @@ class _CheckPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      // The tick is drawn on the accent fill, so it has to be the colour the
+      // palette nominates to sit on it. Hard-coding white put an invisible
+      // tick on any palette whose accent is pale.
+      ..color = color
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;

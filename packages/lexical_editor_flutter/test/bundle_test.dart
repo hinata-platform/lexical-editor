@@ -24,6 +24,16 @@ Future<void> _pump(WidgetTester tester, LexicalEditor editor) async {
 List<String> _types(LexicalEditor editor) =>
     editor.read(() => $getRoot().children.map((node) => node.type).toList());
 
+/// The circle the bundle draws an unordered list's bullet with.
+///
+/// Found by its shape rather than by a key: it is one private widget, and the
+/// only round thing in a document of text.
+final Finder _bullet = find.byWidgetPredicate((widget) {
+  if (widget is! Container) return false;
+  final decoration = widget.decoration;
+  return decoration is BoxDecoration && decoration.shape == BoxShape.circle;
+}, description: 'the drawn bullet');
+
 void main() {
   group('registration', () {
     test('every fixture node type is understood', () {
@@ -226,6 +236,214 @@ void main() {
 
       expect(find.text('1.'), findsNothing);
       expect(find.byType(CustomPaint), findsWidgets);
+    });
+
+    testWidgets('a marker does not touch the text it introduces', (
+      tester,
+    ) async {
+      // Markers align on the inner edge of their reserved box so that `9.` and
+      // `10.` line up on the dot. That also left the bullet flush against the
+      // first character — "•er/ihm" read as one smudged word rather than as a
+      // list item.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(
+              ListType.bullet,
+            )..append($createListItemNode()..append($createTextNode('er/ihm'))),
+          );
+      }, discrete: true);
+      await _pump(tester, editor);
+
+      // The body text is painted by the document's own render object rather
+      // than by a Text widget, so the content is measured from the Expanded
+      // that holds it. The bullet is a drawn circle, not a glyph.
+      final marker = tester.getRect(_bullet);
+      final content = tester.getRect(
+        find.descendant(
+          of: find.byType(LexicalEditorField),
+          matching: find.byType(Expanded),
+        ),
+      );
+      expect(content.left, greaterThan(marker.right));
+    });
+
+    for (final style in const [
+      TextStyle(fontSize: 12),
+      TextStyle(fontSize: 14),
+      TextStyle(fontSize: 20),
+      // What hinata actually passes: a generous line height, most of the line
+      // box being leading. A square parked in the middle of *that* floats
+      // above the words, which is the case a line-box centre gets wrong.
+      TextStyle(fontSize: 14, height: 1.68),
+      TextStyle(fontSize: 16, height: 2),
+    ]) {
+      final height = style.height;
+      final label = '${style.fontSize}px${height == null ? '' : '/$height'}';
+
+      testWidgets('markers line up with the text at $label', (tester) async {
+        final editor = createLexicalEditor();
+        editor.update(() {
+          $getRoot()
+            ..clear()
+            ..append(
+              $createListNode(ListType.bullet)..append(
+                $createListItemNode()..append($createTextNode('er/ihm')),
+              ),
+            )
+            ..append(
+              $createListNode(
+                ListType.number,
+              )..append($createListItemNode()..append($createTextNode('eins'))),
+            )
+            ..append(
+              $createListNode(ListType.check)..append(
+                $createListItemNode(false)..append($createTextNode('offen')),
+              ),
+            );
+        }, discrete: true);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: LexicalEditorField(
+                editor: editor,
+                baseTextStyle: style,
+                scrollable: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // What the eye reads as the middle of a line is the x-height band —
+        // the body of the lowercase letters — not the middle of the line box,
+        // which at hinata's 1.68 line height is mostly leading.
+        final painter = TextPainter(
+          text: TextSpan(text: 'x', style: style),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final em = style.fontSize!;
+        final wanted =
+            painter.computeDistanceToActualBaseline(TextBaseline.alphabetic) -
+            em * 0.52 / 2;
+        painter.dispose();
+
+        final lines = find.descendant(
+          of: find.byType(LexicalEditorField),
+          matching: find.byType(Expanded),
+        );
+        double centreIn(Finder marker, int index) =>
+            tester.getRect(marker).center.dy -
+            tester.getRect(lines.at(index)).top;
+
+        // The bullet is drawn, so it goes exactly where we put it.
+        expect(
+          (centreIn(_bullet, 0) - wanted).abs(),
+          lessThanOrEqualTo(1.0),
+          reason: 'the bullet is off the x-height band at $label',
+        );
+
+        // The tick box is a square with no baseline of its own, and belongs on
+        // the same band.
+        final key = editor.read(
+          () =>
+              (($getRoot().getChildAtIndex(2)! as ElementNode).getFirstChild()!
+                      as ListItemNode)
+                  .key,
+        );
+        expect(
+          (centreIn(find.byKey(checkboxKey(key)), 2) - wanted).abs(),
+          lessThanOrEqualTo(1.0),
+          reason: 'the tick box is off the x-height band at $label',
+        );
+
+        // A number is type, and type sits on the baseline it shares with the
+        // words — moving it onto a band would be the wrong fix for a glyph.
+        expect(
+          tester.getRect(find.text('1.')).top - tester.getRect(lines.at(1)).top,
+          closeTo(0, 0.5),
+          reason: 'the number left the text baseline at $label',
+        );
+      });
+    }
+
+    testWidgets('a checkbox can be ticked, and unticked again', (tester) async {
+      // The box was drawn and nothing else: no gesture anywhere in the marker,
+      // so a check list could be written but never actually checked off.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.check)..append(
+              $createListItemNode(false)..append($createTextNode('offen')),
+            ),
+          );
+      }, discrete: true);
+      await _pump(tester, editor);
+
+      T onItem<T>(T Function(ListItemNode item) fn) => editor.read(
+        () => fn(
+          ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+              as ListItemNode,
+        ),
+      );
+      final box = find.byKey(checkboxKey(onItem((item) => item.key)));
+
+      expect(onItem((item) => item.checked), isFalse);
+
+      // The box answers on the pointer, not on a recognizer, so a settle is
+      // only here to drain the editable's serial-tap timer afterwards.
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      expect(onItem((item) => item.checked), isTrue);
+
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      expect(onItem((item) => item.checked), isFalse);
+    });
+
+    testWidgets('a checkbox in a read-only document does not pretend', (
+      tester,
+    ) async {
+      // Ticking a list off is closer to reading it than to editing it, so it is
+      // tempting to leave the box live everywhere. But a rendered document is
+      // read-only precisely where nothing is listening for a change, and there
+      // the tick would set the node, look like it worked, and revert on the
+      // next rebuild. A host that wants live checklists says so by making the
+      // editor editable and saving what it hears back.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.check)..append(
+              $createListItemNode(false)..append($createTextNode('offen')),
+            ),
+          );
+      }, discrete: true);
+      editor.isEditable = false;
+      await _pump(tester, editor);
+
+      final key = editor.read(
+        () =>
+            (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                    as ListItemNode)
+                .key,
+      );
+      // Not even reachable: no gesture is attached at all.
+      expect(find.byKey(checkboxKey(key)), findsNothing);
+
+      expect(
+        editor.read(() {
+          final list = $getRoot().getFirstChild()! as ElementNode;
+          return (list.getFirstChild()! as ListItemNode).checked;
+        }),
+        isFalse,
+      );
     });
 
     testWidgets('editing works end to end, and undo comes back', (
@@ -738,9 +956,10 @@ void main() {
       await drag.moveBy(const Offset(30, 0));
       await tester.pump();
       await drag.up();
-      // The editable's double-tap recognizer starts a countdown on every
-      // pointer down; letting it expire is what keeps the test from ending
-      // with a timer still pending.
+      // The editable's serial-tap recognizer starts a countdown on every
+      // pointer down, waiting to see whether another tap joins the series;
+      // letting it expire is what keeps the test from ending with a timer
+      // still pending.
       await tester.pump(const Duration(milliseconds: 400));
 
       final width = editor.read(() {

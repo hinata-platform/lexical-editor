@@ -152,6 +152,7 @@ class LexicalEditable extends StatefulWidget {
     this.remoteSelections = const <RemoteSelection>[],
     this.selectionControls,
     this.contextMenuBuilder = defaultLexicalContextMenu,
+    this.onContextMenu,
     this.magnifierConfiguration,
     this.showSelectionHandles,
     this.enableInteractiveSelection = true,
@@ -238,6 +239,17 @@ class LexicalEditable extends StatefulWidget {
 
   /// Builds the menu shown over a selection.
   final LexicalContextMenuBuilder contextMenuBuilder;
+
+  /// Called whenever the selection toolbar is raised — a long press, a
+  /// right-click, the end of a selection drag, or `showToolbar` called
+  /// directly.
+  ///
+  /// For an application that draws its own actions instead of the platform's:
+  /// suppressing [contextMenuBuilder] hides the menu, but nothing then says
+  /// *when* one was asked for, which is the one thing a replacement needs to
+  /// know. Whether there is a selection to act on is the caller's to read off
+  /// the editable it already holds.
+  final VoidCallback? onContextMenu;
 
   /// How to magnify under a dragging finger. Defaults to the platform's.
   final TextMagnifierConfiguration? magnifierConfiguration;
@@ -805,12 +817,12 @@ class LexicalEditableState extends State<LexicalEditable> {
     });
   }
 
-  void _onTapDown(TapDownDetails details) {
+  void _onTapDown(Offset globalPosition) {
     requestFocus();
     hideToolbar();
     if (!widget.enableInteractiveSelection) return;
     _placeCaret(
-      details.globalPosition,
+      globalPosition,
       extend: HardwareKeyboard.instance.isShiftPressed,
     );
     if (_wantsHandles) showHandles();
@@ -821,16 +833,53 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// On tap **up**, not down: a tap that turned into a selection drag is not a
   /// tap, and opening a link because someone started selecting inside it is
   /// the kind of bug that only shows up in someone else's hands.
-  void _onTapUp(TapUpDetails details) {
-    _interactionKey.currentState?.handleTapAt(details.globalPosition);
+  void _onTapUp(Offset globalPosition) {
+    _interactionKey.currentState?.handleTapAt(globalPosition);
   }
 
-  void _onSecondaryTapDown(TapDownDetails details) {
+  void _onSecondaryTapDown(Offset globalPosition) {
     requestFocus();
     if (!(_selection?.hasRange ?? false)) {
-      _placeCaret(details.globalPosition, extend: false);
+      _placeCaret(globalPosition, extend: false);
     }
     showToolbar();
+  }
+
+  /// Whether the tap currently in flight came from the secondary button.
+  ///
+  /// Remembered from the down event because the up details do not carry the
+  /// buttons.
+  bool _lastTapWasSecondary = false;
+
+  /// Every tap in a series, as it happens.
+  ///
+  /// The count is what a separate double-tap recognizer used to answer, at the
+  /// cost of delaying the first tap until it could be ruled out.
+  void _onSerialTapDown(SerialTapDownDetails details) {
+    _lastTapWasSecondary = details.buttons == kSecondaryButton;
+    if (_lastTapWasSecondary) {
+      _onSecondaryTapDown(details.globalPosition);
+      return;
+    }
+    // A second tap is unambiguous the moment it lands — nothing else it could
+    // become — so the word is selected on the way down.
+    if (details.count >= 2) _selectWordAt(details.globalPosition);
+  }
+
+  void _onSerialTapUp(SerialTapUpDetails details) {
+    if (_lastTapWasSecondary || details.count != 1) return;
+    // The caret goes down on the finger lifting, not on it landing.
+    //
+    // This recognizer reports the tap synchronously on the pointer-down event,
+    // before the arena has ruled — which is what removes the 300ms wait, and
+    // also means the down fires for pointers that go on to become a scroll
+    // drag. Placing the caret there moved the selection and raised the
+    // keyboard every time someone flicked the page. A lift is only ever a tap,
+    // and it still arrives without waiting for anything.
+    _onTapDown(details.globalPosition);
+    // Only the first tap of a series reports to the interaction layer: opening
+    // a link on the second tap of a word selection is not what was asked for.
+    _onTapUp(details.globalPosition);
   }
 
   void _selectWordAt(Offset globalPosition) {
@@ -962,6 +1011,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// Shows the context menu over the selection.
   void showToolbar() {
     if (!widget.enableInteractiveSelection) return;
+    widget.onContextMenu?.call();
     _ensureOverlay()
       ..hideToolbar()
       ..showToolbar();
@@ -1320,22 +1370,26 @@ class LexicalEditableState extends State<LexicalEditable> {
             child: RawGestureDetector(
               behavior: HitTestBehavior.opaque,
               gestures: <Type, GestureRecognizerFactory>{
-                TapGestureRecognizer:
-                    GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                      TapGestureRecognizer.new,
-                      (instance) => instance
-                        ..onTapDown = _onTapDown
-                        ..onTapUp = _onTapUp
-                        ..onSecondaryTapDown = _onSecondaryTapDown,
-                    ),
-                DoubleTapGestureRecognizer:
+                // One serial recognizer rather than a tap and a double-tap.
+                //
+                // TapGestureRecognizer does not fire while a
+                // DoubleTapGestureRecognizer is in the arena with it: it has to
+                // wait out the double-tap timeout first, in case a second tap
+                // is coming. Over a whole document that meant *every* tap put
+                // the caret down 300ms after the finger lifted — the editor
+                // felt like it was ignoring taps and then catching up.
+                //
+                // SerialTapGestureRecognizer reports every tap as it happens
+                // and passes the count along, so the first tap places the caret
+                // immediately and the second still selects the word.
+                SerialTapGestureRecognizer:
                     GestureRecognizerFactoryWithHandlers<
-                      DoubleTapGestureRecognizer
+                      SerialTapGestureRecognizer
                     >(
-                      DoubleTapGestureRecognizer.new,
-                      (instance) =>
-                          instance.onDoubleTapDown = (details) =>
-                              _selectWordAt(details.globalPosition),
+                      SerialTapGestureRecognizer.new,
+                      (instance) => instance
+                        ..onSerialTapDown = _onSerialTapDown
+                        ..onSerialTapUp = _onSerialTapUp,
                     ),
                 LongPressGestureRecognizer:
                     GestureRecognizerFactoryWithHandlers<
@@ -1355,7 +1409,15 @@ class LexicalEditableState extends State<LexicalEditable> {
                         }
                         ..onLongPressEnd = (_) {
                           _endDrag();
-                          if (_selection?.hasRange ?? false) showToolbar();
+                          // Unconditionally, exactly as a right-click does. A
+                          // long press *is* the request for the menu, and the
+                          // menu adapts itself: with a range it offers cut and
+                          // copy, with a bare caret paste and select-all.
+                          // Gating it on there being a range meant a long press
+                          // on an empty field — where there is no word to
+                          // select — produced nothing at all, so there was no
+                          // way to paste into one.
+                          showToolbar();
                         }
                         ..onLongPressCancel = _endDrag,
                     ),

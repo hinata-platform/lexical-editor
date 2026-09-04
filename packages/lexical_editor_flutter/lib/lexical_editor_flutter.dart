@@ -47,6 +47,7 @@ export 'src/bundle.dart'
 export 'src/default_theme.dart'
     show
         LexicalPalette,
+        checkboxKey,
         defaultCodeHighlightStyles,
         defaultHeadingStyles,
         defaultLexicalTheme;

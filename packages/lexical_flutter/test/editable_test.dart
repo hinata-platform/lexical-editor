@@ -98,9 +98,9 @@ void main() {
     );
     final topLeft = second.render.localToGlobal(Offset.zero);
     await tester.tapAt(topLeft + const Offset(20, 6));
-    // The double-tap recognizer shares the arena, so the caret lands on the
-    // press deadline rather than on the raw pointer-down.
-    await tester.pump(const Duration(milliseconds: 300));
+    // One frame, not a deadline: the serial recognizer awards the tap as it
+    // happens, so the caret is already there.
+    await tester.pump();
 
     final caretText = editor.read(
       () => ($getSelection()! as RangeSelection).focus
@@ -108,6 +108,8 @@ void main() {
           ?.getTextContent(),
     );
     expect(caretText, 'Zweiter Absatz');
+    // Let the serial recognizer's "is another tap coming?" timer expire.
+    await tester.pump(const Duration(milliseconds: 400));
   });
 
   testWidgets('arrow keys move the caret, shift extends it', (tester) async {
