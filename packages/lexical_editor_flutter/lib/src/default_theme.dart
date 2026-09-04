@@ -355,18 +355,18 @@ class _CheckboxState extends State<_Checkbox> {
               onTap: () => _toggle(editor),
               // A Listener rather than a GestureDetector, deliberately.
               //
-              // The editable arms a DoubleTapGestureRecognizer over the whole
-              // document, which holds the arena open for its timer before
-              // awarding a tap to anyone. A recognizer here therefore only
-              // learns it won some 300ms after the finger lifted, and a tick
-              // box that answers a third of a second late is exactly the
-              // sluggishness this editor is being reported for.
+              // The editable arms a SerialTapGestureRecognizer over the whole
+              // document, and that one declares victory aggressively — it
+              // takes the arena regardless of who entered it first, which is
+              // exactly what makes the caret land on the frame it was tapped.
+              // A recognizer here would be competing with it for the same
+              // pointer, and losing.
               //
               // Pointer events are dispatched during hit-testing, before any
-              // arena runs, so this fires the moment the finger lifts. The
-              // slop check is what a tap recognizer would have given us: a
-              // drag that merely begins on the box scrolls or selects, and
-              // leaves the box alone.
+              // arena runs at all, so this fires whatever the recognizers
+              // decide between themselves. The slop check is what a tap
+              // recognizer would have given us: a drag that merely begins on
+              // the box scrolls or selects, and leaves the box alone.
               child: Listener(
                 key: checkboxKey(widget.itemKey),
                 behavior: HitTestBehavior.opaque,

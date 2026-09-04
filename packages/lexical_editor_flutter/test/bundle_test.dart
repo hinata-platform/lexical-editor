@@ -280,8 +280,8 @@ void main() {
 
       expect(onItem((item) => item.checked), isFalse);
 
-      // The editable's double-tap recognizer keeps the arena open for its
-      // timer, so the tap is only awarded once that has run out.
+      // The box answers on the pointer, not on a recognizer, so a settle is
+      // only here to drain the editable's serial-tap timer afterwards.
       await tester.tap(box);
       await tester.pumpAndSettle();
       expect(onItem((item) => item.checked), isTrue);
@@ -837,9 +837,10 @@ void main() {
       await drag.moveBy(const Offset(30, 0));
       await tester.pump();
       await drag.up();
-      // The editable's double-tap recognizer starts a countdown on every
-      // pointer down; letting it expire is what keeps the test from ending
-      // with a timer still pending.
+      // The editable's serial-tap recognizer starts a countdown on every
+      // pointer down, waiting to see whether another tap joins the series;
+      // letting it expire is what keeps the test from ending with a timer
+      // still pending.
       await tester.pump(const Duration(milliseconds: 400));
 
       final width = editor.read(() {
