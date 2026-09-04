@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.9.0
+
+**Tick boxes tick.** The box in front of a check-list item was painted and never
+wired to anything — `toggleChecked` existed on the node and no gesture reached
+it, so a checklist could be written but never checked off. It now toggles on the
+pointer rather than through a recognizer, so it answers immediately instead of
+waiting out the editable's tap series.
+
+**Tick boxes are visible.** An unticked box had no fill at all: a hairline
+rectangle the reader had to hunt for on a light page. It now carries a tinted
+fill and a fuller border, and announces itself through `Semantics` as a control
+with a state rather than as decoration.
+
+Fixes the tick itself being drawn in hard-coded white regardless of the palette,
+which put an invisible mark on any palette with a pale accent.
+
+**New:** `checkboxKey(NodeKey)` — the key of one item's tick box, so a host can
+find one among many without depending on the private widget that draws it.
+
+**New:** `LexicalEditorField.onContextMenu`, forwarded to the editable.
+
 ## 1.7.4
 
 No library changes. The packages version in lockstep — they are one library

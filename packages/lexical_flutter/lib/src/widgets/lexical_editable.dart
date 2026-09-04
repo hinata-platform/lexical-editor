@@ -240,8 +240,9 @@ class LexicalEditable extends StatefulWidget {
   /// Builds the menu shown over a selection.
   final LexicalContextMenuBuilder contextMenuBuilder;
 
-  /// Called when the editable decides a context menu belongs on screen — a
-  /// long press, or a right-click.
+  /// Called whenever the selection toolbar is raised — a long press, a
+  /// right-click, the end of a selection drag, or `showToolbar` called
+  /// directly.
   ///
   /// For an application that draws its own actions instead of the platform's:
   /// suppressing [contextMenuBuilder] hides the menu, but nothing then says
@@ -844,35 +845,42 @@ class LexicalEditableState extends State<LexicalEditable> {
     showToolbar();
   }
 
+  /// Whether the tap currently in flight came from the secondary button.
+  ///
+  /// Remembered from the down event because the up details do not carry the
+  /// buttons.
+  bool _lastTapWasSecondary = false;
+
   /// Every tap in a series, as it happens.
   ///
   /// The count is what a separate double-tap recognizer used to answer, at the
   /// cost of delaying the first tap until it could be ruled out.
   void _onSerialTapDown(SerialTapDownDetails details) {
     _lastTapWasSecondary = details.buttons == kSecondaryButton;
-    if (details.buttons == kSecondaryButton) {
+    if (_lastTapWasSecondary) {
       _onSecondaryTapDown(details.globalPosition);
       return;
     }
-    if (details.count >= 2) {
-      _selectWordAt(details.globalPosition);
-      return;
-    }
-    _onTapDown(details.globalPosition);
+    // A second tap is unambiguous the moment it lands — nothing else it could
+    // become — so the word is selected on the way down.
+    if (details.count >= 2) _selectWordAt(details.globalPosition);
   }
 
   void _onSerialTapUp(SerialTapUpDetails details) {
+    if (_lastTapWasSecondary || details.count != 1) return;
+    // The caret goes down on the finger lifting, not on it landing.
+    //
+    // This recognizer reports the tap synchronously on the pointer-down event,
+    // before the arena has ruled — which is what removes the 300ms wait, and
+    // also means the down fires for pointers that go on to become a scroll
+    // drag. Placing the caret there moved the selection and raised the
+    // keyboard every time someone flicked the page. A lift is only ever a tap,
+    // and it still arrives without waiting for anything.
+    _onTapDown(details.globalPosition);
     // Only the first tap of a series reports to the interaction layer: opening
     // a link on the second tap of a word selection is not what was asked for.
-    // A right-click never opens anything either, and is remembered from the
-    // down event because the up details do not carry the buttons.
-    if (details.count == 1 && !_lastTapWasSecondary) {
-      _onTapUp(details.globalPosition);
-    }
+    _onTapUp(details.globalPosition);
   }
-
-  /// Whether the tap currently in flight came from the secondary button.
-  bool _lastTapWasSecondary = false;
 
   void _selectWordAt(Offset globalPosition) {
     _placeCaret(globalPosition, extend: false);

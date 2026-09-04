@@ -272,11 +272,19 @@ Key checkboxKey(NodeKey itemKey) =>
 
 /// The box in front of a check-list item, and the thing you tick it with.
 ///
-/// Interactive in a read-only document as well as an editable one: a checklist
-/// you cannot tick is a picture of a checklist, and ticking one is the whole
-/// point of writing it. A consumer that needs a genuinely inert rendering —
-/// an export, a preview thumbnail — supplies its own marker builder, which is
-/// what [BlockMarkerBuilder] is the extension point for.
+/// Live only while the editor is editable.
+///
+/// Ticking a list off is closer to reading it than to editing it, so it is
+/// tempting to leave the box live everywhere — but a document is rendered
+/// read-only in places where nothing is listening for a change, and there the
+/// tick would set the node, look like it worked and revert on the next rebuild.
+/// A box that reports success for a write nobody saved is worse than one that
+/// does nothing.
+///
+/// So a host that wants tickable checklists in a rendered document says so by
+/// making that editor editable and persisting what it hears back. A consumer
+/// that needs a genuinely inert rendering — an export, a thumbnail — can also
+/// supply its own marker builder, which is what [BlockMarkerBuilder] is for.
 class _Checkbox extends StatefulWidget {
   const _Checkbox({
     required this.checked,
@@ -319,7 +327,8 @@ class _CheckboxState extends State<_Checkbox> {
     // Resolved from this widget's own context, which sits inside the document
     // that publishes the scope — the context the marker builder was called
     // with is the document's own, one level above it.
-    final editor = LexicalEditorScope.maybeOf(context);
+    final scope = LexicalEditorScope.maybeOf(context);
+    final editor = scope != null && scope.isEditable ? scope : null;
     final checked = widget.checked;
     final palette = widget.palette;
     final box = Container(

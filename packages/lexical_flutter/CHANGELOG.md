@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.9.0
+
+**A tap puts the caret down on the frame it happened, not 300ms later.** A
+`TapGestureRecognizer` does not win the gesture arena while a
+`DoubleTapGestureRecognizer` is in it with them — the second tap might still be
+coming — so every tap into a document waited out the double-tap deadline before
+the caret moved. Measured on an empty document: nothing at 16ms, nothing at
+200ms, the caret at 300ms. One `SerialTapGestureRecognizer` now answers both
+questions: it reports every tap as it happens and passes the count along, so the
+first tap places the caret immediately and the second still selects the word.
+
+**Backspace no longer vanishes on an empty line.** An empty block has no
+character to give, so the platform's deletion arrived as an empty range at the
+caret — identical to the selection the editing window had just reported, which
+is the shape it reads as "the selection you told me about" rather than as an
+edit. The keystroke was dropped, and blank lines made with Enter could not be
+taken back out. A deletion that names no range is now understood as the block
+boundary itself, which is exactly what backspace performs.
+
+**A long press raises the menu with nothing selected.** It was raised only when
+there was a range, and an empty field has no word to select — so a long press
+there produced nothing at all, and there was no way to paste into one. A long
+press is the request for the menu, as a right-click already was; the menu itself
+decides what it can offer.
+
+**New:** `LexicalEditable.onContextMenu`, called whenever the selection toolbar
+is raised. For a host that suppresses `contextMenuBuilder` and draws its own
+actions: hiding the menu is easy, knowing *when* one was wanted was not
+expressible before.
+
+**New:** `BlockMarker.gap` — blank space between a marker's reserved box and the
+block's content, defaulting to `6`. Markers align on the inner edge of their box
+so that `9.` and `10.` line up on the dot, which also left every bullet flush
+against the first character. **This shifts list content 6 logical pixels right
+for existing consumers**; pass `gap: 0` to keep the old metrics.
+
 ## 1.7.6
 
 **Selecting from right to left is possible again.** Dragging leftwards left

@@ -250,7 +250,12 @@ void main() {
       // than by a Text widget, so the content is measured from the Expanded
       // that holds it.
       final marker = tester.getRect(find.text('•'));
-      final content = tester.getRect(find.byType(Expanded));
+      final content = tester.getRect(
+        find.descendant(
+          of: find.byType(LexicalEditorField),
+          matching: find.byType(Expanded),
+        ),
+      );
       expect(content.left, greaterThan(marker.right));
     });
 
@@ -291,11 +296,15 @@ void main() {
       expect(onItem((item) => item.checked), isFalse);
     });
 
-    testWidgets('a checkbox is tickable in a read-only document', (
+    testWidgets('a checkbox in a read-only document does not pretend', (
       tester,
     ) async {
-      // Ticking a list is reading it, not editing it — the viewer is exactly
-      // where a checklist earns its keep.
+      // Ticking a list off is closer to reading it than to editing it, so it is
+      // tempting to leave the box live everywhere. But a rendered document is
+      // read-only precisely where nothing is listening for a change, and there
+      // the tick would set the node, look like it worked, and revert on the
+      // next rebuild. A host that wants live checklists says so by making the
+      // editor editable and saving what it hears back.
       final editor = createLexicalEditor();
       editor.update(() {
         $getRoot()
@@ -315,15 +324,15 @@ void main() {
                 as ListItemNode)
             .key,
       );
-      await tester.tap(find.byKey(checkboxKey(key)));
-      await tester.pumpAndSettle();
+      // Not even reachable: no gesture is attached at all.
+      expect(find.byKey(checkboxKey(key)), findsNothing);
 
       expect(
         editor.read(() {
           final list = $getRoot().getFirstChild()! as ElementNode;
           return (list.getFirstChild()! as ListItemNode).checked;
         }),
-        isTrue,
+        isFalse,
       );
     });
 
