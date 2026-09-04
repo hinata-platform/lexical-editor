@@ -272,6 +272,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
             width: marker.width,
             child: Align(alignment: marker.alignment, child: marker.child),
           ),
+          if (marker.gap > 0) SizedBox(width: marker.gap),
           Expanded(child: block),
         ],
       );

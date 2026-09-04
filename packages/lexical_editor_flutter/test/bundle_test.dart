@@ -228,6 +228,105 @@ void main() {
       expect(find.byType(CustomPaint), findsWidgets);
     });
 
+    testWidgets('a marker does not touch the text it introduces', (
+      tester,
+    ) async {
+      // Markers align on the inner edge of their reserved box so that `9.` and
+      // `10.` line up on the dot. That also left the bullet flush against the
+      // first character — "•er/ihm" read as one smudged word rather than as a
+      // list item.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.bullet)
+              ..append($createListItemNode()..append($createTextNode('er/ihm'))),
+          );
+      }, discrete: true);
+      await _pump(tester, editor);
+
+      // The body text is painted by the document's own render object rather
+      // than by a Text widget, so the content is measured from the Expanded
+      // that holds it.
+      final marker = tester.getRect(find.text('•'));
+      final content = tester.getRect(find.byType(Expanded));
+      expect(content.left, greaterThan(marker.right));
+    });
+
+    testWidgets('a checkbox can be ticked, and unticked again', (tester) async {
+      // The box was drawn and nothing else: no gesture anywhere in the marker,
+      // so a check list could be written but never actually checked off.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.check)
+              ..append(
+                $createListItemNode(false)..append($createTextNode('offen')),
+              ),
+          );
+      }, discrete: true);
+      await _pump(tester, editor);
+
+      T onItem<T>(T Function(ListItemNode item) fn) => editor.read(
+        () => fn(
+          ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+              as ListItemNode,
+        ),
+      );
+      final box = find.byKey(checkboxKey(onItem((item) => item.key)));
+
+      expect(onItem((item) => item.checked), isFalse);
+
+      // The editable's double-tap recognizer keeps the arena open for its
+      // timer, so the tap is only awarded once that has run out.
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      expect(onItem((item) => item.checked), isTrue);
+
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      expect(onItem((item) => item.checked), isFalse);
+    });
+
+    testWidgets('a checkbox is tickable in a read-only document', (
+      tester,
+    ) async {
+      // Ticking a list is reading it, not editing it — the viewer is exactly
+      // where a checklist earns its keep.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.check)
+              ..append(
+                $createListItemNode(false)..append($createTextNode('offen')),
+              ),
+          );
+      }, discrete: true);
+      editor.isEditable = false;
+      await _pump(tester, editor);
+
+      final key = editor.read(
+        () => (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as ListItemNode)
+            .key,
+      );
+      await tester.tap(find.byKey(checkboxKey(key)));
+      await tester.pumpAndSettle();
+
+      expect(
+        editor.read(() {
+          final list = $getRoot().getFirstChild()! as ElementNode;
+          return (list.getFirstChild()! as ListItemNode).checked;
+        }),
+        isTrue,
+      );
+    });
+
     testWidgets('editing works end to end, and undo comes back', (
       tester,
     ) async {

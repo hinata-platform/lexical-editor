@@ -1,6 +1,7 @@
 /// A theme covering every node type this bundle registers.
 library;
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/widgets.dart';
 import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -252,30 +253,85 @@ BlockMarker? _listMarker(
       return BlockMarker(
         width: 24,
         alignment: Alignment.topCenter,
-        child: _Checkbox(checked: checked, palette: palette, size: 16),
+        child: _Checkbox(
+          checked: checked,
+          palette: palette,
+          size: 16,
+          itemKey: node.key,
+        ),
       );
   }
 }
 
-class _Checkbox extends StatelessWidget {
+/// The key of the tick box belonging to the check-list item [itemKey].
+///
+/// Published so a host's tests — and its own overlays — can find one box among
+/// many without depending on the private widget that draws it.
+Key checkboxKey(NodeKey itemKey) =>
+    ValueKey<String>('lexical-checkbox-${itemKey.value}');
+
+/// The box in front of a check-list item, and the thing you tick it with.
+///
+/// Interactive in a read-only document as well as an editable one: a checklist
+/// you cannot tick is a picture of a checklist, and ticking one is the whole
+/// point of writing it. A consumer that needs a genuinely inert rendering —
+/// an export, a preview thumbnail — supplies its own marker builder, which is
+/// what [BlockMarkerBuilder] is the extension point for.
+class _Checkbox extends StatefulWidget {
   const _Checkbox({
     required this.checked,
     required this.palette,
     required this.size,
+    required this.itemKey,
   });
 
   final bool checked;
   final LexicalPalette palette;
   final double size;
 
+  /// The item to toggle, looked up afresh on tap.
+  ///
+  /// The key rather than the node: nodes are replaced on every commit, so one
+  /// captured here would be stale by the time it was tapped.
+  final NodeKey itemKey;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 3),
-    child: Container(
-      width: size,
-      height: size,
+  State<_Checkbox> createState() => _CheckboxState();
+}
+
+class _CheckboxState extends State<_Checkbox> {
+  /// Where the finger went down, so a drag can be told from a tap.
+  Offset? _downAt;
+
+  /// Ticks the box.
+  ///
+  /// Discrete because this is a finished user action, not a keystroke waiting
+  /// to be batched with the next one: a deferred commit leaves the box drawn
+  /// in its old state until something else happens to flush the editor, which
+  /// reads as a tap that did nothing.
+  void _toggle(LexicalEditor editor) => editor.update(() {
+    final node = $getNodeByKey(widget.itemKey);
+    if (node is ListItemNode) node.toggleChecked();
+  }, discrete: true);
+
+  @override
+  Widget build(BuildContext context) {
+    // Resolved from this widget's own context, which sits inside the document
+    // that publishes the scope — the context the marker builder was called
+    // with is the document's own, one level above it.
+    final editor = LexicalEditorScope.maybeOf(context);
+    final checked = widget.checked;
+    final palette = widget.palette;
+    final box = Container(
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
-        color: checked ? palette.accent : null,
+        // An empty box on a light page was a hairline rectangle the writer had
+        // to hunt for. A tinted fill and a fuller border give it a body, so it
+        // reads as something to press rather than as a rendering artefact.
+        color: checked
+            ? palette.accent
+            : palette.border.withValues(alpha: 0.18),
         border: Border.all(
           color: checked ? palette.accent : palette.border,
           width: 1.5,
@@ -285,8 +341,49 @@ class _Checkbox extends StatelessWidget {
       child: checked
           ? CustomPaint(painter: _CheckPainter(color: palette.surface))
           : null,
-    ),
-  );
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: editor == null
+          ? box
+          : Semantics(
+              checked: checked,
+              // A tick box is a control, and until now it announced itself as
+              // a decoration: nothing to press, no state to read out.
+              button: true,
+              onTap: () => _toggle(editor),
+              // A Listener rather than a GestureDetector, deliberately.
+              //
+              // The editable arms a DoubleTapGestureRecognizer over the whole
+              // document, which holds the arena open for its timer before
+              // awarding a tap to anyone. A recognizer here therefore only
+              // learns it won some 300ms after the finger lifted, and a tick
+              // box that answers a third of a second late is exactly the
+              // sluggishness this editor is being reported for.
+              //
+              // Pointer events are dispatched during hit-testing, before any
+              // arena runs, so this fires the moment the finger lifts. The
+              // slop check is what a tap recognizer would have given us: a
+              // drag that merely begins on the box scrolls or selects, and
+              // leaves the box alone.
+              child: Listener(
+                key: checkboxKey(widget.itemKey),
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (event) => _downAt = event.position,
+                onPointerUp: (event) {
+                  final down = _downAt;
+                  _downAt = null;
+                  if (down == null) return;
+                  if ((event.position - down).distance > kTouchSlop) return;
+                  _toggle(editor);
+                },
+                onPointerCancel: (_) => _downAt = null,
+                child: box,
+              ),
+            ),
+    );
+  }
 }
 
 class _CheckPainter extends CustomPainter {
@@ -297,7 +394,10 @@ class _CheckPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      // The tick is drawn on the accent fill, so it has to be the colour the
+      // palette nominates to sit on it. Hard-coding white put an invisible
+      // tick on any palette whose accent is pale.
+      ..color = color
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;

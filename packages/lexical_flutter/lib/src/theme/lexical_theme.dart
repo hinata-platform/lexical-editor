@@ -67,6 +67,7 @@ class BlockMarker {
     required this.child,
     this.width = 28,
     this.alignment = Alignment.topRight,
+    this.gap = 6,
   });
 
   /// The marker widget.
@@ -77,6 +78,17 @@ class BlockMarker {
 
   /// How the marker sits inside its reserved box.
   final AlignmentGeometry alignment;
+
+  /// Blank space between the reserved box and the block's content.
+  ///
+  /// Markers align on the *inner* edge of their box — that is what keeps `9.`
+  /// and `10.` lined up on the dot — which also means the marker ends flush
+  /// against the first character with nothing between them. A bullet touching
+  /// its own text reads as one smudged word rather than as a list.
+  ///
+  /// Reserved width alone cannot buy this back: widening the box moves the
+  /// whole column right and leaves the marker just as flush.
+  final double gap;
 }
 
 /// Builds the marker for one block, or returns `null` for none.
