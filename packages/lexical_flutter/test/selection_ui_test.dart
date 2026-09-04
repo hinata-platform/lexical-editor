@@ -111,6 +111,44 @@ void main() {
       expect(_state.toolbarVisible, isTrue);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+    testWidgets('a tap places the caret on the frame it happened', (
+      tester,
+    ) async {
+      // It used to take 300ms. A TapGestureRecognizer does not win the arena
+      // while a DoubleTapGestureRecognizer is in it with them, so every tap
+      // waited out the double-tap deadline before the caret moved — over a
+      // whole document, that is an editor that looks like it is ignoring taps
+      // and then catching up.
+      final editor = _editor(['Hallo Welt']);
+      await _pump(tester, editor);
+      editor.update(() => $setSelection(null), discrete: true);
+      await tester.pump();
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(40, 6));
+      await gesture.up();
+      await tester.pump();
+
+      expect(editor.read($getSelection), isA<RangeSelection>());
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
+    testWidgets('a second tap still selects the word under it', (tester) async {
+      // The count the double-tap recognizer used to answer, without its price.
+      final editor = _editor(['Hallo schöne Welt']);
+      await _pump(tester, editor);
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      await tester.tapAt(origin + const Offset(45, 6));
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.tapAt(origin + const Offset(45, 6));
+      await tester.pump();
+
+      expect(_state.selectionEndpoints, isNotNull);
+      expect(_state.selectionEndpoints!.isCollapsed, isFalse);
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
     testWidgets('a long press on an empty document still raises the menu', (
       tester,
     ) async {
