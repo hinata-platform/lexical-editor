@@ -24,6 +24,16 @@ Future<void> _pump(WidgetTester tester, LexicalEditor editor) async {
 List<String> _types(LexicalEditor editor) =>
     editor.read(() => $getRoot().children.map((node) => node.type).toList());
 
+/// The circle the bundle draws an unordered list's bullet with.
+///
+/// Found by its shape rather than by a key: it is one private widget, and the
+/// only round thing in a document of text.
+final Finder _bullet = find.byWidgetPredicate((widget) {
+  if (widget is! Container) return false;
+  final decoration = widget.decoration;
+  return decoration is BoxDecoration && decoration.shape == BoxShape.circle;
+}, description: 'the drawn bullet');
+
 void main() {
   group('registration', () {
     test('every fixture node type is understood', () {
@@ -240,16 +250,17 @@ void main() {
         $getRoot()
           ..clear()
           ..append(
-            $createListNode(ListType.bullet)
-              ..append($createListItemNode()..append($createTextNode('er/ihm'))),
+            $createListNode(
+              ListType.bullet,
+            )..append($createListItemNode()..append($createTextNode('er/ihm'))),
           );
       }, discrete: true);
       await _pump(tester, editor);
 
       // The body text is painted by the document's own render object rather
       // than by a Text widget, so the content is measured from the Expanded
-      // that holds it.
-      final marker = tester.getRect(find.text('•'));
+      // that holds it. The bullet is a drawn circle, not a glyph.
+      final marker = tester.getRect(_bullet);
       final content = tester.getRect(
         find.descendant(
           of: find.byType(LexicalEditorField),
@@ -259,38 +270,105 @@ void main() {
       expect(content.left, greaterThan(marker.right));
     });
 
-    testWidgets('a marker sits level with the line it introduces', (
-      tester,
-    ) async {
-      // Hung from the top of the block, a bullet rides above the words and a
-      // tick box — a square with no baseline to sit on — needed a hand-picked
-      // padding to look almost right, and did not at other text sizes.
-      final editor = createLexicalEditor();
-      editor.update(() {
-        $getRoot()
-          ..clear()
-          ..append(
-            $createListNode(ListType.bullet)
-              ..append($createListItemNode()..append($createTextNode('er/ihm'))),
-          );
-      }, discrete: true);
-      await _pump(tester, editor);
+    for (final style in const [
+      TextStyle(fontSize: 12),
+      TextStyle(fontSize: 14),
+      TextStyle(fontSize: 20),
+      // What hinata actually passes: a generous line height, most of the line
+      // box being leading. A square parked in the middle of *that* floats
+      // above the words, which is the case a line-box centre gets wrong.
+      TextStyle(fontSize: 14, height: 1.68),
+      TextStyle(fontSize: 16, height: 2),
+    ]) {
+      final height = style.height;
+      final label = '${style.fontSize}px${height == null ? '' : '/$height'}';
 
-      final marker = tester.getRect(find.text('•'));
-      final line = tester.getRect(
-        find.descendant(
+      testWidgets('markers line up with the text at $label', (tester) async {
+        final editor = createLexicalEditor();
+        editor.update(() {
+          $getRoot()
+            ..clear()
+            ..append(
+              $createListNode(ListType.bullet)..append(
+                $createListItemNode()..append($createTextNode('er/ihm')),
+              ),
+            )
+            ..append(
+              $createListNode(
+                ListType.number,
+              )..append($createListItemNode()..append($createTextNode('eins'))),
+            )
+            ..append(
+              $createListNode(ListType.check)..append(
+                $createListItemNode(false)..append($createTextNode('offen')),
+              ),
+            );
+        }, discrete: true);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: LexicalEditorField(
+                editor: editor,
+                baseTextStyle: style,
+                scrollable: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // What the eye reads as the middle of a line is the x-height band —
+        // the body of the lowercase letters — not the middle of the line box,
+        // which at hinata's 1.68 line height is mostly leading.
+        final painter = TextPainter(
+          text: TextSpan(text: 'x', style: style),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final em = style.fontSize!;
+        final wanted =
+            painter.computeDistanceToActualBaseline(TextBaseline.alphabetic) -
+            em * 0.52 / 2;
+        painter.dispose();
+
+        final lines = find.descendant(
           of: find.byType(LexicalEditorField),
           matching: find.byType(Expanded),
-        ),
-      );
+        );
+        double centreIn(Finder marker, int index) =>
+            tester.getRect(marker).center.dy -
+            tester.getRect(lines.at(index)).top;
 
-      // Centres within half a line of each other. Exact equality is not the
-      // test: a glyph's ink box is not its line box.
-      expect(
-        (marker.center.dy - line.center.dy).abs(),
-        lessThan(line.height / 2),
-      );
-    });
+        // The bullet is drawn, so it goes exactly where we put it.
+        expect(
+          (centreIn(_bullet, 0) - wanted).abs(),
+          lessThanOrEqualTo(1.0),
+          reason: 'the bullet is off the x-height band at $label',
+        );
+
+        // The tick box is a square with no baseline of its own, and belongs on
+        // the same band.
+        final key = editor.read(
+          () =>
+              (($getRoot().getChildAtIndex(2)! as ElementNode).getFirstChild()!
+                      as ListItemNode)
+                  .key,
+        );
+        expect(
+          (centreIn(find.byKey(checkboxKey(key)), 2) - wanted).abs(),
+          lessThanOrEqualTo(1.0),
+          reason: 'the tick box is off the x-height band at $label',
+        );
+
+        // A number is type, and type sits on the baseline it shares with the
+        // words — moving it onto a band would be the wrong fix for a glyph.
+        expect(
+          tester.getRect(find.text('1.')).top - tester.getRect(lines.at(1)).top,
+          closeTo(0, 0.5),
+          reason: 'the number left the text baseline at $label',
+        );
+      });
+    }
 
     testWidgets('a checkbox can be ticked, and unticked again', (tester) async {
       // The box was drawn and nothing else: no gesture anywhere in the marker,
@@ -300,10 +378,9 @@ void main() {
         $getRoot()
           ..clear()
           ..append(
-            $createListNode(ListType.check)
-              ..append(
-                $createListItemNode(false)..append($createTextNode('offen')),
-              ),
+            $createListNode(ListType.check)..append(
+              $createListItemNode(false)..append($createTextNode('offen')),
+            ),
           );
       }, discrete: true);
       await _pump(tester, editor);
@@ -343,19 +420,19 @@ void main() {
         $getRoot()
           ..clear()
           ..append(
-            $createListNode(ListType.check)
-              ..append(
-                $createListItemNode(false)..append($createTextNode('offen')),
-              ),
+            $createListNode(ListType.check)..append(
+              $createListItemNode(false)..append($createTextNode('offen')),
+            ),
           );
       }, discrete: true);
       editor.isEditable = false;
       await _pump(tester, editor);
 
       final key = editor.read(
-        () => (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
-                as ListItemNode)
-            .key,
+        () =>
+            (($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                    as ListItemNode)
+                .key,
       );
       // Not even reachable: no gesture is attached at all.
       expect(find.byKey(checkboxKey(key)), findsNothing);
