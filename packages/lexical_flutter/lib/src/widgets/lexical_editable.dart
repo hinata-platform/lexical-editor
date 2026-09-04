@@ -152,6 +152,7 @@ class LexicalEditable extends StatefulWidget {
     this.remoteSelections = const <RemoteSelection>[],
     this.selectionControls,
     this.contextMenuBuilder = defaultLexicalContextMenu,
+    this.onContextMenu,
     this.magnifierConfiguration,
     this.showSelectionHandles,
     this.enableInteractiveSelection = true,
@@ -238,6 +239,16 @@ class LexicalEditable extends StatefulWidget {
 
   /// Builds the menu shown over a selection.
   final LexicalContextMenuBuilder contextMenuBuilder;
+
+  /// Called when the editable decides a context menu belongs on screen — a
+  /// long press, or a right-click.
+  ///
+  /// For an application that draws its own actions instead of the platform's:
+  /// suppressing [contextMenuBuilder] hides the menu, but nothing then says
+  /// *when* one was asked for, which is the one thing a replacement needs to
+  /// know. Whether there is a selection to act on is the caller's to read off
+  /// the editable it already holds.
+  final VoidCallback? onContextMenu;
 
   /// How to magnify under a dragging finger. Defaults to the platform's.
   final TextMagnifierConfiguration? magnifierConfiguration;
@@ -962,6 +973,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// Shows the context menu over the selection.
   void showToolbar() {
     if (!widget.enableInteractiveSelection) return;
+    widget.onContextMenu?.call();
     _ensureOverlay()
       ..hideToolbar()
       ..showToolbar();
@@ -1355,7 +1367,15 @@ class LexicalEditableState extends State<LexicalEditable> {
                         }
                         ..onLongPressEnd = (_) {
                           _endDrag();
-                          if (_selection?.hasRange ?? false) showToolbar();
+                          // Unconditionally, exactly as a right-click does. A
+                          // long press *is* the request for the menu, and the
+                          // menu adapts itself: with a range it offers cut and
+                          // copy, with a bare caret paste and select-all.
+                          // Gating it on there being a range meant a long press
+                          // on an empty field — where there is no word to
+                          // select — produced nothing at all, so there was no
+                          // way to paste into one.
+                          showToolbar();
                         }
                         ..onLongPressCancel = _endDrag,
                     ),

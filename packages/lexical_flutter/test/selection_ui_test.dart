@@ -111,6 +111,66 @@ void main() {
       expect(_state.toolbarVisible, isTrue);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+    testWidgets('a long press on an empty document still raises the menu', (
+      tester,
+    ) async {
+      // There is no word to select in an empty document, so the long press
+      // ended with a bare caret — and the menu was gated on there being a
+      // range. Nothing appeared at all, which left no way to paste into an
+      // empty field. A long press is the request for the menu, exactly as a
+      // right-click is; the menu itself decides what it can offer.
+      final editor = _editor(['']);
+      await _pump(tester, editor);
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(4, 6));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.up();
+      await tester.pump();
+
+      expect(_state.toolbarVisible, isTrue);
+      expect(
+        _state.contextMenuButtonItems.map((item) => item.type),
+        contains(ContextMenuButtonType.paste),
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('a suppressed menu still reports that one was asked for', (
+      tester,
+    ) async {
+      // A host that draws its own actions hides this menu, and then has
+      // nothing telling it when to draw them.
+      var asked = 0;
+      final editor = _editor(['']);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LexicalEditable(
+              key: _key,
+              editor: editor,
+              autofocus: true,
+              scrollable: false,
+              cursorBlinkInterval: Duration.zero,
+              onContextMenu: () => asked++,
+              contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+              theme: const LexicalTheme(
+                baseTextStyle: TextStyle(fontSize: 14, height: 1.4),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final origin = _block(0).render.localToGlobal(Offset.zero);
+      final gesture = await tester.startGesture(origin + const Offset(4, 6));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.up();
+      await tester.pump();
+
+      expect(asked, 1);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
     testWidgets('the toolbar offers what the selection allows', (tester) async {
       final editor = _editor(['Hallo Welt']);
       await _pump(tester, editor);
