@@ -2,6 +2,8 @@
 
 # lexical-editor for Dart & Flutter
 
+[![pub package](https://img.shields.io/pub/v/lexical_editor_flutter.svg?label=lexical_editor_flutter&color=D9A032)](https://pub.dev/packages/lexical_editor_flutter)
+
 A native Dart/Flutter reimplementation of [Lexical](https://lexical.dev),
 Meta's extensible text-editor framework. Documents authored on Lexical web
 open losslessly in Flutter and go back unchanged.

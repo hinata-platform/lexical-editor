@@ -2,6 +2,8 @@
 
 # lexical_editor_flutter
 
+[![pub package](https://img.shields.io/pub/v/lexical_editor_flutter.svg?label=lexical_editor_flutter&color=D9A032)](https://pub.dev/packages/lexical_editor_flutter)
+
 A [Lexical](https://lexical.dev)-compatible editor for Flutter with everything
 already wired up.
 
