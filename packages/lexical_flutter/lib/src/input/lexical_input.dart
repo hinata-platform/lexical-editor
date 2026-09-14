@@ -49,6 +49,9 @@ class LexicalInput implements DeltaTextInputClient {
     this.keyboardAppearance = Brightness.light,
     this.readOnly = false,
     this.onComposingChanged,
+    this.onConnectionClosed,
+    this.editableGeometry,
+    this.onFloatingCursor,
   });
 
   /// The editor this connection edits.
@@ -81,6 +84,35 @@ class LexicalInput implements DeltaTextInputClient {
 
   /// Called when the composing region moves, so the caller can repaint it.
   final VoidCallback? onComposingChanged;
+
+  /// Called when the platform closed the connection without being asked.
+  ///
+  /// The web engine does this when the page loses focus to something outside
+  /// it, and when an autofill context finishes. The owner should give up
+  /// keyboard focus in response, exactly as `EditableText` does: the editor
+  /// then no longer looks ready for typing it cannot receive, and the next tap
+  /// opens a fresh connection.
+  final VoidCallback? onConnectionClosed;
+
+  /// Where the editor is on screen, or `null` before it has been laid out.
+  ///
+  /// Reported to the platform so it can place its own text-input element over
+  /// the editor, which on the web decides where a click inside the editor
+  /// lands. Without it the browser's hidden input sits in a corner of the
+  /// page, a click on the text goes to the page instead, and the input loses
+  /// focus — for good in Safari, which does not reclaim it. Typing then stops
+  /// while every key the editor handles itself, backspace among them, still
+  /// works.
+  final ({Size size, Matrix4 transform})? Function()? editableGeometry;
+
+  /// Called while the platform drags a floating cursor, so the owner can move
+  /// the caret with it.
+  ///
+  /// iOS enters this mode when the space bar is held down, turning the
+  /// keyboard into a trackpad. The platform sends the drag and nothing else;
+  /// where the caret should land is a question only the laid-out text can
+  /// answer, which is why this is handed on rather than handled here.
+  final ValueChanged<RawFloatingCursorPoint>? onFloatingCursor;
 
   TextInputConnection? _connection;
   TextEditingValue _lastKnownValue = TextEditingValue.empty;
@@ -126,6 +158,10 @@ class LexicalInput implements DeltaTextInputClient {
     final connection = TextInput.attach(this, _configuration)
       ..setEditingState(_lastKnownValue);
     _connection = connection;
+    // Before `show`, as `EditableText` does: the web engine places its input
+    // element as it starts editing, and it can only place it where it has
+    // been told the editor is.
+    updateEditableGeometry();
     syncToModel(force: true);
     connection.show();
   }
@@ -142,6 +178,18 @@ class LexicalInput implements DeltaTextInputClient {
 
   /// Asks the platform to show the keyboard for an open connection.
   void show() => _connection?.show();
+
+  /// Reports where [editableGeometry] says the editor is.
+  ///
+  /// Cheap enough for every frame: the connection only sends a size or a
+  /// transform that differs from the last one it sent.
+  void updateEditableGeometry() {
+    final connection = _connection;
+    if (connection == null || !connection.attached) return;
+    final geometry = editableGeometry?.call();
+    if (geometry == null) return;
+    connection.setEditableSizeAndTransform(geometry.size, geometry.transform);
+  }
 
   /// Reports the editor's rectangle so the platform can place its own UI.
   void setEditableSizeAndTransform(Size size, Matrix4 transform) {
@@ -511,18 +559,30 @@ class LexicalInput implements DeltaTextInputClient {
   void performPrivateCommand(String action, Map<String, dynamic> data) {}
 
   @override
-  void updateFloatingCursor(RawFloatingCursorPoint point) {}
+  void updateFloatingCursor(RawFloatingCursorPoint point) {
+    if (readOnly) return;
+    onFloatingCursor?.call(point);
+  }
 
   @override
   void showAutocorrectionPromptRect(int start, int end) {}
 
   @override
   void connectionClosed() {
+    final connection = _connection;
+    if (connection == null) return;
+    // The framework has to hear it too. Otherwise it goes on treating this
+    // client as the one attached: it routes input to a connection the platform
+    // has already torn down, and the next attach finds it "still attached" and
+    // only asks it to show — which the web engine ignores.
+    if (connection.attached) connection.connectionClosedReceived();
     _connection = null;
+    _lastKnownValue = TextEditingValue.empty;
     if (_composing.isValid && !_composing.isCollapsed) {
       _composing = TextRange.empty;
       onComposingChanged?.call();
     }
+    onConnectionClosed?.call();
   }
 
   /// Whether the platform's focus request was accepted.

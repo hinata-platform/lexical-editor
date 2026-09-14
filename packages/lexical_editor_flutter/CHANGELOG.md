@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.2
+
+Requires `lexical_core` 1.9.2 and `lexical_flutter` 1.9.2. Between them they
+fix typing that stopped in Safari after a click into the text, an editor that
+dropped every keystroke when it was focused without a caret, the iOS keyboard
+trackpad that never moved the caret, and a failed update that threw away the
+edit after it. Their changelogs have the details.
+
 ## 1.9.1
 
 **List markers sit on the line, not above it.** A bullet, a number and a tick
