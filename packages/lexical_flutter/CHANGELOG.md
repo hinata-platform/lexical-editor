@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.9.2
+
+**Typing no longer stops in Safari after a click into the text.** The editor
+never told the platform where it was. On the web the engine places its hidden
+input element over the field it has been told about, and told nothing it left
+the element in the corner of the page. A click on the text then reached the
+page instead of the element, and the element lost focus. Chrome and Firefox
+take focus back; Safari deliberately does not, and reports the whole view as
+unfocused. The editor either lost focus or kept it with nothing left to receive
+characters, and typing stopped until the page was reloaded, while backspace,
+which the editor handles itself, went on working. The editable now reports its
+size and position before the input is shown and after every frame in which it
+moved, as `EditableText` does.
+
+**A connection the platform closes is closed for the framework too.**
+`connectionClosed` dropped the connection without telling the framework, which
+went on treating the editor as attached, and the editor kept focus it could do
+nothing with. It now reports the close and gives up focus, as `EditableText`
+does, so the next tap opens a fresh connection. The web engine closes the
+connection when the page loses focus to something outside it.
+
+**Focus without a caret puts one at the end of the document.** An autofocused
+editor, or one a host's own button handed focus back to, had no selection, so
+every keystroke was dropped by an editor that looked ready for it. Upstream's
+`editor.focus()` makes the same choice.
+
+**The keyboard trackpad moves the caret.** Holding the space bar on iOS turns
+the keyboard into a trackpad, and `updateFloatingCursor` was empty, so the
+caret never moved. It now follows the drag along the line and across blocks,
+stays lit while it is steered, and leaves a selection made with two fingers to
+the platform, which extends it itself.
+
+**The caret rectangle is reported in the editor's own coordinates.** It was
+local to its block, which put the macOS accent menu and the candidate list of
+an input method a block off once the editor's position was being reported.
+
+New on `LexicalInput`: `editableGeometry`, `updateEditableGeometry`,
+`onConnectionClosed` and `onFloatingCursor`.
+
 ## 1.9.0
 
 **A tap puts the caret down on the frame it happened, not 300ms later.** A

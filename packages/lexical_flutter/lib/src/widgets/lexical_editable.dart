@@ -360,7 +360,10 @@ class LexicalEditableState extends State<LexicalEditable> {
       _input.detach();
       _input = _createInput();
       _unsubscribeEditor = widget.editor.registerUpdateListener(_onCommit);
-      if (_focusNode.hasFocus) _input.attach();
+      if (_focusNode.hasFocus) {
+        _input.attach();
+        _scheduleGeometryUpdate();
+      }
     }
     _refreshSelection();
     // Presentation is imperative, so a changed `remoteSelections` reaches the
@@ -392,7 +395,52 @@ class LexicalEditableState extends State<LexicalEditable> {
     textCapitalization: widget.textCapitalization,
     keyboardAppearance: widget.keyboardAppearance,
     onComposingChanged: _applyPresentation,
+    onConnectionClosed: _onConnectionClosed,
+    editableGeometry: _editableGeometry,
+    onFloatingCursor: _onFloatingCursor,
   );
+
+  /// The editable's own box, as the platform's input element should cover it.
+  ({Size size, Matrix4 transform})? _editableGeometry() {
+    if (!mounted) return null;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    return (size: box.size, transform: box.getTransformTo(null));
+  }
+
+  /// The platform ended the connection on its own — on the web, the page lost
+  /// focus to something outside it.
+  ///
+  /// Keeping focus would leave a caret blinking in an editor that can no
+  /// longer receive a single character. Giving it up is what `EditableText`
+  /// does, and it is what makes the next tap open a fresh connection.
+  void _onConnectionClosed() {
+    if (_focusNode.hasFocus) _focusNode.unfocus();
+  }
+
+  bool _geometryUpdateScheduled = false;
+
+  /// Keeps the platform told where the editor is for as long as the connection
+  /// is open, as `EditableText` does.
+  ///
+  /// A scroll, a resize or an animation moves the editor without the
+  /// connection hearing about it, and on the web a stale position is a click
+  /// that misses the input element and takes its focus away.
+  void _scheduleGeometryUpdate() {
+    if (_geometryUpdateScheduled) return;
+    _geometryUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback(
+      _updateGeometryAfterFrame,
+      debugLabel: 'LexicalEditable.geometry',
+    );
+  }
+
+  void _updateGeometryAfterFrame(Duration _) {
+    _geometryUpdateScheduled = false;
+    if (!mounted || !_input.attached) return;
+    _input.updateEditableGeometry();
+    _scheduleGeometryUpdate();
+  }
 
   // -------------------------------------------------------------------
   // Focus and the input connection
@@ -400,7 +448,9 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   void _onFocusChanged() {
     if (_focusNode.hasFocus) {
+      _ensureCaret();
       _input.attach();
+      _scheduleGeometryUpdate();
       _restartBlink();
     } else {
       _input.detach();
@@ -416,6 +466,22 @@ class LexicalEditableState extends State<LexicalEditable> {
     _input
       ..attach()
       ..show();
+    _scheduleGeometryUpdate();
+  }
+
+  /// Puts the caret at the end of the document when focus arrives without one.
+  ///
+  /// Focus does not always come from a tap that places the caret: an editor
+  /// can be autofocused, or a host's own button can hand focus back. With no
+  /// selection there is nowhere for a keystroke to go, so every character was
+  /// dropped by an editor that looked ready for them. Upstream Lexical's
+  /// `editor.focus()` answers the same question the same way — the end of the
+  /// root.
+  void _ensureCaret() {
+    if (widget.readOnly) return;
+    final hasSelection = widget.editor.read(() => $getSelection() != null);
+    if (hasSelection) return;
+    widget.editor.update(() => $getRoot().selectEnd());
   }
 
   // -------------------------------------------------------------------
@@ -566,6 +632,8 @@ class LexicalEditableState extends State<LexicalEditable> {
     _caretVisible = true;
     if (!_focusNode.hasFocus) return;
     if (widget.cursorBlinkInterval == Duration.zero) return;
+    // Lit for as long as the keyboard trackpad is steering it.
+    if (_floatingCursorStart != null) return;
     // A range has no caret to blink — see [_caretFor] — so a drag would
     // otherwise cancel and re-arm a periodic timer on every pointer move for
     // something that is not on screen.
@@ -753,7 +821,15 @@ class LexicalEditableState extends State<LexicalEditable> {
     if (flat == null) return;
     final rect = block.render.caretRect(flat, width: widget.cursorWidth);
     block.render.showOnScreen(rect: rect.inflate(8), duration: Duration.zero);
-    _input.setCaretRect(rect);
+    // In the editor's own coordinates, because that is the box the platform
+    // was told about: it places the accent menu and the candidate list by
+    // this rectangle, and a block-local one put them a block too high.
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.attached) {
+      _input.setCaretRect(
+        MatrixUtils.transformRect(block.render.getTransformTo(box), rect),
+      );
+    }
   }
 
   // -------------------------------------------------------------------
@@ -772,6 +848,67 @@ class LexicalEditableState extends State<LexicalEditable> {
     final local = block.render.globalToLocal(globalPosition);
     final position = block.render.getPositionForOffset(local);
     return (block: block.key, point: block.offsets.pointFor(position.offset));
+  }
+
+  /// Where the caret was when a floating cursor picked it up, in the
+  /// editor's own coordinates, or `null` while none is being dragged.
+  ///
+  /// Kept relative to the editor rather than to the screen: the page may
+  /// scroll to keep the moving caret in view, and a screen position would
+  /// then point at different text than the one the drag started from.
+  Offset? _floatingCursorStart;
+
+  /// Moves the caret with the iOS keyboard's trackpad — the space bar held
+  /// down and dragged.
+  ///
+  /// The platform reports each position as a distance from where the drag
+  /// began, so the caret goes to the text under its starting point moved by
+  /// that distance, held inside the editor. It moves as the finger does
+  /// rather than only when it lifts: the writer is aiming at a character, and
+  /// seeing the caret reach it is how they know when to stop.
+  void _onFloatingCursor(RawFloatingCursorPoint point) {
+    switch (point.state) {
+      case FloatingCursorDragState.Start:
+        final box = context.findRenderObject();
+        final caret = caretRect;
+        if (box is! RenderBox || !box.hasSize || caret == null) return;
+        _floatingCursorStart = box.globalToLocal(caret.center);
+        hideToolbar();
+        // A caret that blinks out while it is being steered is one the writer
+        // loses sight of, so it stays lit until the drag ends.
+        _restartBlink();
+        _applyPresentation();
+      case FloatingCursorDragState.Update:
+        final start = _floatingCursorStart;
+        final distance = point.offset;
+        final box = context.findRenderObject();
+        if (start == null || distance == null) return;
+        if (box is! RenderBox || !box.hasSize) return;
+        final target = start + distance;
+        final bounded = Offset(
+          target.dx.clamp(0, box.size.width),
+          target.dy.clamp(0, box.size.height),
+        );
+        final hit = pointAt(box.localToGlobal(bounded));
+        if (hit == null) return;
+        widget.editor.update(() {
+          final selection = $getSelection();
+          // Two fingers on the keyboard select rather than move, and the
+          // platform extends that selection itself. Collapsing it here would
+          // undo each step of it as it was taken.
+          if (selection is! RangeSelection || !selection.isCollapsed) return;
+          selection.moveTo(
+            hit.point.key,
+            hit.point.offset,
+            hit.point.type,
+            extend: false,
+          );
+        });
+      case FloatingCursorDragState.End:
+        _floatingCursorStart = null;
+        _restartBlink();
+        _applyPresentation();
+    }
   }
 
   /// Moves the caret to [globalPosition]; false when nothing was there.

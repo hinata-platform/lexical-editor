@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.9.2
+
+**An update that fails no longer throws away the next edit.** An update that
+replaced the document, which is what undo does, and then threw left the
+replacement behind. The next update to succeed installed it instead of its own
+work: the document jumped back to the undo state, and whatever that update was
+carrying, a keystroke as often as not, was gone. The replacement now goes with
+the update that failed.
+
+The version skips ahead to 1.9.2 so that this package, `lexical_flutter` and
+`lexical_editor_flutter` ship their fixes under one tag.
+
 ## 1.7.4
 
 A review of the whole set against the wire format, the core-model invariants

@@ -260,6 +260,10 @@ final class LexicalEditor {
       _updating = false;
       _pendingEditorState = null;
       _commitScheduled = false;
+      // A replacement requested before the throw belongs to the update that
+      // failed. Left behind, the next successful update would install it and
+      // throw away the edit that update was making.
+      _replacementDuringUpdate = null;
       _resetDirtyState();
       rethrow;
     }
