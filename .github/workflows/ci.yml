@@ -19,7 +19,7 @@ concurrency:
 # so an unrelated commit fails on drift it did not cause. Bumping this is a
 # deliberate pull request whose diff shows exactly what the new SDK changed.
 env:
-  FLUTTER_VERSION: 3.47.0
+  FLUTTER_VERSION: 3.47.7
 
 jobs:
   dart:

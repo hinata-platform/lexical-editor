@@ -34,7 +34,7 @@ concurrency:
 
 # Kept in step with ci.yml, so the published demo is the build CI approved.
 env:
-  FLUTTER_VERSION: 3.47.0
+  FLUTTER_VERSION: 3.47.7
 
 jobs:
   build:

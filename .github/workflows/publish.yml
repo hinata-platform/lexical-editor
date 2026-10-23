@@ -34,7 +34,7 @@ permissions:
 # Kept in step with ci.yml: a release must be built by the same SDK that
 # validated it, or the first build of a version is the one nothing tested.
 env:
-  FLUTTER_VERSION: 3.47.0
+  FLUTTER_VERSION: 3.47.7
 
 jobs:
   publish:
