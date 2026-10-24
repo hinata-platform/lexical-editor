@@ -26,7 +26,17 @@ const Set<String> safeUrlSchemes = {
 /// documents and break wire compatibility, while trusting the value at the
 /// point of use would turn a stored document into a script-injection vector.
 ///
-/// A relative URL is treated as safe: it cannot name a scheme.
+/// A relative URL is treated as safe: it cannot name a scheme. It does not
+/// name a place either, until it is resolved against a base, so a host that
+/// hands URLs to the platform resolves a relative one first. A launcher that
+/// is given the bare string reads it as a path on the local disk.
+///
+/// Two relative shapes are refused all the same. One that starts with two
+/// slashes names a host without naming a scheme: whatever opens it fills in a
+/// scheme of its own, and a Windows shell reads `//host/share` as a UNC path,
+/// an SMB connection that offers the host the user's credentials. A backslash
+/// is read as a slash by a browser and as a path separator by Windows, so a
+/// relative URL that has one goes to two different places.
 bool isSafeUrl(String url) {
   final trimmed = url.trim();
   if (trimmed.isEmpty) return false;
@@ -37,7 +47,9 @@ bool isSafeUrl(String url) {
   }
   final parsed = Uri.tryParse(trimmed);
   if (parsed == null) return false;
-  if (!parsed.hasScheme) return true;
+  if (!parsed.hasScheme) {
+    return !trimmed.contains('\\') && !trimmed.startsWith('//');
+  }
   return safeUrlSchemes.contains(parsed.scheme.toLowerCase());
 }
 

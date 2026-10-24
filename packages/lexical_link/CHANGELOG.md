@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.7
+
+**A link that names a host without a scheme is no longer safe to follow.**
+`isSafeUrl` passed every relative URL, and `//host/share` is one: it carries
+no scheme. Whatever opens it fills one in, and a Windows shell reads it as a
+UNC path, an SMB connection that offers that host the user's credentials. A
+URL that starts with two slashes is refused now, and so is a relative URL with
+a backslash in it, which a browser reads as a slash and Windows as a path
+separator on the local disk.
+
+A plain relative URL such as `/docs/intro` is still safe, and still only names
+a place once it is resolved against a base. The documentation of `isSafeUrl`
+says so now: a host that hands URLs to the platform resolves a relative one
+first.
+
+Released on its own: nothing else changed.
+
 ## 1.7.4
 
 No behaviour change. A call site that read a selection offset *after* splitting
