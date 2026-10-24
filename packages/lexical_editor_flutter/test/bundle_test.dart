@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -450,6 +452,53 @@ void main() {
       await tester.tap(box);
       await tester.pumpAndSettle();
       expect(onItem((item) => item.checked), isFalse);
+    });
+
+    testWidgets('an empty box is rimmed in the marker colour', (tester) async {
+      // The rim used to be the divider colour, a 12% black that left an
+      // empty box at about 1.3:1 on white: a control nobody could find.
+      final editor = createLexicalEditor();
+      editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createListNode(ListType.check)..append(
+              $createListItemNode(false)..append($createTextNode('offen')),
+            ),
+          );
+      }, discrete: true);
+      await _pump(tester, editor);
+
+      final key = editor.read(
+        () => ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!.key,
+      );
+      final box = tester.widget<Container>(
+        find.descendant(
+          of: find.byKey(checkboxKey(key)),
+          matching: find.byType(Container),
+        ),
+      );
+      final rim = (box.decoration! as BoxDecoration).border! as Border;
+      expect(rim.top.color, const LexicalPalette().muted);
+    });
+
+    test('both stock palettes give the box and its tick 3:1', () {
+      double ratio(Color a, Color b) {
+        final (x, y) = (a.computeLuminance(), b.computeLuminance());
+        return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
+      }
+
+      for (final (palette, page) in [
+        (const LexicalPalette(), const Color(0xFFFFFFFF)),
+        (const LexicalPalette.dark(), const Color(0xFF202124)),
+      ]) {
+        expect(ratio(palette.muted, page), greaterThanOrEqualTo(3));
+        expect(ratio(palette.accent, page), greaterThanOrEqualTo(3));
+        expect(
+          ratio(palette.onAccent, palette.accent),
+          greaterThanOrEqualTo(3),
+        );
+      }
     });
 
     testWidgets('a checkbox in a read-only document does not pretend', (

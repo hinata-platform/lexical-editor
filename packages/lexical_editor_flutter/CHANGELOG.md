@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.10.0
+
+**A check-list box can be found on the page.** The empty box was rimmed in
+`LexicalPalette.border`, the divider colour, which is faint by design: about
+1.3:1 on white with the stock palette, and less in most host themes. A box is
+a control and owes 3:1 to the page (WCAG 1.4.11), so it is now rimmed in
+`muted`, the colour the other list markers already use.
+
+**The tick has a colour of its own.** It was drawn in `surface`, the fill
+behind code, which in the stock palettes is nearly transparent. The new
+`LexicalPalette.onAccent` is the ink drawn on an `accent` fill: white in the
+light palette, near-black in the dark one. A host whose accent is pale sets
+it to a dark ink.
+
 ## 1.9.2
 
 Requires `lexical_core` 1.9.2 and `lexical_flutter` 1.9.2. Between them they

@@ -15,7 +15,7 @@ import 'table_layout.dart';
 ///
 /// Deliberately not Material's `ColorScheme`: this package must work in a
 /// Cupertino app, in a custom design system, and in a golden test with no app
-/// at all. Six colours is what a document actually needs.
+/// at all. Seven colours is what a document actually needs.
 @immutable
 class LexicalPalette {
   /// Creates a palette.
@@ -26,6 +26,7 @@ class LexicalPalette {
     this.surface = const Color(0x0A000000),
     this.border = const Color(0x1F000000),
     this.highlight = const Color(0x66FFE082),
+    this.onAccent = const Color(0xFFFFFFFF),
   });
 
   /// A palette for a dark background.
@@ -35,7 +36,8 @@ class LexicalPalette {
       accent = const Color(0xFF8AB4F8),
       surface = const Color(0x14FFFFFF),
       border = const Color(0x33FFFFFF),
-      highlight = const Color(0x66B39B00);
+      highlight = const Color(0x66B39B00),
+      onAccent = const Color(0xFF1A1A1A);
 
   /// Body text.
   final Color text;
@@ -54,6 +56,12 @@ class LexicalPalette {
 
   /// Fill behind highlighted and marked text.
   final Color highlight;
+
+  /// Ink drawn on an [accent] fill: the tick in a ticked check-list box.
+  ///
+  /// The box is a control, so its tick owes 3:1 to the fill behind it
+  /// (WCAG 1.4.11). Pick it against [accent], not against the page.
+  final Color onAccent;
 }
 
 /// Builds a theme presenting every node type this bundle registers.
@@ -473,20 +481,20 @@ class _CheckboxState extends State<_Checkbox> {
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
-        // An empty box on a light page was a hairline rectangle the writer had
-        // to hunt for. A tinted fill and a fuller border give it a body, so it
-        // reads as something to press rather than as a rendering artefact.
-        color: checked
-            ? palette.accent
-            : palette.border.withValues(alpha: 0.18),
+        // The rim is drawn in the list-marker colour, not in [border]. A box
+        // is a control and owes 3:1 to the page (WCAG 1.4.11); [border] is a
+        // divider, faint by design, and an empty box drawn in it was a
+        // rectangle the writer had to hunt for. The tinted fill gives it a
+        // body, so it reads as something to press.
+        color: checked ? palette.accent : palette.muted.withValues(alpha: 0.12),
         border: Border.all(
-          color: checked ? palette.accent : palette.border,
+          color: checked ? palette.accent : palette.muted,
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(3),
       ),
       child: checked
-          ? CustomPaint(painter: _CheckPainter(color: palette.surface))
+          ? CustomPaint(painter: _CheckPainter(color: palette.onAccent))
           : null,
     );
 
