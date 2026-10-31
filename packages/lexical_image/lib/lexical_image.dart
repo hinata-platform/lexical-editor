@@ -39,10 +39,7 @@
 /// ```
 library;
 
-import 'package:lexical_core/lexical_core.dart';
-
-import 'src/image_node.dart';
-
+export 'image_node.dart' show ImageNode, imageNodes, $createImageNode;
 export 'src/blur_hash.dart' show BlurHashImage, blurHashPixels, isBlurHash;
 export 'src/image_commands.dart'
     show
@@ -53,7 +50,6 @@ export 'src/image_commands.dart'
         $insertImage;
 export 'src/image_markdown.dart'
     show imageMarkdownTransformer, imageTransformer, markdownImageMaxWidth;
-export 'src/image_node.dart' show ImageNode, $createImageNode;
 export 'src/image_resize.dart' show ImageHandle, ImageSizeLimits, resizeImage;
 export 'src/image_view.dart'
     show
@@ -61,8 +57,3 @@ export 'src/image_view.dart'
         LexicalImageStyle,
         LexicalImageView,
         defaultImageResolver;
-
-/// The node specs this package contributes.
-List<NodeSpec<LexicalNode>> get imageNodes => <NodeSpec<LexicalNode>>[
-  NodeSpec<ImageNode>(type: 'image', create: ImageNode.new),
-];

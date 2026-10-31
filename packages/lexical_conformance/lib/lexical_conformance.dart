@@ -9,6 +9,9 @@ library;
 import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
 import 'package:lexical_hashtag/lexical_hashtag.dart';
+// The node alone: the package's main library brings Flutter widgets with it.
+import 'package:lexical_image/image_node.dart';
+import 'package:lexical_layout/lexical_layout.dart';
 import 'package:lexical_link/lexical_link.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_mark/lexical_mark.dart';
@@ -24,6 +27,8 @@ List<NodeSpec<LexicalNode>> get allFeatureNodes => <NodeSpec<LexicalNode>>[
   ...tableNodes,
   ...markNodes,
   ...hashtagNodes,
+  ...layoutNodes,
+  ...imageNodes,
 ];
 
 /// Creates an editor that understands every implemented node type.
