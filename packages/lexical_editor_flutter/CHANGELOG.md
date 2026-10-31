@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.11.0
+
+Requires `lexical_core`, `lexical_flutter`, `lexical_image` and
+`lexical_layout` 1.11.0.
+
+**Column layouts.** `lexicalNodes` includes `layoutNodes`, `registerLexical`
+registers `registerLayout`, and `defaultLexicalTheme` draws a
+`layout-container` as columns (`layoutBlockLayouts`): widths from its
+`templateColumns`, no gap, columns stretched to the height of the row, and the
+columns stacked when the width is below the sum of their fixed `px` tracks.
+Enter, backspace, typing and the arrow keys work inside a column as they do in
+a table cell.
+
+Together with the block and text styles of `lexical_flutter`, a mail rebuilt
+as a document — a centred 600-pixel canvas, a coloured header, image and text
+columns, a button — is drawn at its original geometry and stays editable.
+
 ## 1.10.0
 
 **A check-list box can be found on the page.** The empty box was rimmed in
