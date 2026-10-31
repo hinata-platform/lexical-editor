@@ -914,15 +914,44 @@ final class HtmlImport {
       return true;
     }
     // Responsive mails carry a mobile and a desktop variant; the desktop one
-    // is kept, because the layout reflows to a phone on its own.
-    final names = [...element.classes, if (element.id.isNotEmpty) element.id];
-    return names.any(
-      (name) => RegExp(
-        r'^(mob|mobile)([-_]?(only|show|version|view))?$|'
-        r'^(show|only|visible)[-_](on[-_])?(mob|mobile)$',
-        caseSensitive: false,
-      ).hasMatch(name),
-    );
+    // is kept, because the layout reflows to a phone on its own. The rule is
+    // the server's, so a mail converted there and one pasted here agree.
+    return _isMobileVariant(element);
+  }
+
+  static final RegExp _mobileToken = RegExp(
+    r'(^|[-_])(mob|mobile|phone)([-_]|$|only)',
+    caseSensitive: false,
+  );
+  static final RegExp _desktopToken = RegExp(
+    r'(^|[-_])(desk|desktop)([-_]|$|only)',
+    caseSensitive: false,
+  );
+
+  /// Whether [element] names itself a mobile variant — in a class, its id,
+  /// or the file name of an image — and not a desktop one as well.
+  static bool _isMobileVariant(dom.Element element) {
+    final names = <String>[
+      ...element.classes,
+      if (element.id.isNotEmpty) element.id,
+      if (element.localName == 'img') _fileName(element.attributes['src']),
+    ];
+    var mobile = false;
+    for (final name in names) {
+      if (name.isEmpty || name.length > 256) continue;
+      if (_desktopToken.hasMatch(name)) return false;
+      if (_mobileToken.hasMatch(name)) mobile = true;
+    }
+    return mobile;
+  }
+
+  /// The last path segment of [src] without query or extension.
+  static String _fileName(String? src) {
+    if (src == null || src.length > 2048) return '';
+    var name = src.split(RegExp('[?#]')).first.split('/').last;
+    final dot = name.lastIndexOf('.');
+    if (dot > 0) name = name.substring(0, dot);
+    return name;
   }
 
   /// The text CSS [element] adds for its content, legacy attributes included.
