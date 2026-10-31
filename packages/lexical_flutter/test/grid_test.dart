@@ -143,6 +143,45 @@ void main() {
     expect(counter[0], lessThanOrEqualTo(2));
   });
 
+  testWidgets('a rebuild with the same column key does not relayout', (
+    tester,
+  ) async {
+    // The column widths come from a closure, and a closure is a new object
+    // on every build: compared by identity, every grid in the document was
+    // laid out again on every keystroke. The key says when the widths are
+    // the same.
+    Widget build() => Directionality(
+      textDirection: TextDirection.ltr,
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 600,
+          child: LexicalGrid(
+            columnCount: 2,
+            columnWidths: (available) => [available / 3, available * 2 / 3],
+            columnWidthsKey: const ['1fr', '2fr'],
+            children: const [
+              GridCell(
+                placement: GridPlacement(row: 0, column: 0),
+                child: SizedBox(height: 10),
+              ),
+              GridCell(
+                placement: GridPlacement(row: 0, column: 1),
+                child: SizedBox(height: 10),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(build());
+    await tester.pumpWidget(build(), phase: EnginePhase.build);
+    final grid = tester.renderObject<RenderLexicalGrid>(
+      find.byType(LexicalGrid),
+    );
+    expect(grid.debugNeedsLayout, isFalse);
+  });
+
   testWidgets('columns take the widths they are given', (tester) async {
     await pump(
       tester,

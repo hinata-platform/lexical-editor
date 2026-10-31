@@ -1,6 +1,7 @@
 /// Laying blocks out in a grid, with spans.
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -96,6 +97,7 @@ class LexicalGrid extends MultiChildRenderObjectWidget {
     super.key,
     this.spacing = 0,
     this.columnWidths,
+    this.columnWidthsKey,
   }) : assert(columnCount > 0, 'a grid needs at least one column');
 
   /// How many columns the grid has.
@@ -109,12 +111,23 @@ class LexicalGrid extends MultiChildRenderObjectWidget {
   /// A widths list of the wrong length is ignored in favour of equal shares.
   final GridColumnWidths? columnWidths;
 
+  /// What [columnWidths] is computed from, compared to decide whether the
+  /// columns changed — the template, for example.
+  ///
+  /// A closure is a new object on every build, so on its own it can only be
+  /// compared by identity, and every grid would lay itself out again on
+  /// every rebuild. With a key, a new closure under an equal key (`==`, or
+  /// element-wise for a list) is taken as the same widths. Without one, the
+  /// closure's identity decides, as before.
+  final Object? columnWidthsKey;
+
   @override
   RenderLexicalGrid createRenderObject(BuildContext context) =>
       RenderLexicalGrid(
         columnCount: columnCount,
         spacing: spacing,
         columnWidths: columnWidths,
+        columnWidthsKey: columnWidthsKey,
       );
 
   @override
@@ -125,7 +138,7 @@ class LexicalGrid extends MultiChildRenderObjectWidget {
     renderObject
       ..columnCount = columnCount
       ..spacing = spacing
-      ..columnWidths = columnWidths;
+      ..setColumnWidths(columnWidths, key: columnWidthsKey);
   }
 }
 
@@ -139,9 +152,11 @@ class RenderLexicalGrid extends RenderBox
     required int columnCount,
     double spacing = 0,
     GridColumnWidths? columnWidths,
+    Object? columnWidthsKey,
   }) : _columnCount = columnCount,
        _spacing = spacing,
-       _columnWidths = columnWidths;
+       _columnWidths = columnWidths,
+       _columnWidthsKey = columnWidthsKey;
 
   int _columnCount;
 
@@ -167,10 +182,25 @@ class RenderLexicalGrid extends RenderBox
 
   /// See [LexicalGrid.columnWidths].
   GridColumnWidths? get columnWidths => _columnWidths;
-  set columnWidths(GridColumnWidths? value) {
-    if (identical(_columnWidths, value)) return;
+  set columnWidths(GridColumnWidths? value) => setColumnWidths(value);
+
+  Object? _columnWidthsKey;
+
+  /// Replaces the column widths, laying out again only when they changed:
+  /// by [key] when there is one, otherwise by the closure's identity.
+  void setColumnWidths(GridColumnWidths? value, {Object? key}) {
+    final same = key != null || _columnWidthsKey != null
+        ? (value == null) == (_columnWidths == null) &&
+              _sameKey(key, _columnWidthsKey)
+        : identical(value, _columnWidths);
     _columnWidths = value;
-    markNeedsLayout();
+    _columnWidthsKey = key;
+    if (!same) markNeedsLayout();
+  }
+
+  static bool _sameKey(Object? a, Object? b) {
+    if (a is List && b is List) return listEquals(a, b);
+    return a == b;
   }
 
   @override
