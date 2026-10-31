@@ -245,9 +245,13 @@ void _parseContentOf(
       transformers,
       contentDepth: contentDepth,
     );
-    // Nothing in it was markdown: leave the node the rule made, rather than
-    // swapping it for an identical one.
-    if (parsed.length == 1 && parsed.single is TextNode) continue;
+    // Nothing in it was markdown: keep the node the rule made, with its escapes
+    // resolved, rather than swapping it for an identical one.
+    if (parsed.length == 1 && parsed.single is TextNode) {
+      final plain = parsed.single.getTextContent();
+      if (plain != text) child.setTextContent(plain);
+      continue;
+    }
 
     LexicalNode anchor = child;
     for (final node in parsed) {
@@ -302,8 +306,31 @@ int _findClose(String text, String tag, int from) {
   return -1;
 }
 
+/// [text] with its markdown escapes resolved, by upstream's rule: a backslash
+/// before ASCII punctuation is that character, and `&#NN;` is the code point
+/// it names. `Hilfe \& FAQ` is the text `Hilfe & FAQ`; keeping the backslash
+/// shows the reader markup that was never meant to be seen.
+///
+/// Called on each run once its delimiters are matched, so an escaped `\*`
+/// has already been refused as a delimiter by the time it becomes a `*`.
+String unescapeMarkdown(String text) => text
+    .replaceAllMapped(_escaped, (match) => match.group(1)!)
+    .replaceAllMapped(_numericReference, (match) {
+      final codePoint = int.tryParse(match.group(1)!);
+      return codePoint == null || codePoint > 0x10ffff
+          ? match.group(0)!
+          : String.fromCharCode(codePoint);
+    });
+
+final RegExp _escaped = RegExp(r'\\([!-/:-@[-`{-~])');
+final RegExp _numericReference = RegExp(r'&#(\d{1,7});');
+
 TextNode _text(String text, int format) {
-  final node = $createTextNode(text);
+  // A code span is the characters between the backticks, escapes included —
+  // CommonMark reads `\*` there as two characters.
+  final node = $createTextNode(
+    (format & TextFormat.code.bit) != 0 ? text : unescapeMarkdown(text),
+  );
   if (format != 0) node.setFormat(format);
   return node;
 }

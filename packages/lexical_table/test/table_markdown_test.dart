@@ -30,11 +30,11 @@ List<List<String>> _cells(LexicalEditor editor) => editor.read(() {
   ];
 });
 
-const _table = '''
+const _table = r'''
 | Paket | Was es kann |
 | --- | --- |
-| lexical_table | Zeilen und Spalten |
-| lexical_embed | YouTube und Figma |''';
+| lexical\_table | Zeilen und Spalten |
+| lexical\_embed | YouTube und Figma |''';
 
 void main() {
   group('import', () {
