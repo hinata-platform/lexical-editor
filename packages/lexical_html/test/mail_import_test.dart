@@ -107,8 +107,11 @@ void main() {
       // The button: a cell with a fill around a link.
       expect(
         outline,
-        contains('paragraph<center>[background-color:#e60000;'
-            'padding:10px 25px 10px 25px]{link{"Sendung verfolgen"}}'),
+        contains(
+          'paragraph<center>[background-color:#e60000;'
+          'padding:10px 25px 10px 25px;margin-left:auto;margin-right:auto;'
+          'width:fit-content]{link{"Sendung verfolgen"}}',
+        ),
       );
     });
 
@@ -191,6 +194,19 @@ void main() {
         () => ($getRoot().getFirstChild()! as ElementNode).getTextStyle(),
       ),
       'font-size: 1px;',
+    );
+  });
+
+  test('an inline block is as wide as its content', () {
+    expect(
+      _outline(
+        _import(
+          '<div style="display:inline-block;background:#e60000;'
+          'padding:10px 25px">Los</div>',
+        ),
+      ),
+      'paragraph[background-color:#e60000;padding:10px 25px 10px 25px;'
+      'width:fit-content]{"Los"}',
     );
   });
 
