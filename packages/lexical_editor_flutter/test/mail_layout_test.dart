@@ -1,6 +1,7 @@
 // A transactional mail rebuilt from layout and block-style nodes, measured
 // rather than screenshotted: geometry and colours come from the render tree,
 // so the suite asserts the same numbers on every machine.
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -353,6 +354,50 @@ void main() {
       expect(icon.height, 32);
       expect(footerBox.contains(icon.center), isTrue);
     }
+  });
+
+  testWidgets('a rebuilt layout keeps its column key, so it is not relaid', (
+    tester,
+  ) async {
+    final editor = createLexicalEditor();
+    editor.update(() {
+      final row = $createLayoutContainerNode('200px 1fr')
+        ..appendAll([
+          $createLayoutItemNode()..append(_text('a')),
+          $createLayoutItemNode()..append(_text('b')),
+        ]);
+      $setBlockStyle(row, '--stack-below:480px');
+      $getRoot()
+        ..clear()
+        ..append(row);
+    }, discrete: true);
+    final grids = <LexicalGrid>[];
+    await tester.pumpWidget(
+      Builder(
+        builder: (context) {
+          final build = layoutBlockLayouts()['layout-container']!;
+          editor.read(() {
+            final row = $getRoot().getFirstChild()! as ElementNode;
+            for (var i = 0; i < 2; i++) {
+              grids.add(
+                build(context, row, (_) => const SizedBox()) as LexicalGrid,
+              );
+            }
+          });
+          return const SizedBox();
+        },
+      ),
+    );
+    expect(identical(grids[0].columnWidths, grids[1].columnWidths), isFalse);
+    expect(grids[0].columnWidthsKey, isNotNull);
+    expect(grids[0].columnWidthsKey, isA<List<Object?>>());
+    expect(
+      listEquals(
+        grids[0].columnWidthsKey! as List<Object?>,
+        grids[1].columnWidthsKey! as List<Object?>,
+      ),
+      isTrue,
+    );
   });
 
   group('--stack-below', () {

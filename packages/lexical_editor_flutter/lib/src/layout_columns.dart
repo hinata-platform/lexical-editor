@@ -58,6 +58,9 @@ Map<String, BlockLayoutBuilder> layoutBlockLayouts({double gap = 0}) => {
       columnWidths: (available) => stackBelow != null && available < stackBelow
           ? null
           : resolveTemplateColumns(tracks, available, gap: gap),
+      // What the closure is computed from: equal on a rebuild with the same
+      // template, so the grid is not laid out again for a new closure.
+      columnWidthsKey: <Object?>[gap, stackBelow, ...tracks],
       children: [
         for (var i = 0; i < items.length; i++)
           GridCell(
