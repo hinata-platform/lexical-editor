@@ -400,6 +400,58 @@ void main() {
     );
   });
 
+  testWidgets('a row shrinks when both of its columns do', (tester) async {
+    // The short column is stretched to the row, so its own height is not
+    // seen while it shrinks; when the tall one shrinks next, the row must
+    // still come down to the taller of the two new heights.
+    final editor = createLexicalEditor();
+    late NodeKey rowKey;
+    late List<NodeKey> shortLines;
+    late List<NodeKey> tallLines;
+    editor.update(() {
+      ParagraphNode line(int i) => _text('Zeile $i');
+      final short = [for (var i = 0; i < 3; i++) line(i)];
+      final tall = [for (var i = 0; i < 6; i++) line(i)];
+      final row = $createLayoutContainerNode('1fr 1fr')
+        ..appendAll([
+          $createLayoutItemNode()..appendAll(short),
+          $createLayoutItemNode()..appendAll(tall),
+        ]);
+      $getRoot()
+        ..clear()
+        ..append(row);
+      rowKey = row.key;
+      shortLines = [for (final p in short) p.key];
+      tallLines = [for (final p in tall) p.key];
+    }, discrete: true);
+    await _pumpDocument(tester, editor, width: 800);
+    final before = tester.getSize(_node(rowKey)).height;
+
+    // The short column loses two lines, then the tall one five.
+    editor.update(() {
+      for (final key in shortLines.skip(1)) {
+        $getNodeByKey(key)!.remove();
+      }
+    }, discrete: true);
+    await tester.pump();
+    expect(tester.getSize(_node(rowKey)).height, before);
+    editor.update(() {
+      for (final key in tallLines.skip(1)) {
+        $getNodeByKey(key)!.remove();
+      }
+    }, discrete: true);
+    await tester.pump();
+    final shrunk = tester.getSize(_node(rowKey)).height;
+
+    // The same document drawn from scratch is the height it must have.
+    final fresh = createLexicalEditor()
+      ..setEditorState(editor.parseEditorState(editor.toJson()));
+    await _pumpDocument(tester, fresh, width: 800);
+    final rowKeyFresh = fresh.read(() => $getRoot().getFirstChild()!.key);
+    expect(shrunk, tester.getSize(_node(rowKeyFresh)).height);
+    expect(shrunk, lessThan(before / 2));
+  });
+
   group('--stack-below', () {
     Future<List<Rect>> columns(
       WidgetTester tester, {
