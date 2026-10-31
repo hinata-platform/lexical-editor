@@ -35,6 +35,8 @@ import {readFileSync} from 'node:fs';
 import {join, basename, sep} from 'node:path';
 import {createRequire} from 'node:module';
 
+import {playgroundNodes} from './playground_nodes.mjs';
+
 const require = createRequire(import.meta.url);
 
 /* ------------------------------------------------------------------ *
@@ -68,6 +70,11 @@ async function collectNodes() {
       missing.push(pkg);
     }
   }
+  // The playground's layout and image nodes are not published as packages;
+  // their re-declared model halves ship next to this script.
+  const playground = await playgroundNodes();
+  mods.playground = playground;
+  nodes.push(...playground.nodes);
   return {nodes, missing, mods};
 }
 
@@ -179,6 +186,22 @@ async function buildCorpus(mods) {
   const tb = mods['@lexical/table'];
   const mk = mods['@lexical/mark'];
   const ht = mods['@lexical/hashtag'];
+  const pg = mods.playground;
+  // Block style: an element's CSS travels as NodeState under `"$"`, which
+  // upstream serializes for any element without the node type knowing.
+  const blockStyle = L.createState('style', {
+    parse: (value) => (typeof value === 'string' ? value : ''),
+  });
+  const styled = (node, css) => {
+    L.$setState(node, blockStyle, css);
+    return node;
+  };
+  const item = (...blocks) => pg.$createLayoutItemNode().append(...blocks);
+  const para = (text) => {
+    const p = L.$createParagraphNode();
+    if (text) p.append(L.$createTextNode(text));
+    return p;
+  };
 
   const cases = [];
   const add = (name, build, requires = []) => {
@@ -444,6 +467,77 @@ async function buildCorpus(mods) {
     list.append(item);
     root.append(list);
   }, [rt, li, lk]);
+
+  add('layout-two-columns', (root) => {
+    const container = pg.$createLayoutContainerNode('1fr 1fr');
+    container.append(item(para('links')), item(para('rechts')));
+    root.append(container);
+  }, [pg]);
+
+  add('layout-three-columns', (root) => {
+    const container = pg.$createLayoutContainerNode('200px 1fr 25%');
+    container.append(
+      item(para('eins')),
+      item(para('zwei'), para('zwei b')),
+      item(para('drei')),
+    );
+    root.append(container, para('danach'));
+  }, [pg]);
+
+  add('layout-nested', (root) => {
+    const inner = pg.$createLayoutContainerNode('120px 1fr');
+    inner.append(item(para('Bild')), item(para('Text')));
+    const outer = styled(
+      pg.$createLayoutContainerNode('1fr'),
+      'max-width:600px;margin:0 auto',
+    );
+    outer.append(item(para('Kopf'), inner));
+    root.append(outer);
+  }, [pg]);
+
+  add('block-style', (root) => {
+    const header = styled(
+      rt.$createHeadingNode('h1'),
+      'background-color:#e60000;color:#ffffff;padding:16px 24px',
+    );
+    header.append(L.$createTextNode('Ihre Bestellung'));
+    const button = styled(
+      para(''),
+      'background-color:#e60000;padding:12px 24px;border-radius:8px',
+    );
+    button.setFormat('center');
+    button.append(L.$createTextNode('Jetzt ansehen'));
+    const cell = styled(item(para('Zelle')), 'background-color:#f4f4f4;padding:8px');
+    const container = styled(pg.$createLayoutContainerNode('1fr'), 'border:1px solid #cccccc');
+    container.append(cell);
+    root.append(header, button, container);
+  }, [rt, pg]);
+
+  add('text-style-mail', (root) => {
+    const p = L.$createParagraphNode();
+    const a = L.$createTextNode('Hallo ');
+    a.setStyle('font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:20px;color:#333333');
+    const b = L.$createTextNode('Kunde');
+    b.setFormat('bold');
+    b.setStyle('letter-spacing:0.5px;text-transform:uppercase;color:rgb(230, 0, 0)');
+    p.append(a, b);
+    root.append(p);
+  });
+
+  add('image-sized', (root) => {
+    const p = L.$createParagraphNode();
+    p.setFormat('center');
+    p.append(
+      pg.$createImageNode({
+        altText: 'Logo',
+        height: 48,
+        maxWidth: 600,
+        src: 'https://example.com/logo.png',
+        width: 160,
+      }),
+    );
+    root.append(p);
+  }, [pg]);
 
   return cases;
 }

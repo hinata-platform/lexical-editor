@@ -27,6 +27,14 @@ reflected in the package `CHANGELOG` rather than merged silently.
 
 `--check` runs weekly in CI for exactly that reason.
 
+## Playground nodes
+
+`layout-container`, `layout-item` and `image` are shapes Lexical web documents
+carry, but upstream ships them only inside its React playground, not as a
+package. `playground_nodes.mjs` re-declares their model half (fields, clone,
+JSON, shadow-root and can-be-empty policy) from the v0.48.0 sources, and the
+generator registers it next to the published packages.
+
 ## Pinned version
 
 `package.json` pins the Lexical packages to an exact version. Compatibility is
