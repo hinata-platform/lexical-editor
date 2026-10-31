@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.11.0
+
+Requires `lexical_core` 1.11.0 and `lexical_layout` 1.11.0.
+
+**A mail keeps its shape.** When the editor registers the layout nodes, a
+table row of two or more cells becomes a `layout-container` whose columns come
+from the cells' widths, a run of MJML `mj-column-per-NN` columns becomes one
+too, and a styled table, cell or `div` becomes a block style on the block it
+holds, or on a one-column layout around several. `bgcolor`, `align`, `width`,
+`cellpadding`, `<center>` and `<font>` are read like their CSS. Inline CSS on
+text becomes the text's `style`, inherited the way CSS inherits; only the
+properties a renderer draws are kept. Hidden elements, collapsed preheaders,
+mobile-only variants and tracking pixels are dropped. Data tables stay text.
+Without the layout nodes registered the import is what it was.
+
+**Images.** `HtmlImport.createImage` turns an `<img>` into a node with its
+width and height; without it an image contributes its `alt` text.
+
+**Export** writes layouts as the playground's
+`data-lexical-layout-container` markup, which the importer reads back, and a
+block's style — rewritten from the parsed style, never copied — on its tag.
+
 ## 1.7.4
 
 **A block wrapper contributes its text once.** A `<div>` holding only inline

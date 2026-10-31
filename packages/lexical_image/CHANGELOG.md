@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.11.0
+
+**The node on its own.** `package:lexical_image/image_node.dart` exports
+`ImageNode`, `$createImageNode` and `imageNodes` without the Flutter widgets,
+for programs that only read and write documents: a server converting mail, the
+conformance suite, an HTML importer's image factory. The main library
+re-exports the same names.
+
+An image in a layout column or under a block style is drawn at its stored
+width, never wider than the column, keeping its shape. A host that blocks
+remote images returns `null` from its `ImageResolver`; the
+`placeholderBuilder` is then drawn at the image's exact size, so the layout
+does not move when the images are allowed.
+
 ## 1.8.0
 
 **An image can carry a BlurHash, and a document opens showing its pictures.**

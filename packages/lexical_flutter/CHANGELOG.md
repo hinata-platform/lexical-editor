@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.11.0
+
+Requires `lexical_core` 1.11.0.
+
+**A block draws its own box.** Any element with a block style gets its fill,
+border, corner radius and padding, its `width` or `max-width` (never wider
+than the space it is given), centring through `auto` margins, and its top and
+bottom margins, which replace the theme's spacing. Its `color` becomes the
+default text colour for everything inside it, nested blocks included. The
+mapping is `blockCssDecoration` and `blockCssPadding`.
+
+**The text properties mails use.** `defaultCssStyleResolver` adds
+`line-height`, `letter-spacing`, `font-style` and `text-decoration-line`;
+`text-transform` changes the drawn text through the same path as the case
+format bits (`cssTextTransformFormat`). Generic font families map to faces the
+platforms have (`resolveCssFontFamily`). Colours now include the CSS named
+colours and `transparent` — `parseCssColor` reads through `lexical_core`. A
+style string longer than 2048 characters is ignored.
+
+**`LexicalGrid` takes column widths.** `columnWidths` answers the widths for
+the space available, or `null` to stack the children one per row, which is
+how a layout too narrow for its fixed columns reflows.
+
+**An empty block is one line of its caret style**, so an empty paragraph
+whose text style says `font-size:1px` is a one-pixel line.
+
 ## 1.9.2
 
 **Typing no longer stops in Safari after a click into the text.** The editor
