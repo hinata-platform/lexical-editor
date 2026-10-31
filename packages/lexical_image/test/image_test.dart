@@ -1007,6 +1007,84 @@ void main() {
       expect(_storedWidth(editor), 200);
     });
   });
+
+  group('an image with only its width stored', () {
+    // A mail's `<img width="293">` has no height: the stored height is 0.
+    // Before it loads — and for good, while remote images are blocked — a
+    // box with no height is a strip, and the next paragraph is drawn over the
+    // picture once it arrives.
+    const marker = ValueKey<String>('placeholder');
+    late ui.Image decoded;
+
+    setUp(() async {
+      imageCache
+        ..clear()
+        ..clearLiveImages();
+      decoded = await createTestImage(width: 900, height: 600);
+    });
+
+    Future<void> pump(
+      WidgetTester tester, {
+      required ImageResolver resolver,
+      double? width,
+      double? height,
+    }) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 400,
+              child: LexicalImageView(
+                editor: _editor(),
+                nodeKey: const NodeKey('1'),
+                src: 'https://mail.example/a.png',
+                width: width,
+                height: height,
+                editable: false,
+                captionsEnabled: false,
+                resolver: resolver,
+                placeholderBuilder: (context, src) =>
+                    const ColoredBox(key: marker, color: Color(0xFFDDDDDD)),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('a blocked one reserves a box of a stand-in shape', (
+      tester,
+    ) async {
+      await pump(tester, resolver: (_) => null, width: 293, height: 0);
+      expect(
+        tester.getSize(find.byKey(marker)),
+        const Size(293, 293 / placeholderAspectRatio),
+      );
+    });
+
+    testWidgets('a blocked one with both sides keeps exactly its box', (
+      tester,
+    ) async {
+      await pump(tester, resolver: (_) => null, width: 160, height: 48);
+      expect(tester.getSize(find.byKey(marker)), const Size(160, 48));
+    });
+
+    testWidgets('a blocked one wider than its column keeps its shape', (
+      tester,
+    ) async {
+      await pump(tester, resolver: (_) => null, width: 800, height: 200);
+      expect(tester.getSize(find.byKey(marker)), const Size(400, 100));
+    });
+
+    testWidgets('a loaded one takes the picture\'s own shape', (tester) async {
+      final provider = _DecodedImage(decoded);
+      await pump(tester, resolver: (_) => provider, width: 300, height: 0);
+      expect(tester.getSize(find.byType(Image)), const Size(300, 200));
+    });
+  });
 }
 
 /// The stored width of the one image in [editor].

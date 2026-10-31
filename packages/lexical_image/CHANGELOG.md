@@ -8,6 +8,14 @@ for programs that only read and write documents: a server converting mail, the
 conformance suite, an HTML importer's image factory. The main library
 re-exports the same names.
 
+**An image with one stored side has a box before it loads.** A mail's
+`<img width="293">` stores a height of 0. Until the picture decoded — and for
+good while remote images are blocked — that was a box with no height, a strip
+the next paragraph was drawn over. It now reserves a stand-in shape
+(`placeholderAspectRatio`, twice as wide as high) until the picture reports
+its own, so a blocked image keeps its place and the page moves only once, by
+the difference.
+
 An image in a layout column or under a block style is drawn at its stored
 width, never wider than the column, keeping its shape. A host that blocks
 remote images returns `null` from its `ImageResolver`; the
