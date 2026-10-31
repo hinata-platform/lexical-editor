@@ -19,7 +19,7 @@
 # Two properties worth knowing, because they are what makes running this twice
 # safe:
 #
-#   * It is **resumable**. A package already on pub.dev at this version is
+#   * It is **resumable**. A package already on pub.dev at its own version is
 #     skipped, so a run that dies on number nine is fixed by re-running.
 #   * It **validates everything before uploading anything**. Publishing cannot
 #     be undone, and a set that fails halfway leaves versions on pub.dev
@@ -60,9 +60,16 @@ fi
 
 PACKAGES=$(grep -v '^#' .github/publish-order.txt | grep -v '^$')
 COUNT=$(echo "$PACKAGES" | wc -l | tr -d ' ')
-VERSION=$(grep -E '^version:' packages/lexical_core/pubspec.yaml | head -1 | cut -d' ' -f2)
+# The release is named after the core, but each package answers for its own
+# version: a set may be mixed, with packages a release left alone still on an
+# older one. Checking every package against the core's version would call those
+# missing and try to upload a version pub.dev already has.
+version_of() {
+  grep -E '^version:' "packages/$1/pubspec.yaml" | head -1 | cut -d' ' -f2
+}
+VERSION=$(version_of lexical_core)
 
-echo "publishing $COUNT packages at version $VERSION"
+echo "publishing $COUNT packages, release $VERSION"
 echo "using $FLUTTER"
 echo
 
@@ -101,12 +108,14 @@ echo "== checking the release order and versions"
 echo
 
 # Ask pub.dev what is already there, so this can be re-run after a failure.
-# 200 means that exact version exists and re-uploading it would be rejected.
+# 200 means the package's own version exists and re-uploading it would be
+# rejected.
 published_already() {
   local package="$1"
   local code
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-    "https://pub.dev/api/packages/$package/versions/$VERSION" || echo 000)
+    "https://pub.dev/api/packages/$package/versions/$(version_of "$package")" \
+    || echo 000)
   [ "$code" = "200" ]
 }
 
@@ -123,7 +132,7 @@ package_exists() {
 }
 
 TODO=""      # to publish, in dependency order
-SKIPPED=""   # already on pub.dev at this version
+SKIPPED=""   # already on pub.dev at their own version
 NEW=""       # of TODO, the ones pub.dev has never seen — these cost creation budget
 EXISTING=""  # every package of the set pub.dev already knows, at any version
 for package in $PACKAGES; do
@@ -131,7 +140,7 @@ for package in $PACKAGES; do
     EXISTING="$EXISTING $package"
     if published_already "$package"; then
       SKIPPED="$SKIPPED $package"
-      printf '  %-24s already on pub.dev at %s\n' "$package" "$VERSION"
+      printf '  %-24s already on pub.dev at %s\n' "$package" "$(version_of "$package")"
       continue
     fi
     TODO="$TODO $package"
@@ -208,7 +217,7 @@ print(len(stamps), wait)
 }
 
 if [ -z "$TODO" ]; then
-  echo "nothing to do — every package is on pub.dev at $VERSION."
+  echo "nothing to do — every package is on pub.dev at its version."
   exit 0
 fi
 
@@ -276,9 +285,9 @@ for package in $TODO; do
     # Everything after an unaffordable creation may depend on it, so the
     # listing stops where the run will.
     [ "$created" -gt "$BUDGET" ] && break
-    echo "  $package $VERSION   (new package)"
+    echo "  $package $(version_of "$package")   (new package)"
   else
-    echo "  $package $VERSION"
+    echo "  $package $(version_of "$package")"
   fi
 done
 echo
@@ -305,7 +314,7 @@ wait_until_visible() {
     published_already "$package" && return 0
     sleep 2
   done
-  echo "error: $package $VERSION is not visible on pub.dev after a minute." >&2
+  echo "error: $package $(version_of "$package") is not visible on pub.dev after a minute." >&2
   echo "       Later packages depend on it; stopping here." >&2
   return 1
 }

@@ -49,7 +49,7 @@ tool/publish_first_release.sh
 ```
 
 The script asks once, then publishes without stopping between packages. It is
-safe to re-run: a package already on pub.dev at this version is skipped, so a
+safe to re-run: a package already on pub.dev at its own version is skipped, so a
 run that dies on number nine is fixed by fixing the cause and running it again.
 It validates every remaining package **before** uploading any of them, and
 waits for each upload to become visible before publishing the package that
