@@ -354,10 +354,10 @@ void main() {
         $getRoot().clear();
         $getRoot().append(
           $createParagraphNode()
-            ..append($createTextNode(r'2*3 snake_case a\b')),
+            ..append($createTextNode(r'2*3 snake_case a\b &#38;')),
         );
       }, discrete: true);
-      expect(_to(editor), r'2\*3 snake\_case a\\b');
+      expect(_to(editor), r'2\*3 snake\_case a\\b \&#38;');
       expect(_roundTrip(_to(editor)), _to(editor));
     });
 
