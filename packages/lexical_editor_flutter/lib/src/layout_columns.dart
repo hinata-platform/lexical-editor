@@ -98,9 +98,8 @@ class _LayoutColumns extends StatelessWidget {
     return LexicalGrid(
       columnCount: children.length,
       spacing: gap,
-      columnWidths: (available) => stacked
-          ? null
-          : resolveTemplateColumns(tracks, available, gap: gap),
+      columnWidths: (available) =>
+          stacked ? null : resolveTemplateColumns(tracks, available, gap: gap),
       // What the closure is computed from: equal on a rebuild with the same
       // template, so the grid is not laid out again for a new closure.
       columnWidthsKey: <Object?>[gap, stacked, ...tracks],
