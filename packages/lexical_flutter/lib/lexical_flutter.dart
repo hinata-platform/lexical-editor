@@ -102,6 +102,7 @@ export 'src/widgets/lexical_editable.dart'
         keyDownCommand,
         pasteCommand;
 export 'src/widgets/lexical_inline_block.dart' show LexicalInlineBlock;
+export 'src/widgets/lexical_viewport.dart' show LexicalViewport;
 export 'src/widgets/lexical_interaction.dart'
     show
         LexicalInteraction,

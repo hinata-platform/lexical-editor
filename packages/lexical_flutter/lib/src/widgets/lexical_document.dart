@@ -13,6 +13,7 @@ import 'build_phase.dart';
 import 'editor_scope.dart';
 import 'lexical_inline_block.dart';
 import 'lexical_interaction.dart';
+import 'lexical_viewport.dart';
 
 /// A block's built presentation, cached between commits.
 @immutable
@@ -486,7 +487,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
         Directionality.maybeOf(context) ??
         TextDirection.ltr;
 
-    final Widget body;
+    Widget body;
     if (widget.scrollable) {
       body = ListView.builder(
         controller: widget.scrollController,
@@ -516,6 +517,11 @@ class LexicalDocumentState extends State<LexicalDocument> {
     }
 
     final interaction = widget.interaction;
+    final content = body;
+    body = LayoutBuilder(
+      builder: (context, constraints) =>
+          LexicalViewport(width: constraints.maxWidth, child: content),
+    );
     return Directionality(
       textDirection: direction,
       child: LexicalEditorScope(

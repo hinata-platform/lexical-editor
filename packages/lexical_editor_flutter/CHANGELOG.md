@@ -14,7 +14,8 @@ Enter, backspace, typing and the arrow keys work inside a column as they do in
 a table cell.
 
 A container whose block style carries `--stack-below:<N>px` also stacks
-below `N` pixels; without it a row of percentage or fraction columns never
+when the whole document is narrower than `N` pixels — a media query, so a
+half-width row of icons in a 640-pixel canvas stays a row on a desktop; without it a row of percentage or fraction columns never
 stacks, so a row of icons stays a row on a phone.
 
 Together with the block and text styles of `lexical_flutter`, a mail rebuilt

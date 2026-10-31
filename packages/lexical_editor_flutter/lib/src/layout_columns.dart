@@ -20,8 +20,9 @@ import 'package:lexical_layout/lexical_layout.dart';
 /// cells that touch, and their spacing is their own padding.
 ///
 /// A container whose block style says `--stack-below:<N>px` also stacks
-/// below `N` pixels — how a converted mail keeps the phone layout its media
-/// query gave it, for the columns that had one and not for a row of icons.
+/// when the whole document is narrower than `N` pixels — how a converted
+/// mail keeps the phone layout its media query gave it. Like a media query
+/// it reads the document's width (`LexicalViewport`), not the container's.
 ///
 /// Items are stretched to the height of the row, so a column's background
 /// reaches the bottom of its neighbours the way a table cell's does.
@@ -52,15 +53,10 @@ Map<String, BlockLayoutBuilder> layoutBlockLayouts({double gap = 0}) => {
     // A mail's media query, carried as data: below this width the columns
     // stack whatever their tracks say. See `BlockCss.stackBelow`.
     final stackBelow = BlockCss.parse($getBlockStyle(element)).stackBelow;
-    return LexicalGrid(
-      columnCount: items.length,
-      spacing: gap,
-      columnWidths: (available) => stackBelow != null && available < stackBelow
-          ? null
-          : resolveTemplateColumns(tracks, available, gap: gap),
-      // What the closure is computed from: equal on a rebuild with the same
-      // template, so the grid is not laid out again for a new closure.
-      columnWidthsKey: <Object?>[gap, stackBelow, ...tracks],
+    return _LayoutColumns(
+      tracks: tracks,
+      gap: gap,
+      stackBelow: stackBelow,
       children: [
         for (var i = 0; i < items.length; i++)
           GridCell(
@@ -72,3 +68,43 @@ Map<String, BlockLayoutBuilder> layoutBlockLayouts({double gap = 0}) => {
     );
   },
 };
+
+/// The columns of one layout container.
+///
+/// A widget of its own, rather than the grid straight from the builder,
+/// because `--stack-below` is a media query: it compares with the width of
+/// the whole document, which only a widget below the document can read —
+/// and it is rebuilt when that width changes, which a cached block is not.
+/// The fixed-pixel rule stays the container's own: its columns cannot fit
+/// in less than their sum, wherever it sits.
+class _LayoutColumns extends StatelessWidget {
+  const _LayoutColumns({
+    required this.tracks,
+    required this.gap,
+    required this.stackBelow,
+    required this.children,
+  });
+
+  final List<LayoutTrack> tracks;
+  final double gap;
+  final double? stackBelow;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final below = stackBelow;
+    final viewport = LexicalViewport.widthOf(context);
+    final stacked = below != null && viewport != null && viewport < below;
+    return LexicalGrid(
+      columnCount: children.length,
+      spacing: gap,
+      columnWidths: (available) => stacked
+          ? null
+          : resolveTemplateColumns(tracks, available, gap: gap),
+      // What the closure is computed from: equal on a rebuild with the same
+      // template, so the grid is not laid out again for a new closure.
+      columnWidthsKey: <Object?>[gap, stacked, ...tracks],
+      children: children,
+    );
+  }
+}
