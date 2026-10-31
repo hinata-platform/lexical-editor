@@ -1,6 +1,9 @@
 # Changelog
 
-## 1.7.5
+## 1.11.0
+
+Released with the rest of the set on one version.
+
 
 **An escaped character is that character.** `Hilfe \& FAQ` imported as the
 text `Hilfe \& FAQ`, backslash included, where upstream Lexical and CommonMark
