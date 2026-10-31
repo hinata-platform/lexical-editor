@@ -28,6 +28,7 @@ export 'package:lexical_flutter/lexical_flutter.dart';
 export 'package:lexical_hashtag/lexical_hashtag.dart';
 export 'package:lexical_history/lexical_history.dart';
 export 'package:lexical_image/lexical_image.dart';
+export 'package:lexical_layout/lexical_layout.dart';
 export 'package:lexical_link/lexical_link.dart';
 export 'package:lexical_list/lexical_list.dart';
 export 'package:lexical_mark/lexical_mark.dart';
@@ -51,6 +52,7 @@ export 'src/default_theme.dart'
         defaultCodeHighlightStyles,
         defaultHeadingStyles,
         defaultLexicalTheme;
+export 'src/layout_columns.dart' show layoutBlockLayouts;
 export 'src/horizontal_rule_view.dart'
     show LexicalHorizontalRuleView, horizontalRuleDecoratorBuilders;
 export 'src/mentions.dart' show LexicalMentions;

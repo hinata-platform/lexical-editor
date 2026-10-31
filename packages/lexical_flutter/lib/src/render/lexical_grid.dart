@@ -66,6 +66,13 @@ class GridCell extends ParentDataWidget<GridParentData> {
   Type get debugTypicalAncestorWidgetClass => LexicalGrid;
 }
 
+/// Works out the widths of a grid's columns for the width it is given.
+///
+/// Returns one width per column, or `null` to stack the children instead —
+/// one per row, full width, in child order — which is how a layout too
+/// narrow for its fixed columns reflows on a phone.
+typedef GridColumnWidths = List<double>? Function(double available);
+
 /// Lays children out in a grid of [columnCount] equal columns.
 ///
 /// The layout a table needs and that a `Column` of `Row`s cannot give it: a
@@ -82,6 +89,7 @@ class LexicalGrid extends MultiChildRenderObjectWidget {
     required super.children,
     super.key,
     this.spacing = 0,
+    this.columnWidths,
   }) : assert(columnCount > 0, 'a grid needs at least one column');
 
   /// How many columns the grid has.
@@ -90,9 +98,18 @@ class LexicalGrid extends MultiChildRenderObjectWidget {
   /// The gap between cells, horizontally and vertically.
   final double spacing;
 
+  /// Column widths other than equal shares, or `null` for equal shares.
+  ///
+  /// A widths list of the wrong length is ignored in favour of equal shares.
+  final GridColumnWidths? columnWidths;
+
   @override
   RenderLexicalGrid createRenderObject(BuildContext context) =>
-      RenderLexicalGrid(columnCount: columnCount, spacing: spacing);
+      RenderLexicalGrid(
+        columnCount: columnCount,
+        spacing: spacing,
+        columnWidths: columnWidths,
+      );
 
   @override
   void updateRenderObject(
@@ -101,7 +118,8 @@ class LexicalGrid extends MultiChildRenderObjectWidget {
   ) {
     renderObject
       ..columnCount = columnCount
-      ..spacing = spacing;
+      ..spacing = spacing
+      ..columnWidths = columnWidths;
   }
 }
 
@@ -111,9 +129,13 @@ class RenderLexicalGrid extends RenderBox
         ContainerRenderObjectMixin<RenderBox, GridParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, GridParentData> {
   /// Creates a grid render object.
-  RenderLexicalGrid({required int columnCount, double spacing = 0})
-    : _columnCount = columnCount,
-      _spacing = spacing;
+  RenderLexicalGrid({
+    required int columnCount,
+    double spacing = 0,
+    GridColumnWidths? columnWidths,
+  }) : _columnCount = columnCount,
+       _spacing = spacing,
+       _columnWidths = columnWidths;
 
   int _columnCount;
 
@@ -135,6 +157,16 @@ class RenderLexicalGrid extends RenderBox
     markNeedsLayout();
   }
 
+  GridColumnWidths? _columnWidths;
+
+  /// See [LexicalGrid.columnWidths].
+  GridColumnWidths? get columnWidths => _columnWidths;
+  set columnWidths(GridColumnWidths? value) {
+    if (identical(_columnWidths, value)) return;
+    _columnWidths = value;
+    markNeedsLayout();
+  }
+
   @override
   void setupParentData(RenderObject child) {
     if (child.parentData is! GridParentData) {
@@ -148,11 +180,34 @@ class RenderLexicalGrid extends RenderBox
         ? constraints.maxWidth
         : constraints.minWidth;
     final gaps = spacing * (columnCount - 1);
-    final columnWidth = ((width - gaps) / columnCount).clamp(0.0, width);
+    final equal = ((width - gaps) / columnCount).clamp(0.0, width);
+    final resolver = _columnWidths;
+    final resolved = resolver?.call(width);
+    if (resolver != null && resolved == null) {
+      _layoutStacked(width);
+      return;
+    }
+    final widths = resolved != null && resolved.length == columnCount
+        ? [for (final w in resolved) w.isFinite && w > 0 ? w : 0.0]
+        : List<double>.filled(columnCount, equal);
+    final lefts = <double>[];
+    var x = 0.0;
+    for (final w in widths) {
+      lefts.add(x);
+      x += w + spacing;
+    }
 
     double widthFor(GridPlacement placement) {
-      final span = placement.columnSpan.clamp(1, columnCount);
-      return columnWidth * span + spacing * (span - 1);
+      final column = placement.column.clamp(0, columnCount - 1);
+      final last = (column + placement.columnSpan - 1).clamp(
+        column,
+        columnCount - 1,
+      );
+      var total = spacing * (last - column);
+      for (var c = column; c <= last; c++) {
+        total += widths[c];
+      }
+      return total;
     }
 
     // Pass one: lay every child out at its width, and let each row be as tall
@@ -228,13 +283,28 @@ class RenderLexicalGrid extends RenderBox
         BoxConstraints.tightFor(width: widthFor(placement), height: height),
       );
       data.offset = Offset(
-        (columnWidth + spacing) * placement.column.clamp(0, columnCount - 1),
+        lefts[placement.column.clamp(0, columnCount - 1)],
         rowTops.isEmpty ? 0 : rowTops[row],
       );
       child = data.nextSibling;
     }
 
     size = constraints.constrain(Size(width, totalHeight));
+  }
+
+  /// Every child on its own row, full width, in child order.
+  void _layoutStacked(double width) {
+    var y = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      final data = child.parentData! as GridParentData;
+      child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+      data.offset = Offset(0, y);
+      y += child.size.height;
+      child = data.nextSibling;
+      if (child != null) y += spacing;
+    }
+    size = constraints.constrain(Size(width, y));
   }
 
   static double _max(double? a, double b) => a == null || b > a ? b : a;

@@ -9,6 +9,7 @@ import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_rich_text/lexical_rich_text.dart';
 
+import 'layout_columns.dart';
 import 'table_layout.dart';
 
 /// The colours a document is drawn with.
@@ -105,9 +106,12 @@ LexicalTheme defaultLexicalTheme({
       TextFormat.highlight: (style) =>
           style.copyWith(backgroundColor: palette.highlight),
     },
-    blockLayouts: tableBlockLayouts(
-      selectedCellColor: palette.accent.withValues(alpha: 0.18),
-    ),
+    blockLayouts: {
+      ...tableBlockLayouts(
+        selectedCellColor: palette.accent.withValues(alpha: 0.18),
+      ),
+      ...layoutBlockLayouts(),
+    },
     blockStyles: {
       'paragraph': BlockStyle(spacing: blockSpacing),
       'heading': BlockStyle(spacing: blockSpacing * 1.6),
@@ -135,6 +139,9 @@ LexicalTheme defaultLexicalTheme({
         spacing: blockSpacing,
       ),
       'tablerow': const BlockStyle(spacing: 0),
+      // Columns and their content sit flush: a layout's spacing is its own
+      // block style, which is where a mail keeps it.
+      'layout-item': const BlockStyle(spacing: 0),
       'tablecell': BlockStyle(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(border: Border.all(color: palette.border)),
