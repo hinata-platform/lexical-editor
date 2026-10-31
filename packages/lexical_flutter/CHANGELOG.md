@@ -32,6 +32,10 @@ the row kept its old height, and the content ran out of the cell over the
 blocks below — and off the end of the document. Cells now report their size
 to the grid. Tables had the same fault.
 
+**`LexicalViewport`** publishes the width of the whole document, for a block
+deep in a layout whose decision is about the screen rather than its own
+width — a mail's media query. `LexicalDocument` provides it.
+
 **An empty block is one line of its caret style**, so an empty paragraph
 whose text style says `font-size:1px` is a one-pixel line.
 

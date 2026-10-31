@@ -371,30 +371,33 @@ void main() {
         ..clear()
         ..append(row);
     }, discrete: true);
-    final grids = <LexicalGrid>[];
-    await tester.pumpWidget(
-      Builder(
-        builder: (context) {
-          final build = layoutBlockLayouts()['layout-container']!;
-          editor.read(() {
-            final row = $getRoot().getFirstChild()! as ElementNode;
-            for (var i = 0; i < 2; i++) {
-              grids.add(
-                build(context, row, (_) => const SizedBox()) as LexicalGrid,
-              );
-            }
-          });
-          return const SizedBox();
-        },
-      ),
-    );
-    expect(identical(grids[0].columnWidths, grids[1].columnWidths), isFalse);
-    expect(grids[0].columnWidthsKey, isNotNull);
-    expect(grids[0].columnWidthsKey, isA<List<Object?>>());
+    final build = layoutBlockLayouts()['layout-container']!;
+    Future<LexicalGrid> pumpGrid() async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Builder(
+            builder: (context) => editor.read(
+              () => build(
+                context,
+                $getRoot().getFirstChild()! as ElementNode,
+                (_) => const SizedBox(),
+              ),
+            ),
+          ),
+        ),
+      );
+      return tester.widget<LexicalGrid>(find.byType(LexicalGrid));
+    }
+
+    final first = await pumpGrid();
+    final second = await pumpGrid();
+    expect(identical(first.columnWidths, second.columnWidths), isFalse);
+    expect(first.columnWidthsKey, isA<List<Object?>>());
     expect(
       listEquals(
-        grids[0].columnWidthsKey! as List<Object?>,
-        grids[1].columnWidthsKey! as List<Object?>,
+        first.columnWidthsKey! as List<Object?>,
+        second.columnWidthsKey! as List<Object?>,
       ),
       isTrue,
     );
@@ -495,6 +498,46 @@ void main() {
       expect(rects[0].width, 400);
       expect(rects[1].left, 400);
       expect(rects[1].top, rects[0].top);
+    });
+
+    // MJML's breakpoint is a media query on the viewport. A row of icons
+    // half as wide as a 640 px canvas is 320 px at any screen size; measured
+    // against its own width, it stacked on a desktop too.
+    Future<List<Rect>> iconRow(WidgetTester tester, double width) async {
+      final editor = createLexicalEditor();
+      late List<NodeKey> keys;
+      editor.update(() {
+        final icons = [
+          for (var i = 0; i < 4; i++)
+            $createLayoutItemNode()..append(_text('$i')),
+        ];
+        final row = $createLayoutContainerNode('25% 25% 25% 25%')
+          ..appendAll(icons);
+        $setBlockStyle(row, 'width:50%;margin:auto;--stack-below:480px');
+        final footer = $createLayoutContainerNode('1fr')
+          ..append($createLayoutItemNode()..append(row));
+        $setBlockStyle(footer, 'max-width:640px;margin:0 auto');
+        final canvas = $createLayoutContainerNode('1fr')
+          ..append($createLayoutItemNode()..append(footer));
+        $getRoot()
+          ..clear()
+          ..append(canvas);
+        keys = [for (final icon in icons) icon.key];
+      }, discrete: true);
+      await _pumpDocument(tester, editor, width: width);
+      return [for (final key in keys) tester.getRect(_node(key))];
+    }
+
+    testWidgets('is measured against the document, not the row', (
+      tester,
+    ) async {
+      final wide = await iconRow(tester, 800);
+      expect(wide[0].width, 80);
+      expect(wide.map((r) => r.top).toSet(), hasLength(1));
+
+      final narrow = await iconRow(tester, 390);
+      expect(narrow[1].top, greaterThanOrEqualTo(narrow[0].bottom));
+      expect(narrow[0].width, narrow[1].width);
     });
 
     testWidgets('without it a percentage row never stacks', (tester) async {
