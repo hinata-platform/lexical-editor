@@ -35,7 +35,12 @@ export 'src/input/lexical_input.dart'
 export 'src/render/block_offset_map.dart'
     show BlockOffsetMap, OffsetSegment, ResolvedPoint, buildModelOffsets;
 export 'src/render/lexical_grid.dart'
-    show GridCell, GridPlacement, LexicalGrid, RenderLexicalGrid;
+    show
+        GridCell,
+        GridColumnWidths,
+        GridPlacement,
+        LexicalGrid,
+        RenderLexicalGrid;
 export 'src/render/render_lexical_block.dart'
     show BlockCaret, ForeignSelection, RenderLexicalBlock;
 export 'src/render/span_builder.dart'

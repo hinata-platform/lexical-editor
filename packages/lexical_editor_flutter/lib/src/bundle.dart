@@ -10,6 +10,7 @@ import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_hashtag/lexical_hashtag.dart';
 import 'package:lexical_history/lexical_history.dart';
 import 'package:lexical_image/lexical_image.dart';
+import 'package:lexical_layout/lexical_layout.dart';
 import 'package:lexical_link/lexical_link.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_mark/lexical_mark.dart';
@@ -34,6 +35,7 @@ List<NodeSpec<LexicalNode>> get lexicalNodes => <NodeSpec<LexicalNode>>[
   ...linkNodes,
   ...codeNodes,
   ...tableNodes,
+  ...layoutNodes,
   ...markNodes,
   ...hashtagNodes,
   ...mentionNodes,
@@ -83,6 +85,7 @@ Unsubscribe registerLexical(LexicalEditor editor, {HistoryState? history}) {
     // outside a table, so first refusal is the right place for it.
     registerTable(editor),
     registerList(editor),
+    registerLayout(editor),
     registerCode(editor),
     registerCodeHighlighting(editor),
     registerLink(editor),
