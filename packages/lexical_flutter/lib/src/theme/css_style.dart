@@ -228,14 +228,26 @@ BoxDecoration? blockCssDecoration(BlockCss css) {
       : null;
   final radius = css.borderRadius;
   final canRound =
-      radius != null && radius > 0 && (border == null || border.isUniform);
+      radius != null &&
+      !radius.isZero &&
+      (border == null || border.isUniform);
   final background = css.backgroundColor;
   return BoxDecoration(
     color: background == null ? null : Color(background),
     border: border,
-    borderRadius: canRound ? BorderRadius.circular(radius) : null,
+    borderRadius: canRound
+        ? BorderRadius.only(
+            topLeft: _radius(radius.topLeft),
+            topRight: _radius(radius.topRight),
+            bottomRight: _radius(radius.bottomRight),
+            bottomLeft: _radius(radius.bottomLeft),
+          )
+        : null,
   );
 }
+
+Radius _radius(double value) =>
+    value <= 0 ? Radius.zero : Radius.circular(value);
 
 /// The inset a parsed block style puts around its content: its padding plus
 /// its border widths, because a decoration draws its border inside the box

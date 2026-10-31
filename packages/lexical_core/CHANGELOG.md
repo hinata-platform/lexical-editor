@@ -14,7 +14,9 @@ know and never throws.
 
 `--stack-below:<N>px`, a CSS custom property, is part of the subset too: on
 a layout container it is the width below which its columns stack — a mail's
-media query kept as data (`BlockCss.stackBelow`, bounded to 2000 px).
+media query kept as data (`BlockCss.stackBelow`; a value past 2000 px is
+dropped, as the server drops it). `border-radius` reads one to four values in
+CSS corner order (`CssCorners`), and the renderer rounds each corner.
 
 `parseCssColorValue` (hex, `rgb()`/`rgba()`, `transparent`, the CSS named
 colours) and `parseCssPixels` (`px`, `pt`, `em`, bounded) are the shared

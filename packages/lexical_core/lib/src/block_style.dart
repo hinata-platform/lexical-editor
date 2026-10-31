@@ -78,6 +78,78 @@ final class CssBorderSide {
   String toString() => 'CssBorderSide($width, 0x${color.toRadixString(16)})';
 }
 
+/// Four corner radii in pixels, in CSS order: top left, top right, bottom
+/// right, bottom left.
+final class CssCorners {
+  /// Creates corner radii.
+  const CssCorners({
+    required this.topLeft,
+    required this.topRight,
+    required this.bottomRight,
+    required this.bottomLeft,
+  });
+
+  /// The same radius on every corner.
+  const CssCorners.all(double radius)
+    : topLeft = radius,
+      topRight = radius,
+      bottomRight = radius,
+      bottomLeft = radius;
+
+  /// Reads `border-radius`: one to four lengths, the CSS shorthand order.
+  /// The elliptical form `a / b` keeps its horizontal radii. `null` when a
+  /// value does not parse.
+  static CssCorners? _parse(String value) {
+    final horizontal = value.split('/').first.trim();
+    final parts = horizontal
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .map(parseCssPixels)
+        .toList();
+    if (parts.isEmpty || parts.length > 4 || parts.contains(null)) return null;
+    final a = parts[0]!;
+    final b = parts.length > 1 ? parts[1]! : a;
+    final c = parts.length > 2 ? parts[2]! : a;
+    final d = parts.length > 3 ? parts[3]! : b;
+    return CssCorners(topLeft: a, topRight: b, bottomRight: c, bottomLeft: d);
+  }
+
+  /// Top left radius.
+  final double topLeft;
+
+  /// Top right radius.
+  final double topRight;
+
+  /// Bottom right radius.
+  final double bottomRight;
+
+  /// Bottom left radius.
+  final double bottomLeft;
+
+  /// Whether every corner has the same radius.
+  bool get isUniform =>
+      topLeft == topRight && topLeft == bottomRight && topLeft == bottomLeft;
+
+  /// Whether no corner is rounded.
+  bool get isZero =>
+      topLeft <= 0 && topRight <= 0 && bottomRight <= 0 && bottomLeft <= 0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CssCorners &&
+      other.topLeft == topLeft &&
+      other.topRight == topRight &&
+      other.bottomRight == bottomRight &&
+      other.bottomLeft == bottomLeft;
+
+  @override
+  int get hashCode => Object.hash(topLeft, topRight, bottomRight, bottomLeft);
+
+  @override
+  String toString() =>
+      'CssCorners($topLeft, $topRight, $bottomRight, $bottomLeft)';
+}
+
 /// Four pixel lengths, one per edge, each possibly unset.
 final class CssEdges {
   /// Creates edges.
@@ -184,7 +256,7 @@ final class BlockCss {
     double? stackBelow;
     bool? centeredLeft;
     bool? centeredRight;
-    double? borderRadius;
+    CssCorners? borderRadius;
     CssBorderSide? borderTop;
     CssBorderSide? borderRight;
     CssBorderSide? borderBottom;
@@ -253,13 +325,12 @@ final class BlockCss {
         case '--stack-below':
           final pixels = parseCssPixels(value);
           if (pixels != null) {
-            stackBelow = pixels > maxStackBelow ? maxStackBelow : pixels;
+            // Past the bound it is dropped rather than clamped, which is
+            // what the server's reading does too.
+            stackBelow = pixels > maxStackBelow ? null : pixels;
           }
         case 'border-radius':
-          final parts = _split(value);
-          if (parts.isNotEmpty) {
-            borderRadius = parseCssPixels(parts.first) ?? borderRadius;
-          }
+          borderRadius = CssCorners._parse(value) ?? borderRadius;
         case 'border':
           final side = _borderSide(value);
           if (side != null) {
@@ -335,8 +406,8 @@ final class BlockCss {
   /// Bounded to [maxStackBelow].
   final double? stackBelow;
 
-  /// Corner radius in pixels.
-  final double? borderRadius;
+  /// Corner radii in pixels.
+  final CssCorners? borderRadius;
 
   /// Top border, or `null` for none.
   final CssBorderSide? borderTop;
@@ -406,7 +477,15 @@ final class BlockCss {
     }
     if (fitContent) parts.add('width:fit-content');
     if (stackBelow != null) parts.add('--stack-below:${_px(stackBelow!)}');
-    if (borderRadius != null) parts.add('border-radius:${_px(borderRadius!)}');
+    final radius = borderRadius;
+    if (radius != null) {
+      parts.add(
+        radius.isUniform
+            ? 'border-radius:${_px(radius.topLeft)}'
+            : 'border-radius:${_px(radius.topLeft)} ${_px(radius.topRight)} '
+                  '${_px(radius.bottomRight)} ${_px(radius.bottomLeft)}',
+      );
+    }
     for (final (name, side) in [
       ('top', borderTop),
       ('right', borderRight),

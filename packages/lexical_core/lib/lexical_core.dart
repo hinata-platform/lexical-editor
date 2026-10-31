@@ -25,6 +25,7 @@ export 'src/block_style.dart'
     show
         BlockCss,
         CssBorderSide,
+        CssCorners,
         CssEdges,
         blockStyleStateKey,
         maxBlockStyleLength,
