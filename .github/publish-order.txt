@@ -13,6 +13,7 @@ lexical_mention
 lexical_rich_text
 lexical_collab
 lexical_html
+lexical_layout
 lexical_markdown
 lexical_table
 lexical_embed

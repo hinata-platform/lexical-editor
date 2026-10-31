@@ -1,0 +1,20 @@
+name: lexical_layout
+description: >-
+  Column layout nodes for lexical_core (layout-container, layout-item),
+  wire-compatible with the Lexical playground's layout nodes. Pure Dart.
+version: 1.11.0
+repository: https://github.com/hinata-platform/lexical-editor
+issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  lexical_core: ^1.11.0
+  meta: ^1.15.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

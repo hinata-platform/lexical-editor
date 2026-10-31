@@ -1,6 +1,6 @@
 # Releasing
 
-Nineteen packages, one version, one tag.
+Twenty packages, one version, one tag.
 
 They are one library split so that an application pays only for what it uses —
 not a set of independent projects — so they version in lockstep. `v1.1.0`
@@ -58,7 +58,7 @@ depends on it.
 **The first release takes two days, and that is not a bug.** pub.dev limits
 creating *new* packages, per user, to 4 in two minutes and **12 in a rolling
 24 hours** (`package-created`, scope `user`, in pub-dev's production config).
-Nineteen packages do not fit in one day. The script knows the limits: it paces
+Twenty packages do not fit in one day. The script knows the limits: it paces
 itself through the burst window, publishes as many as the daily budget allows,
 and prints when the window reopens. Run it again then — the order is
 topological, so stopping partway leaves pub.dev consistent, and the packages
@@ -70,7 +70,7 @@ publish order and stopped at the cap, leaving the tail for the next day.
 The limit applies to *creating* a package. Every later release publishes new
 versions of packages that already exist, which is a different and much roomier
 limit — `package-published` is 12 a day **per package** and 200 a day per user,
-so a whole set of nineteen costs one of each package's twelve. This is a
+so a whole set of twenty costs one of each package's twelve. This is a
 one-time cost of the first release, not a property of releasing. A run that
 mixes the two — new versions of the packages that are up, first uploads of the
 ones that are not — only spends creation budget on the new ones.
@@ -105,7 +105,7 @@ without adding it to the workflow rejects every publish.
 ## Releasing one package on its own
 
 Lockstep is a decision, not a law, and a change confined to one package is a
-poor reason to spend nineteen of pub.dev's two hundred daily uploads. Bump only
+poor reason to spend twenty of pub.dev's two hundred daily uploads. Bump only
 that package and tag its version:
 
 ```sh
