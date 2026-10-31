@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_flutter/lexical_flutter.dart';
@@ -76,6 +77,72 @@ void main() {
     expect(tester.getSize(find.byKey(const ValueKey('right'))).height, 150);
   });
 
+  testWidgets('nested grids lay a cell out a bounded number of times', (
+    tester,
+  ) async {
+    // Three grids deep, each with a short cell that is stretched to its row.
+    // Laying a stretched cell out twice per pass — once to measure, once to
+    // stretch — doubles at every level: 2^depth layouts of the innermost
+    // cell for one change at the top.
+    final counter = [0];
+    final tall = ValueNotifier<double>(500);
+    Widget grid(Widget short, double height) => LexicalGrid(
+      columnCount: 2,
+      children: [
+        GridCell(
+          placement: const GridPlacement(row: 0, column: 0),
+          child: short,
+        ),
+        GridCell(
+          placement: const GridPlacement(row: 0, column: 1),
+          child: SizedBox(height: height),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 800,
+            child: ValueListenableBuilder<double>(
+              valueListenable: tall,
+              builder: (context, height, _) => LexicalGrid(
+                columnCount: 2,
+                children: [
+                  GridCell(
+                    placement: const GridPlacement(row: 0, column: 0),
+                    child: grid(
+                      grid(
+                        _Counting(
+                          counter: counter,
+                          child: const SizedBox(height: 10),
+                        ),
+                        300,
+                      ),
+                      400,
+                    ),
+                  ),
+                  GridCell(
+                    placement: const GridPlacement(row: 0, column: 1),
+                    child: SizedBox(height: height),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(counter[0], lessThanOrEqualTo(2));
+
+    counter[0] = 0;
+    tall.value = 600;
+    await tester.pump();
+    expect(counter[0], lessThanOrEqualTo(2));
+  });
+
   testWidgets('columns take the widths they are given', (tester) async {
     await pump(
       tester,
@@ -95,4 +162,27 @@ void main() {
     expect(right.top, 30);
     expect(right.width, 600);
   });
+}
+
+/// Counts how often it is laid out.
+class _Counting extends SingleChildRenderObjectWidget {
+  const _Counting({required this.counter, super.child});
+
+  final List<int> counter;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCounting(counter);
+}
+
+class _RenderCounting extends RenderProxyBox {
+  _RenderCounting(this.counter);
+
+  final List<int> counter;
+
+  @override
+  void performLayout() {
+    counter[0]++;
+    super.performLayout();
+  }
 }
