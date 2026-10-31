@@ -4,6 +4,7 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:lexical_core/lexical_core.dart';
 
+import '../theme/css_style.dart';
 import '../theme/lexical_theme.dart';
 import 'block_offset_map.dart';
 
@@ -52,14 +53,23 @@ final class SpanBuilder {
   ///
   /// Only inline descendants are visited; a block child ends the run and is
   /// laid out as its own block by the caller.
-  BuiltBlockSpan buildBlock(ElementNode block, {TextStyle? baseStyle}) {
+  ///
+  /// [color] is the text colour the block inherits from a block style —
+  /// its own or an ancestor's — and wins over the theme's colour for the
+  /// block type, the way an inherited CSS `color` does.
+  BuiltBlockSpan buildBlock(
+    ElementNode block, {
+    TextStyle? baseStyle,
+    Color? color,
+  }) {
     final segments = <OffsetSegment>[];
     final buffer = StringBuffer();
     final children = <InlineSpan>[];
     var hasDecorators = false;
 
     final blockStyle = theme.blockStyleForNode(block);
-    final base = (baseStyle ?? theme.baseTextStyle).merge(blockStyle.textStyle);
+    var base = (baseStyle ?? theme.baseTextStyle).merge(blockStyle.textStyle);
+    if (color != null) base = base.copyWith(color: color);
 
     void visit(ElementNode parent, TextStyle inherited) {
       var index = 0;
@@ -94,7 +104,10 @@ final class SpanBuilder {
             // here from the other direction.
             final rendered = tokenBuilder != null
                 ? '￼'
-                : applyCaseTransform(modelText, format);
+                : applyCaseTransform(
+                    modelText,
+                    format | cssTextTransformFormat(text.getStyle()),
+                  );
             segments.add(
               OffsetSegment(
                 key: text.key,

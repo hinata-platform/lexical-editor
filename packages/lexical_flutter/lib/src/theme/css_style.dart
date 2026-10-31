@@ -31,12 +31,25 @@ Map<String, String> parseCssDeclarations(String css) {
   return result;
 }
 
-/// The default resolver: the handful of declarations Lexical's toolbars emit.
+/// The longest style string the default resolver reads.
 ///
-/// Handles `color`, `background-color`, `font-size`, `font-family`,
-/// `font-weight` and `text-decoration`. Everything else is ignored — which is
-/// correct rather than lossy, because the original string stays in the model.
+/// A text node's `style` is untrusted input. Nothing the subset below
+/// expresses needs more; a longer string renders as if it were empty and
+/// stays in the document untouched.
+const int maxTextStyleLength = 2048;
+
+/// The default resolver: the text properties documents and mails carry.
+///
+/// Handles `color`, `background-color`, `font-size` (`px`, `pt`, `em`,
+/// `rem`, `%`), `font-family` (with the generic families mapped, see
+/// [resolveCssFontFamily]), `font-weight`, `font-style`, `line-height`,
+/// `letter-spacing` and `text-decoration`. `text-transform` changes the
+/// rendered string rather than the style, so the span builder applies it;
+/// see [cssTextTransformFormat]. Everything else is ignored — which is
+/// correct rather than lossy, because the original string stays in the
+/// model.
 TextStyle defaultCssStyleResolver(String css, TextStyle base) {
+  if (css.length > maxTextStyleLength) return base;
   final declarations = parseCssDeclarations(css);
   if (declarations.isEmpty) return base;
 
@@ -48,15 +61,13 @@ TextStyle defaultCssStyleResolver(String css, TextStyle base) {
   if (background != null) style = style.copyWith(backgroundColor: background);
 
   final fontSize = parseCssLength(declarations['font-size'], base.fontSize);
-  if (fontSize != null) style = style.copyWith(fontSize: fontSize);
+  if (fontSize != null && fontSize > 0 && fontSize <= 512) {
+    style = style.copyWith(fontSize: fontSize);
+  }
 
   final fontFamily = declarations['font-family'];
   if (fontFamily != null && fontFamily.isNotEmpty) {
-    final families = fontFamily
-        .split(',')
-        .map((family) => family.trim().replaceAll(RegExp('^["\']|["\']\$'), ''))
-        .where((family) => family.isNotEmpty)
-        .toList();
+    final families = resolveCssFontFamily(fontFamily);
     if (families.isNotEmpty) {
       style = style.copyWith(
         fontFamily: families.first,
@@ -68,77 +79,175 @@ TextStyle defaultCssStyleResolver(String css, TextStyle base) {
   final fontWeight = parseCssFontWeight(declarations['font-weight']);
   if (fontWeight != null) style = style.copyWith(fontWeight: fontWeight);
 
-  final decoration = parseCssTextDecoration(declarations['text-decoration']);
+  switch (declarations['font-style']?.trim().toLowerCase()) {
+    case 'italic' || 'oblique':
+      style = style.copyWith(fontStyle: FontStyle.italic);
+    case 'normal':
+      style = style.copyWith(fontStyle: FontStyle.normal);
+  }
+
+  final decoration = parseCssTextDecoration(
+    declarations['text-decoration'] ?? declarations['text-decoration-line'],
+  );
   if (decoration != null) style = style.copyWith(decoration: decoration);
+
+  final size = style.fontSize ?? 14;
+  final lineHeight = _lineHeight(declarations['line-height'], size);
+  if (lineHeight != null) style = style.copyWith(height: lineHeight);
+
+  final letterSpacing = declarations['letter-spacing']?.trim().toLowerCase();
+  if (letterSpacing == 'normal') {
+    style = style.copyWith(letterSpacing: 0);
+  } else {
+    final spacing = parseCssLength(letterSpacing, size);
+    if (spacing != null && spacing.abs() <= 100) {
+      style = style.copyWith(letterSpacing: spacing);
+    }
+  }
 
   return style;
 }
 
-/// Parses `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb(...)` and `rgba(...)`.
+/// A CSS `line-height` as a multiple of [fontSize], which is what
+/// [TextStyle.height] is.
 ///
-/// Named colours are not resolved: the list is long, rarely emitted by an
-/// editor toolbar, and getting a partial list wrong is worse than ignoring
-/// the declaration.
-Color? parseCssColor(String? value) {
-  if (value == null) return null;
+/// A bare number is already that multiple; a length is divided by the font
+/// size; `normal` answers `null`, leaving the font's own line height.
+double? _lineHeight(String? value, double fontSize) {
+  if (value == null || fontSize <= 0) return null;
   final input = value.trim().toLowerCase();
-  if (input.isEmpty) return null;
+  if (input == 'normal') return null;
+  final number = double.tryParse(input);
+  final double? multiple;
+  if (number != null) {
+    multiple = number;
+  } else if (input.endsWith('%')) {
+    final percent = double.tryParse(input.substring(0, input.length - 1));
+    multiple = percent == null ? null : percent / 100;
+  } else {
+    final length = parseCssLength(input, fontSize);
+    multiple = length == null ? null : length / fontSize;
+  }
+  if (multiple == null || !multiple.isFinite || multiple <= 0) return null;
+  return multiple.clamp(0.5, 10).toDouble();
+}
 
-  if (input.startsWith('#')) {
-    final hex = input.substring(1);
-    switch (hex.length) {
-      case 3:
-        final expanded = hex.split('').map((c) => '$c$c').join();
-        return _hexColor('ff$expanded');
-      case 4:
-        final expanded = hex.split('').map((c) => '$c$c').join();
-        // CSS is #rrggbbaa; Flutter wants 0xAARRGGBB.
-        return _hexColor(
-          '${expanded.substring(6, 8)}${expanded.substring(0, 6)}',
-        );
-      case 6:
-        return _hexColor('ff$hex');
-      case 8:
-        return _hexColor('${hex.substring(6, 8)}${hex.substring(0, 6)}');
+/// The families to try for a CSS `font-family` stack, in order.
+///
+/// Named families are kept: the engine takes the first one the platform has,
+/// which is what a browser does too. The generic families have no font of
+/// that name in Flutter, so they are replaced by the faces each platform
+/// ships for them — `serif` by Times New Roman, Georgia and Noto Serif,
+/// `monospace` by Menlo, Courier New and Roboto Mono. `sans-serif`,
+/// `system-ui` and `-apple-system` end the list instead: what comes after
+/// the stack is the platform's own sans-serif, which is that family.
+///
+/// Bounded to eight families.
+List<String> resolveCssFontFamily(String value) {
+  final families = <String>[];
+  for (final raw in value.split(',').take(8)) {
+    final family = raw.trim().replaceAll(RegExp('^["\']|["\']\$'), '');
+    if (family.isEmpty) continue;
+    switch (family.toLowerCase()) {
+      case 'serif':
+        return _withFaces(families, const [
+          'Times New Roman',
+          'Georgia',
+          'Noto Serif',
+        ]);
+      case 'monospace':
+        return _withFaces(families, const [
+          'Menlo',
+          'Courier New',
+          'Roboto Mono',
+        ]);
+      case 'sans-serif' ||
+          'system-ui' ||
+          '-apple-system' ||
+          'blinkmacsystemfont':
+        return families;
+      default:
+        families.add(family);
     }
-    return null;
   }
-
-  final functional = RegExp(r'^rgba?\(([^)]*)\)$').firstMatch(input);
-  if (functional == null) return null;
-  final parts = functional
-      .group(1)!
-      .split(RegExp('[ ,/]+'))
-      .where((part) => part.isNotEmpty)
-      .toList();
-  if (parts.length < 3) return null;
-  final red = _channel(parts[0]);
-  final green = _channel(parts[1]);
-  final blue = _channel(parts[2]);
-  if (red == null || green == null || blue == null) return null;
-  var alpha = 255;
-  if (parts.length >= 4) {
-    final parsed = double.tryParse(parts[3].replaceAll('%', ''));
-    if (parsed == null) return null;
-    alpha = parts[3].contains('%')
-        ? (parsed * 255 / 100).round()
-        : (parsed * 255).round();
-  }
-  return Color.fromARGB(alpha.clamp(0, 255), red, green, blue);
+  return families;
 }
 
-Color? _hexColor(String argb) {
-  final value = int.tryParse(argb, radix: 16);
-  return value == null ? null : Color(value);
+List<String> _withFaces(List<String> families, List<String> faces) => [
+  ...families,
+  for (final face in faces)
+    if (!families.contains(face)) face,
+];
+
+/// The case-transform format bit a CSS `text-transform` in [css] asks for,
+/// or `0`.
+///
+/// `uppercase`, `lowercase` and `capitalize` are the same presentational
+/// transforms as the text format bits of those names, so they are applied
+/// the same way — to the rendered string, never to the model.
+int cssTextTransformFormat(String css) {
+  if (css.length > maxTextStyleLength || !css.contains('text-transform')) {
+    return 0;
+  }
+  final value = parseCssDeclarations(css)['text-transform'];
+  return switch (value?.trim().toLowerCase()) {
+    'uppercase' => TextFormat.uppercase.bit,
+    'lowercase' => TextFormat.lowercase.bit,
+    'capitalize' => TextFormat.capitalize.bit,
+    _ => 0,
+  };
 }
 
-int? _channel(String raw) {
-  if (raw.endsWith('%')) {
-    final percent = double.tryParse(raw.substring(0, raw.length - 1));
-    return percent == null ? null : (percent * 255 / 100).round().clamp(0, 255);
-  }
-  final value = int.tryParse(raw) ?? double.tryParse(raw)?.round();
-  return value?.clamp(0, 255);
+/// Parses a CSS colour: `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, `rgb(...)`,
+/// `rgba(...)`, `transparent` and the CSS named colours.
+///
+/// The reading is `lexical_core`'s [parseCssColorValue], so the model and
+/// the renderer agree on what a colour is.
+Color? parseCssColor(String? value) {
+  final argb = parseCssColorValue(value);
+  return argb == null ? null : Color(argb);
+}
+
+/// The fill and border a parsed block style draws, or `null` for none.
+///
+/// A corner radius is only drawn with a border that is the same on every
+/// side, or with no border at all: Flutter cannot round a border whose sides
+/// differ, and a radius dropped is better than a frame that fails to paint.
+BoxDecoration? blockCssDecoration(BlockCss css) {
+  if (css.backgroundColor == null && !css.hasBorder) return null;
+  BorderSide side(CssBorderSide? value) => value == null
+      ? BorderSide.none
+      : BorderSide(color: Color(value.color), width: value.width);
+  final border = css.hasBorder
+      ? Border(
+          top: side(css.borderTop),
+          right: side(css.borderRight),
+          bottom: side(css.borderBottom),
+          left: side(css.borderLeft),
+        )
+      : null;
+  final radius = css.borderRadius;
+  final canRound =
+      radius != null && radius > 0 && (border == null || border.isUniform);
+  final background = css.backgroundColor;
+  return BoxDecoration(
+    color: background == null ? null : Color(background),
+    border: border,
+    borderRadius: canRound ? BorderRadius.circular(radius) : null,
+  );
+}
+
+/// The inset a parsed block style puts around its content: its padding plus
+/// its border widths, because a decoration draws its border inside the box
+/// and the content has to make room for it the way a CSS box does.
+EdgeInsets blockCssPadding(BlockCss css) {
+  final padding = css.padding;
+  return EdgeInsets.fromLTRB(
+    (padding.left ?? 0) + (css.borderLeft?.width ?? 0),
+    (padding.top ?? 0) + (css.borderTop?.width ?? 0),
+    (padding.right ?? 0) + (css.borderRight?.width ?? 0),
+    (padding.bottom ?? 0) + (css.borderBottom?.width ?? 0),
+  );
 }
 
 /// Parses a CSS length in `px`, `pt`, `em` or `rem` into logical pixels.
