@@ -163,4 +163,16 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_block('Text'), findsOneWidget);
   });
+
+  testWidgets('an empty block is one line of its own font', (tester) async {
+    final editor = LexicalEditor();
+    editor.update(() {
+      final divider = $createParagraphNode()..setTextStyle('font-size:1px');
+      $setBlockStyle(divider, 'border-top:1px solid #ccc;margin:0');
+      $getRoot().append(divider);
+    }, discrete: true);
+    await _pump(tester, editor);
+    final line = tester.getSize(find.byType(LexicalInlineBlock));
+    expect(line.height, lessThan(3));
+  });
 }
