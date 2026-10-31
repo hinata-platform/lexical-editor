@@ -143,15 +143,15 @@ class LexicalImageStyle {
   );
 }
 
+/// The shape an image with only one stored side is given until it loads,
+/// as width over height: twice as wide as high, a common banner shape.
+const double placeholderAspectRatio = 2;
+
 /// An image with drag handles, drawn for an [ImageNode].
 ///
 /// The handles appear on hover with a mouse and on tap with a finger, and a
 /// drag only writes to the document when it **ends** — resizing has to be one
 /// undo step, not one per pointer move.
-/// The shape an image with only one stored side is given until it loads,
-/// as width over height: twice as wide as high, a common banner shape.
-const double placeholderAspectRatio = 2;
-
 class LexicalImageView extends StatefulWidget {
   /// Draws the image of [nodeKey] in [editor].
   const LexicalImageView({
