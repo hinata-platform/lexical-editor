@@ -236,6 +236,26 @@ void main() {
     expect(text, 'Groß');
   });
 
+  test('a mobile variant is found by a token anywhere in its names', () {
+    final editor = _import('''
+<div class="hero hero-phone">Telefon</div>
+<div class="hero hero-desk">Schreibtisch</div>
+<div id="banner_mob">Mob</div>
+<div class="mobileonly">Nur mobil</div>
+<p><img src="https://m.example/teaser-mobile.png" width="300" height="100" alt="klein">
+<img src="https://m.example/teaser-desktop.png" width="600" height="200" alt="groß"></p>
+<div class="automobile">Auto</div>''');
+    final text = editor.read(() => $getRoot().getTextContent());
+    expect(text, contains('Schreibtisch'));
+    expect(text, isNot(contains('Telefon')));
+    expect(text, isNot(contains('Mob')));
+    expect(text, isNot(contains('Nur mobil')));
+    // A word that merely contains the letters is not a variant.
+    expect(text, contains('Auto'));
+    expect(_outline(editor), contains('image 600x200'));
+    expect(_outline(editor), isNot(contains('image 300x100')));
+  });
+
   test('a data table stays text', () {
     final editor = _import(
       '<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>',

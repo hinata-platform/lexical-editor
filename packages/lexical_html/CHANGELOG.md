@@ -15,7 +15,9 @@ without a width and a `display:inline-block` element become
 mail's button arrives as one centred paragraph as wide as its label. Inline CSS on
 text becomes the text's `style`, inherited the way CSS inherits; only the
 properties a renderer draws are kept. Hidden elements, collapsed preheaders,
-mobile-only variants and tracking pixels are dropped. Data tables stay text.
+mobile variants and tracking pixels are dropped; a mobile variant is a class,
+id or image file name with a `mob`, `mobile` or `phone` token (`hero-phone`,
+`banner_mob`), by the server's rule, unless it also names the desktop. Data tables stay text.
 Without the layout nodes registered the import is what it was.
 
 MJML columns get `--stack-below:480px`, MJML's own breakpoint, so they stack
