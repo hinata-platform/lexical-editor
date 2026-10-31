@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.5
+
+**An escaped character is that character.** `Hilfe \& FAQ` imported as the
+text `Hilfe \& FAQ`, backslash included, where upstream Lexical and CommonMark
+read `Hilfe & FAQ`. A run now resolves a backslash before ASCII punctuation and
+a numeric reference such as `&#38;`, by upstream's rule; a link destination and
+title do the same. A code span keeps its backslashes, as CommonMark has it.
+Escapes and references are read in one pass, so `\&#38;` stays `&#38;`, and a
+reference to NUL, a lone surrogate or no code point at all is U+FFFD.
+
+**Export escapes what import would read as markup.** `*`, `_`, `` ` ``, `~` and
+the backslash are written with a backslash outside code, as upstream does, and
+so is the `&` of a numeric reference, so text that contains them comes back as
+the same text instead of as formatting or as another character.
+
 ## 1.7.4
 
 Two importer bugs, both of which changed what a document says.

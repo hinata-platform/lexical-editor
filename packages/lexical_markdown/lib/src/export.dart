@@ -85,7 +85,15 @@ String _exportInline(ElementNode element, MarkdownTransformers transformers) {
         buffer.write(transformer.tag);
         open.add(transformer);
       }
-      buffer.write(child.getTextContent());
+      // A character that markdown would read as markup is written escaped, so
+      // that importing the result gives this text back and not a format. Code
+      // is the exception: inside backticks every character is itself.
+      final text = child.getTextContent();
+      buffer.write(
+        child.hasFormat(TextFormat.code)
+            ? text
+            : text.replaceAllMapped(_markup, (match) => '\\${match[0]}'),
+      );
       continue;
     }
 
@@ -103,6 +111,11 @@ String _exportInline(ElementNode element, MarkdownTransformers transformers) {
   close();
   return buffer.toString();
 }
+
+/// What text has to escape to come back as itself: the format delimiters and
+/// the backslash upstream escapes, and an `&` that would start a numeric
+/// reference, which import decodes.
+final RegExp _markup = RegExp(r'[*_`~\\]|&(?=#\d{1,7};)');
 
 String? _exportInlineNode(LexicalNode node, MarkdownTransformers transformers) {
   String exportChildren(ElementNode element) =>

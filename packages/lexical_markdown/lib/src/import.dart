@@ -245,9 +245,13 @@ void _parseContentOf(
       transformers,
       contentDepth: contentDepth,
     );
-    // Nothing in it was markdown: leave the node the rule made, rather than
-    // swapping it for an identical one.
-    if (parsed.length == 1 && parsed.single is TextNode) continue;
+    // Nothing in it was markdown: keep the node the rule made, with its escapes
+    // resolved, rather than swapping it for an identical one.
+    if (parsed.length == 1 && parsed.single is TextNode) {
+      final plain = parsed.single.getTextContent();
+      if (plain != text) child.setTextContent(plain);
+      continue;
+    }
 
     LexicalNode anchor = child;
     for (final node in parsed) {
@@ -302,8 +306,40 @@ int _findClose(String text, String tag, int from) {
   return -1;
 }
 
+/// [text] with its markdown escapes resolved, by upstream's rule: a backslash
+/// before ASCII punctuation is that character, and `&#NN;` is the code point
+/// it names. `Hilfe \& FAQ` is the text `Hilfe & FAQ`; keeping the backslash
+/// shows the reader markup that was never meant to be seen.
+///
+/// Called on each run once its delimiters are matched, so an escaped `\*`
+/// has already been refused as a delimiter by the time it becomes a `*`.
+String unescapeMarkdown(String text) {
+  if (!text.contains('\\') && !text.contains('&#')) return text;
+  // One pass, as CommonMark reads it: `\&#38;` is an escaped ampersand and
+  // then `#38;`. Upstream's two passes in a row decode the reference the
+  // escape uncovered.
+  return text.replaceAllMapped(_escapeOrReference, (match) {
+    final escaped = match.group(1);
+    if (escaped != null) return escaped;
+    final codePoint = int.parse(match.group(2)!);
+    // NUL and lone surrogates are not text; CommonMark asks for U+FFFD
+    // in their place.
+    final invalid =
+        codePoint == 0 ||
+        codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff);
+    return invalid ? '\ufffd' : String.fromCharCode(codePoint);
+  });
+}
+
+final RegExp _escapeOrReference = RegExp(r'\\([!-/:-@[-`{-~])|&#(\d{1,7});');
+
 TextNode _text(String text, int format) {
-  final node = $createTextNode(text);
+  // A code span is the characters between the backticks, escapes included —
+  // CommonMark reads `\*` there as two characters.
+  final node = $createTextNode(
+    (format & TextFormat.code.bit) != 0 ? text : unescapeMarkdown(text),
+  );
   if (format != 0) node.setFormat(format);
   return node;
 }

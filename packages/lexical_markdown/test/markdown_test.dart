@@ -310,8 +310,55 @@ void main() {
             .map((node) => (node.getTextContent(), node.getFormat()))
             .toList(),
       );
-      expect(runs, [(r'ein \*kein Stern\* mehr', 0)]);
+      expect(runs, [('ein *kein Stern* mehr', 0)]);
       expect(_to(editor), r'ein \*kein Stern\* mehr');
+    });
+
+    // Measured against @lexical/markdown 0.48.0: the backslash is markdown,
+    // the character after it is the text.
+    test('an escaped character is that character in the text', () {
+      final editor = _from(r'0172 229\*. Hilfe \& FAQ \| Kontakt \# und &#38;');
+      expect(
+        editor.read(() => $getRoot().getTextContent()),
+        '0172 229*. Hilfe & FAQ | Kontakt # und &',
+      );
+    });
+
+    test('an escaped ampersand does not start a reference', () {
+      final editor = _from(r'\&#38; und \\');
+      expect(editor.read(() => $getRoot().getTextContent()), r'&#38; und \');
+    });
+
+    test('a reference to no character is the replacement character', () {
+      final editor = _from('a &#0; b &#55296; c &#9999999; d');
+      expect(
+        editor.read(() => $getRoot().getTextContent()),
+        'a \ufffd b \ufffd c \ufffd d',
+      );
+    });
+
+    test('a named entity stays as written, as upstream leaves it', () {
+      final editor = _from('a &amp; b');
+      expect(editor.read(() => $getRoot().getTextContent()), 'a &amp; b');
+    });
+
+    test('a backslash inside a code span is a backslash', () {
+      final editor = _from(r'`a \* b`');
+      expect(editor.read(() => $getRoot().getTextContent()), r'a \* b');
+      expect(_to(editor), r'`a \* b`');
+    });
+
+    test('text that looks like markup is escaped on export', () {
+      final editor = _editor();
+      editor.update(() {
+        $getRoot().clear();
+        $getRoot().append(
+          $createParagraphNode()
+            ..append($createTextNode(r'2*3 snake_case a\b &#38;')),
+        );
+      }, discrete: true);
+      expect(_to(editor), r'2\*3 snake\_case a\\b \&#38;');
+      expect(_roundTrip(_to(editor)), _to(editor));
     });
 
     test('an unpaired delimiter is literal text', () {
@@ -382,6 +429,18 @@ void main() {
         ('kursiver', TextFormat.bold.bit | TextFormat.italic.bit),
         (' Link', TextFormat.bold.bit),
       ]);
+    });
+
+    test('a label and a destination resolve their escapes', () {
+      final editor = _from(r'[Hilfe \& FAQ](https://x.de/a\_b)');
+      final (url, label) = editor.read(() {
+        final link =
+            ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as LinkNode;
+        return (link.url, link.getTextContent());
+      });
+      expect(url, 'https://x.de/a_b');
+      expect(label, 'Hilfe & FAQ');
     });
 
     test('a plain label is left as the one node the rule made', () {

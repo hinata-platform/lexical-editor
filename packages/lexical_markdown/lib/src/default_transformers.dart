@@ -7,6 +7,7 @@ import 'package:lexical_link/lexical_link.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_rich_text/lexical_rich_text.dart';
 
+import 'import.dart' show unescapeMarkdown;
 import 'transformers.dart';
 
 /// `# ` through `###### `.
@@ -140,11 +141,16 @@ final TextMatchTransformer linkTransformer = TextMatchTransformer(
   regExp: RegExp(r'\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)'),
   parsesInlineContent: true,
   replace: (match, format) {
-    final url = match.group(2)!;
+    // A destination and a title take backslash escapes like any text does.
+    final url = unescapeMarkdown(match.group(2)!);
     // Scheme validation happens where the link is made tappable, not here:
     // rewriting it would break the round trip, and a document is allowed to
     // contain a link this application will refuse to open.
-    final link = $createLinkNode(url, title: match.group(3));
+    final title = match.group(3);
+    final link = $createLinkNode(
+      url,
+      title: title == null ? null : unescapeMarkdown(title),
+    );
     final label = $createTextNode(match.group(1)!);
     if (format != 0) label.setFormat(format);
     return link..append(label);
