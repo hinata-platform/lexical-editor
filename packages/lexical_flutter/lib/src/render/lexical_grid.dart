@@ -392,7 +392,6 @@ class RenderLexicalGrid extends RenderBox
     return data.naturalHeight = child.size.height;
   }
 
-
   /// Every child on its own row, full width, in child order.
   void _layoutStacked(double width) {
     var y = 0.0;
