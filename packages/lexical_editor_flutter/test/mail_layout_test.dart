@@ -64,7 +64,7 @@ _Mail _seedMail(LexicalEditor editor) {
       style: 'color:#ffffff;font-size:16px',
       block:
           'background-color:#e60000;padding:10px 25px;'
-          'max-width:220px;margin:0 auto',
+          'width:fit-content;margin:0 auto',
     )..setFormat(ElementFormat.center);
 
     final item = $createLayoutItemNode()
@@ -172,8 +172,18 @@ void main() {
     // side of a 160 px content box.
     expect(image.left - left.left, 20);
 
+    // As wide as its text plus its padding, and centred: a mail's button.
     final button = tester.getRect(_box(mail.button));
-    expect(button.width, 220);
+    final label = tester.getRect(
+      find.descendant(
+        of: _node(mail.button),
+        matching: find.byType(LexicalInlineBlock),
+      ),
+    );
+    expect(label.width, greaterThan(0));
+    expect(button.width, closeTo(label.width + 50, 0.01));
+    expect(button.width, lessThan(600), reason: 'not the canvas width');
+    expect(label.left - button.left, 25);
     expect(button.center.dx, closeTo(400, 0.5), reason: 'centred');
     expect(_fill(tester, mail.button), _red);
 

@@ -315,7 +315,21 @@ class LexicalDocumentState extends State<LexicalDocument> {
     if (style.decoration != null) {
       block = DecoratedBox(decoration: style.decoration!, child: block);
     }
-    if (!css.isEmpty) block = _applyBlockCss(block, css);
+    if (!css.isEmpty) {
+      final parent = element.getParent();
+      block = _applyBlockCss(
+        block,
+        css,
+        // A block as wide as its content is centred the way an inline
+        // block is: by its parent's alignment, or — since a mail's button
+        // is a paragraph that carries the alignment itself — by its own.
+        centeredByFormat:
+            element.getFormat() == ElementFormat.center ||
+            (parent is ElementNode &&
+                parent is! RootNode &&
+                parent.getFormat() == ElementFormat.center),
+      );
+    }
 
     final spacing = depth == 0 ? style.spacing : 0.0;
     final marginTop = css.marginTop ?? 0;
@@ -339,7 +353,14 @@ class LexicalDocumentState extends State<LexicalDocument> {
   /// included — what a `<table width="600">` means, which is where a mail's
   /// widths come from. It never exceeds the space available, and a
   /// percentage is of that space.
-  Widget _applyBlockCss(Widget content, BlockCss css) {
+  ///
+  /// A `fit-content` block is as wide as its content, up to the space
+  /// available, and is centred by `auto` margins or by [centeredByFormat].
+  Widget _applyBlockCss(
+    Widget content,
+    BlockCss css, {
+    required bool centeredByFormat,
+  }) {
     var block = content;
     final inset = blockCssPadding(css);
     if (inset != EdgeInsets.zero) {
@@ -358,7 +379,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
     }
     final width = css.width;
     final maxWidth = css.maxWidth;
-    if (width == null && maxWidth == null) return block;
+    if (width == null && maxWidth == null && !css.fitContent) return block;
     // A block fills its container's width unless told otherwise, up to its
     // `max-width`: in a loose constraint, which `Align` hands down, a box
     // would otherwise shrink to its text.
@@ -368,6 +389,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
         widthFactor: width!.value / 100,
         child: block,
       ),
+      null when css.fitContent => IntrinsicWidth(child: block),
       null => SizedBox(width: double.infinity, child: block),
     };
     if (maxWidth != null) {
@@ -377,7 +399,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
       );
     }
     return Align(
-      alignment: css.centered
+      alignment: css.centered || (css.fitContent && centeredByFormat)
           ? Alignment.topCenter
           : AlignmentDirectional.topStart,
       child: block,

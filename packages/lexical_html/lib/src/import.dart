@@ -619,6 +619,11 @@ final class HtmlImport {
     }
 
     final padding = _cellPadding(table);
+    final tableCss = _blockCss(table, declarations, withWidth: true);
+    // A table that is one cell — a button, a banner — is that cell: its box
+    // and the table's merge onto the content rather than nesting.
+    final isOneCell =
+        rows.length == 1 && rows.single.children.where(_hasContent).length == 1;
     final blocks = <LexicalNode>[];
     for (final row in rows) {
       if (_nodeCount >= limits.maxNodes) break;
@@ -678,7 +683,10 @@ final class HtmlImport {
           cellInherited,
         );
         final css = _mergeCss(
-          _blockCss(row, rowDeclarations, withWidth: false),
+          _mergeCss(
+            isOneCell ? tableCss : '',
+            _blockCss(row, rowDeclarations, withWidth: false),
+          ),
           _blockCss(
             cell,
             cellDeclarations,
@@ -689,7 +697,7 @@ final class HtmlImport {
         blocks.addAll(_box(content, css));
       }
     }
-    return _box(blocks, _blockCss(table, declarations, withWidth: true));
+    return isOneCell ? blocks : _box(blocks, tableCss);
   }
 
   /// The rows of [table] itself, not of tables nested in its cells.
@@ -986,6 +994,15 @@ final class HtmlImport {
     if (element.localName == 'table' &&
         element.attributes['align']?.toLowerCase() == 'center') {
       legacy.add('margin-left:auto;margin-right:auto');
+    }
+    // As wide as its content: a table without a width shrinks to fit, and
+    // an inline block is as wide as what is in it — a mail's button, both
+    // ways it is written. A declared width, which comes after, still wins.
+    if (withWidth &&
+        ((element.localName == 'table' &&
+                element.attributes['width'] == null) ||
+            declarations['display']?.toLowerCase() == 'inline-block')) {
+      legacy.add('width:fit-content');
     }
     final declared = <String>[
       for (final entry in declarations.entries)

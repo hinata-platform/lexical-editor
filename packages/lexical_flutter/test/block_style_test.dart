@@ -175,4 +175,59 @@ void main() {
     final line = tester.getSize(find.byType(LexicalInlineBlock));
     expect(line.height, lessThan(3));
   });
+
+  testWidgets('a fit-content block shrinks to its text and is centred', (
+    tester,
+  ) async {
+    final editor = LexicalEditor();
+    editor.update(() {
+      final byMargins = $createParagraphNode()
+        ..append($createTextNode('Knopf'));
+      $setBlockStyle(
+        byMargins,
+        'width:fit-content;margin:0 auto;padding:10px 25px;'
+        'background-color:#e60000',
+      );
+      final byFormat = $createParagraphNode()
+        ..setFormat(ElementFormat.center)
+        ..append($createTextNode('Mitte'));
+      $setBlockStyle(
+        byFormat,
+        'width:fit-content;padding:10px 25px;background-color:#e60000',
+      );
+      final left = $createParagraphNode()..append($createTextNode('Links'));
+      $setBlockStyle(left, 'width:fit-content;background-color:#e60000');
+      $getRoot().appendAll([byMargins, byFormat, left]);
+    }, discrete: true);
+    await _pump(tester, editor);
+
+    Rect boxOf(String text) => tester.getRect(
+      find.ancestor(of: _block(text), matching: find.byType(DecoratedBox))
+          .first,
+    );
+    for (final text in ['Knopf', 'Mitte']) {
+      final box = boxOf(text);
+      final label = tester.getRect(_block(text));
+      expect(box.width, closeTo(label.width + 50, 0.01), reason: text);
+      expect(box.width, lessThan(400), reason: text);
+      expect(box.center.dx, closeTo(400, 0.5), reason: text);
+    }
+    expect(boxOf('Links').left, 0);
+    expect(boxOf('Links').width, lessThan(400));
+  });
+
+  testWidgets('a fit-content block wraps rather than overflows', (
+    tester,
+  ) async {
+    final editor = _blocks([
+      ('Wort ' * 200, 'width:fit-content;background-color:#e60000'),
+    ]);
+    await _pump(tester, editor);
+    expect(tester.takeException(), isNull);
+    final box = tester.getRect(
+      find.ancestor(of: find.byType(LexicalInlineBlock), matching: find.byType(DecoratedBox))
+          .first,
+    );
+    expect(box.width, 800);
+  });
 }
