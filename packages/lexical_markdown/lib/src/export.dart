@@ -112,9 +112,10 @@ String _exportInline(ElementNode element, MarkdownTransformers transformers) {
   return buffer.toString();
 }
 
-/// The characters upstream escapes in text: the format delimiters and the
-/// backslash that escapes them.
-final RegExp _markup = RegExp(r'[*_`~\\]');
+/// What text has to escape to come back as itself: the format delimiters and
+/// the backslash upstream escapes, and an `&` that would start a numeric
+/// reference, which import decodes.
+final RegExp _markup = RegExp(r'[*_`~\\]|&(?=#\d{1,7};)');
 
 String? _exportInlineNode(LexicalNode node, MarkdownTransformers transformers) {
   String exportChildren(ElementNode element) =>

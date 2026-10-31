@@ -11,8 +11,9 @@ Escapes and references are read in one pass, so `\&#38;` stays `&#38;`, and a
 reference to NUL, a lone surrogate or no code point at all is U+FFFD.
 
 **Export escapes what import would read as markup.** `*`, `_`, `` ` ``, `~` and
-the backslash are written with a backslash outside code, as upstream does, so
-text that contains them comes back as the same text instead of as formatting.
+the backslash are written with a backslash outside code, as upstream does, and
+so is the `&` of a numeric reference, so text that contains them comes back as
+the same text instead of as formatting or as another character.
 
 ## 1.7.4
 
