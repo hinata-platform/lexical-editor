@@ -6,6 +6,7 @@ import 'package:lexical_core/lexical_core.dart';
 
 import '../render/block_offset_map.dart';
 import '../render/span_builder.dart';
+import '../theme/css_style.dart';
 import '../theme/lexical_theme.dart';
 import 'block_registry.dart';
 import 'build_phase.dart';
@@ -227,6 +228,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
     BuildContext context,
     LexicalNode node, {
     required int depth,
+    Color? inheritedColor,
   }) {
     if (node is DecoratorNode) {
       final builder = widget.decoratorBuilders[node.type];
@@ -237,17 +239,27 @@ class LexicalDocumentState extends State<LexicalDocument> {
       );
     }
     if (node is! ElementNode) return const SizedBox.shrink();
-    return _buildElement(context, node, depth: depth);
+    return _buildElement(
+      context,
+      node,
+      depth: depth,
+      inheritedColor: inheritedColor,
+    );
   }
 
   Widget _buildElement(
     BuildContext context,
     ElementNode element, {
     required int depth,
+    Color? inheritedColor,
   }) {
     final theme = widget.theme;
     final style = theme.blockStyleForNode(element);
     final direction = _resolveDirection(element);
+    final css = BlockCss.parse($getBlockStyle(element));
+    // A block's CSS `color` is the default for everything inside it, nested
+    // blocks included, as an inherited CSS property is.
+    final color = css.color == null ? inheritedColor : Color(css.color!);
 
     final children = element.children.toList();
     final layout = theme.blockLayouts[element.type];
@@ -255,9 +267,20 @@ class LexicalDocumentState extends State<LexicalDocument> {
         ? layout(
             context,
             element,
-            (node) => _buildNode(context, node, depth: depth + 1),
+            (node) => _buildNode(
+              context,
+              node,
+              depth: depth + 1,
+              inheritedColor: color,
+            ),
           )
-        : _buildContent(context, element, children, depth: depth);
+        : _buildContent(
+            context,
+            element,
+            children,
+            depth: depth,
+            color: color,
+          );
 
     var block = content;
 
@@ -292,9 +315,14 @@ class LexicalDocumentState extends State<LexicalDocument> {
     if (style.decoration != null) {
       block = DecoratedBox(decoration: style.decoration!, child: block);
     }
-    if (style.spacing > 0 && depth == 0) {
+    if (!css.isEmpty) block = _applyBlockCss(block, css);
+
+    final spacing = depth == 0 ? style.spacing : 0.0;
+    final marginTop = css.marginTop ?? 0;
+    final marginBottom = css.marginBottom ?? spacing;
+    if (marginTop > 0 || marginBottom > 0) {
       block = Padding(
-        padding: EdgeInsets.only(bottom: style.spacing),
+        padding: EdgeInsets.only(top: marginTop, bottom: marginBottom),
         child: block,
       );
     }
@@ -304,11 +332,64 @@ class LexicalDocumentState extends State<LexicalDocument> {
     );
   }
 
+  /// Draws a block's own box: padding, fill, border, then its width and
+  /// where it sits in the space it is given.
+  ///
+  /// A `width` is taken as the width of the whole box, border and padding
+  /// included — what a `<table width="600">` means, which is where a mail's
+  /// widths come from. It never exceeds the space available, and a
+  /// percentage is of that space.
+  Widget _applyBlockCss(Widget content, BlockCss css) {
+    var block = content;
+    final inset = blockCssPadding(css);
+    if (inset != EdgeInsets.zero) {
+      block = Padding(padding: inset, child: block);
+    }
+    final decoration = blockCssDecoration(css);
+    if (decoration != null) {
+      block = DecoratedBox(decoration: decoration, child: block);
+      if (decoration.borderRadius != null) {
+        // The fill is rounded; content painting over its corners is not.
+        block = ClipRRect(
+          borderRadius: decoration.borderRadius!,
+          child: block,
+        );
+      }
+    }
+    final width = css.width;
+    final maxWidth = css.maxWidth;
+    if (width == null && maxWidth == null) return block;
+    // A block fills its container's width unless told otherwise, up to its
+    // `max-width`: in a loose constraint, which `Align` hands down, a box
+    // would otherwise shrink to its text.
+    block = switch (width?.unit) {
+      CssLengthUnit.px => SizedBox(width: width!.value, child: block),
+      CssLengthUnit.percent => FractionallySizedBox(
+        widthFactor: width!.value / 100,
+        child: block,
+      ),
+      null => SizedBox(width: double.infinity, child: block),
+    };
+    if (maxWidth != null) {
+      block = ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: block,
+      );
+    }
+    return Align(
+      alignment: css.centered
+          ? Alignment.topCenter
+          : AlignmentDirectional.topStart,
+      child: block,
+    );
+  }
+
   Widget _buildContent(
     BuildContext context,
     ElementNode element,
     List<LexicalNode> children, {
     required int depth,
+    Color? color,
   }) {
     final direction = _resolveDirection(element);
     final align = _resolveAlign(element, direction);
@@ -323,7 +404,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
         theme: widget.theme,
         context: context,
         decoratorBuilders: widget.decoratorBuilders,
-      ).buildBlock(element);
+      ).buildBlock(element, color: color);
       return RegisteredBlock(
         nodeKey: element.key,
         offsets: built.offsets,
@@ -348,7 +429,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
       // content — present only in the degenerate mixed case.
       if (children.any(isInlineContent)) inlineBlock(),
       for (final child in blockChildren)
-        _buildNode(context, child, depth: depth + 1),
+        _buildNode(context, child, depth: depth + 1, inheritedColor: color),
     ];
     if (parts.length == 1) return parts.first;
     return Column(

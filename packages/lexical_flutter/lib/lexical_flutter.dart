@@ -57,12 +57,17 @@ export 'src/selection/selection_overlay.dart'
 export 'src/theme/css_style.dart'
     show
         CssStyleResolver,
+        blockCssDecoration,
+        blockCssPadding,
+        cssTextTransformFormat,
         defaultCssStyleResolver,
+        maxTextStyleLength,
         parseCssColor,
         parseCssDeclarations,
         parseCssFontWeight,
         parseCssLength,
-        parseCssTextDecoration;
+        parseCssTextDecoration,
+        resolveCssFontFamily;
 export 'src/theme/lexical_theme.dart'
     show
         BlockLayoutBuilder,
