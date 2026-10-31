@@ -228,9 +228,7 @@ BoxDecoration? blockCssDecoration(BlockCss css) {
       : null;
   final radius = css.borderRadius;
   final canRound =
-      radius != null &&
-      !radius.isZero &&
-      (border == null || border.isUniform);
+      radius != null && !radius.isZero && (border == null || border.isUniform);
   final background = css.backgroundColor;
   return BoxDecoration(
     color: background == null ? null : Color(background),

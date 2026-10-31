@@ -161,15 +161,30 @@ void main() {
       );
       expect(
         BlockCss.parse('border-radius:8px 0').borderRadius,
-        const CssCorners(topLeft: 8, topRight: 0, bottomRight: 8, bottomLeft: 0),
+        const CssCorners(
+          topLeft: 8,
+          topRight: 0,
+          bottomRight: 8,
+          bottomLeft: 0,
+        ),
       );
       expect(
         BlockCss.parse('border-radius:1px 2px 3px').borderRadius,
-        const CssCorners(topLeft: 1, topRight: 2, bottomRight: 3, bottomLeft: 2),
+        const CssCorners(
+          topLeft: 1,
+          topRight: 2,
+          bottomRight: 3,
+          bottomLeft: 2,
+        ),
       );
       expect(
         BlockCss.parse('border-radius:1px 2px 3px 4px').borderRadius,
-        const CssCorners(topLeft: 1, topRight: 2, bottomRight: 3, bottomLeft: 4),
+        const CssCorners(
+          topLeft: 1,
+          topRight: 2,
+          bottomRight: 3,
+          bottomLeft: 4,
+        ),
       );
       // The elliptical form keeps its horizontal radii.
       expect(
