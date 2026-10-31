@@ -56,7 +56,7 @@ void main() {
   final fixtures = _loadFixtures();
 
   test('the corpus is complete', () {
-    expect(fixtures, hasLength(27));
+    expect(fixtures, hasLength(28));
   });
 
   test('every type in the corpus is implemented', () {

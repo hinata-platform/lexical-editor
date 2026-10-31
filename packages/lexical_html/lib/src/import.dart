@@ -452,7 +452,15 @@ final class HtmlImport {
       children = [
         for (final child in element.nodes)
           if (child is dom.Element && columns.first == child)
-            _columnsLayout(columns, inherited, depth: depth)
+            _columnsLayout(
+              columns,
+              inherited,
+              depth: depth,
+              // MJML's columns stack on a phone through its media query;
+              // the columns of an `mj-group` are the exception, kept side
+              // by side at every width.
+              stacks: !_isMjmlGroup(element),
+            )
           else if (!(child is dom.Element && columns.contains(child)))
             ..._convert(child, inherited, depth: depth + 1),
       ];
@@ -749,6 +757,14 @@ final class HtmlImport {
       if (child.localName == 'div' && _mjmlTrack(child) != null) child,
   ].take(_maxColumns).toList();
 
+  /// The width below which MJML's media query stacks its columns.
+  static const int _mjmlBreakpoint = 480;
+
+  /// Whether [element] is an `mj-group`, whose columns never stack.
+  static bool _isMjmlGroup(dom.Element element) =>
+      element.classes.contains('mj-group') ||
+      element.classes.contains('mj-outlook-group-fix');
+
   static String? _mjmlTrack(dom.Element column) {
     for (final name in column.classes) {
       final match = RegExp(
@@ -767,11 +783,15 @@ final class HtmlImport {
     List<dom.Element> columns,
     _Inherited inherited, {
     required int depth,
+    required bool stacks,
   }) {
     final container = $createLayoutContainerNode(
       columns.map((column) => _mjmlTrack(column)!).join(' '),
     );
     _nodeCount++;
+    if (stacks) {
+      $setBlockStyle(container, '--stack-below:${_mjmlBreakpoint}px');
+    }
     for (final column in columns) {
       final declarations = _declarations(column);
       final columnInherited = inherited

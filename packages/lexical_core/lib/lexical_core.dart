@@ -28,6 +28,7 @@ export 'src/block_style.dart'
         CssEdges,
         blockStyleStateKey,
         maxBlockStyleLength,
+        maxStackBelow,
         $getBlockStyle,
         $setBlockStyle;
 export 'src/commands.dart'

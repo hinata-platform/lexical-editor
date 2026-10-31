@@ -513,6 +513,15 @@ async function buildCorpus(mods) {
     root.append(header, button, container);
   }, [rt, pg]);
 
+  add('layout-stack-below', (root) => {
+    const container = styled(
+      pg.$createLayoutContainerNode('50% 50%'),
+      '--stack-below:480px',
+    );
+    container.append(item(para('Bild')), item(para('Text')));
+    root.append(container);
+  }, [pg]);
+
   add('block-style-fit-content', (root) => {
     const button = styled(
       para('Jetzt ansehen'),

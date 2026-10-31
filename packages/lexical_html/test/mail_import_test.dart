@@ -178,10 +178,24 @@ void main() {
       outline,
       'layout-container(1fr)[margin-top:0px;margin-bottom:0px;'
       'margin-left:auto;margin-right:auto;max-width:600px]'
-      '{layout-item{layout-container(50% 50%){'
+      '{layout-item{layout-container(50% 50%)[--stack-below:480px]{'
       'layout-item{paragraph{image 300x200}} '
       'layout-item{paragraph{"Rechts"}}}}}',
     );
+  });
+
+  test('the columns of an mj-group stay side by side', () {
+    final outline = _outline(
+      _import('''
+<div class="mj-column-per-100 mj-outlook-group-fix" style="width:100%;">
+  <div class="mj-column-per-25 mj-outlook-group-fix"><p>A</p></div>
+  <div class="mj-column-per-25 mj-outlook-group-fix"><p>B</p></div>
+  <div class="mj-column-per-25 mj-outlook-group-fix"><p>C</p></div>
+  <div class="mj-column-per-25 mj-outlook-group-fix"><p>D</p></div>
+</div>'''),
+    );
+    expect(outline, contains('layout-container(25% 25% 25% 25%){'));
+    expect(outline, isNot(contains('stack-below')));
   });
 
   test('a divider keeps its border and its one-pixel line', () {

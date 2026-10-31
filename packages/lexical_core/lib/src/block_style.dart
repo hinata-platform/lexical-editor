@@ -22,6 +22,9 @@ import 'nodes/lexical_node.dart';
 /// The NodeState key a block's CSS is stored under.
 const String blockStyleStateKey = 'style';
 
+/// The largest `--stack-below` width honoured, in logical pixels.
+const double maxStackBelow = 2000;
+
 /// The longest block style string that is interpreted.
 ///
 /// Longer strings stay in the document, untouched, and render as if empty:
@@ -124,7 +127,8 @@ final class CssEdges {
 /// The allowed subset: `background-color`, `color`, `padding` and its
 /// longhands, `margin-top`, `margin-bottom`, horizontal centring through
 /// `auto` margins, `max-width`, `width` (pixels, percent or `fit-content`),
-/// `border-radius`, and `border` with its `-top`/`-right`/`-bottom`/`-left` longhands written
+/// `border-radius`, `--stack-below` (see [BlockCss.stackBelow]), and
+/// `border` with its `-top`/`-right`/`-bottom`/`-left` longhands written
 /// as `<width> <style> <colour>`. Everything else is ignored. Alignment is not
 /// here: it is the element's own `format`, as upstream has it.
 ///
@@ -142,6 +146,7 @@ final class BlockCss {
     this.width,
     this.centered = false,
     this.fitContent = false,
+    this.stackBelow,
     this.borderRadius,
     this.borderTop,
     this.borderRight,
@@ -176,6 +181,7 @@ final class BlockCss {
     double? maxWidth;
     CssLength? width;
     var fitContent = false;
+    double? stackBelow;
     bool? centeredLeft;
     bool? centeredRight;
     double? borderRadius;
@@ -244,6 +250,11 @@ final class BlockCss {
               fitContent = false;
             }
           }
+        case '--stack-below':
+          final pixels = parseCssPixels(value);
+          if (pixels != null) {
+            stackBelow = pixels > maxStackBelow ? maxStackBelow : pixels;
+          }
         case 'border-radius':
           final parts = _split(value);
           if (parts.isNotEmpty) {
@@ -275,6 +286,7 @@ final class BlockCss {
       width: width,
       centered: (centeredLeft ?? false) && (centeredRight ?? false),
       fitContent: fitContent,
+      stackBelow: stackBelow,
       borderRadius: borderRadius,
       borderTop: _visible(borderTop),
       borderRight: _visible(borderRight),
@@ -314,6 +326,15 @@ final class BlockCss {
   /// and never wider than the space it is given.
   final bool fitContent;
 
+  /// The width, in logical pixels, below which a layout container stacks
+  /// its columns — the custom property `--stack-below:<N>px`.
+  ///
+  /// A mail's media query, kept as data: MJML columns stack on a phone, the
+  /// cells of a row of icons do not, and only the converter that saw the
+  /// source can tell the two apart. Unset means this rule never stacks.
+  /// Bounded to [maxStackBelow].
+  final double? stackBelow;
+
   /// Corner radius in pixels.
   final double? borderRadius;
 
@@ -347,6 +368,7 @@ final class BlockCss {
       width == null &&
       !centered &&
       !fitContent &&
+      stackBelow == null &&
       borderRadius == null &&
       !hasBorder;
 
@@ -383,6 +405,7 @@ final class BlockCss {
       );
     }
     if (fitContent) parts.add('width:fit-content');
+    if (stackBelow != null) parts.add('--stack-below:${_px(stackBelow!)}');
     if (borderRadius != null) parts.add('border-radius:${_px(borderRadius!)}');
     for (final (name, side) in [
       ('top', borderTop),
@@ -503,6 +526,7 @@ final class BlockCss {
       other.width == width &&
       other.centered == centered &&
       other.fitContent == fitContent &&
+      other.stackBelow == stackBelow &&
       other.borderRadius == borderRadius &&
       other.borderTop == borderTop &&
       other.borderRight == borderRight &&
@@ -520,6 +544,7 @@ final class BlockCss {
     width,
     centered,
     fitContent,
+    stackBelow,
     borderRadius,
     borderTop,
     borderRight,
