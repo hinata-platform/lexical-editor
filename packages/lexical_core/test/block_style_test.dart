@@ -123,6 +123,23 @@ void main() {
     });
   });
 
+  group('fit-content', () {
+    test('shrinks the block to its content', () {
+      final css = BlockCss.parse('width:fit-content;margin:0 auto');
+      expect(css.fitContent, isTrue);
+      expect(css.width, isNull);
+      expect(css.centered, isTrue);
+      expect(BlockCss.parse(css.toCss()), css);
+      expect(css.toCss(), contains('width:fit-content'));
+    });
+
+    test('a later width replaces it, and auto clears it', () {
+      expect(BlockCss.parse('width:fit-content;width:200px').fitContent, false);
+      expect(BlockCss.parse('width:200px;width:fit-content').width, isNull);
+      expect(BlockCss.parse('width:fit-content;width:auto').isEmpty, isTrue);
+    });
+  });
+
   group('BlockCss.toCss', () {
     test('writes the allowed subset in one spelling', () {
       final css = BlockCss.parse(

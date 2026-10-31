@@ -1,7 +1,7 @@
 {
   "generator": "gen_fixtures.mjs",
   "lexicalVersion": "0.48.0",
-  "generatedAt": "2026-10-31T15:53:05.307Z",
+  "generatedAt": "2026-10-31T16:15:18.138Z",
   "fixtures": [
     "empty-root.json",
     "single-paragraph.json",
@@ -27,6 +27,7 @@
     "layout-three-columns.json",
     "layout-nested.json",
     "block-style.json",
+    "block-style-fit-content.json",
     "text-style-mail.json",
     "image-sized.json"
   ]

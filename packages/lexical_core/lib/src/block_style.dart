@@ -121,8 +121,8 @@ final class CssEdges {
 ///
 /// The allowed subset: `background-color`, `color`, `padding` and its
 /// longhands, `margin-top`, `margin-bottom`, horizontal centring through
-/// `auto` margins, `max-width`, `width` (pixels or percent), `border-radius`,
-/// and `border` with its `-top`/`-right`/`-bottom`/`-left` longhands written
+/// `auto` margins, `max-width`, `width` (pixels, percent or `fit-content`),
+/// `border-radius`, and `border` with its `-top`/`-right`/`-bottom`/`-left` longhands written
 /// as `<width> <style> <colour>`. Everything else is ignored. Alignment is not
 /// here: it is the element's own `format`, as upstream has it.
 ///
@@ -139,6 +139,7 @@ final class BlockCss {
     this.maxWidth,
     this.width,
     this.centered = false,
+    this.fitContent = false,
     this.borderRadius,
     this.borderTop,
     this.borderRight,
@@ -172,6 +173,7 @@ final class BlockCss {
     double? marginBottom;
     double? maxWidth;
     CssLength? width;
+    var fitContent = false;
     bool? centeredLeft;
     bool? centeredRight;
     double? borderRadius;
@@ -226,7 +228,20 @@ final class BlockCss {
         case 'max-width':
           maxWidth = parseCssPixels(value) ?? maxWidth;
         case 'width':
-          width = CssLength.parse(value) ?? width;
+          final keyword = value.trim().toLowerCase();
+          if (keyword == 'fit-content' || keyword == '-moz-fit-content') {
+            fitContent = true;
+            width = null;
+          } else {
+            final parsed = CssLength.parse(value);
+            if (parsed != null) {
+              width = parsed;
+              fitContent = false;
+            } else if (keyword == 'auto') {
+              width = null;
+              fitContent = false;
+            }
+          }
         case 'border-radius':
           final parts = _split(value);
           if (parts.isNotEmpty) {
@@ -257,6 +272,7 @@ final class BlockCss {
       maxWidth: maxWidth,
       width: width,
       centered: (centeredLeft ?? false) && (centeredRight ?? false),
+      fitContent: fitContent,
       borderRadius: borderRadius,
       borderTop: _visible(borderTop),
       borderRight: _visible(borderRight),
@@ -288,6 +304,13 @@ final class BlockCss {
 
   /// Whether both horizontal margins are `auto`, centring the block.
   final bool centered;
+
+  /// Whether the block is as wide as its content (`width:fit-content`)
+  /// rather than as wide as its container — a mail's button.
+  ///
+  /// It is centred by `auto` margins or by its parent's `center` format,
+  /// and never wider than the space it is given.
+  final bool fitContent;
 
   /// Corner radius in pixels.
   final double? borderRadius;
@@ -321,6 +344,7 @@ final class BlockCss {
       maxWidth == null &&
       width == null &&
       !centered &&
+      !fitContent &&
       borderRadius == null &&
       !hasBorder;
 
@@ -356,6 +380,7 @@ final class BlockCss {
             : 'width:${_number(w.value)}%',
       );
     }
+    if (fitContent) parts.add('width:fit-content');
     if (borderRadius != null) parts.add('border-radius:${_px(borderRadius!)}');
     for (final (name, side) in [
       ('top', borderTop),
@@ -473,6 +498,7 @@ final class BlockCss {
       other.maxWidth == maxWidth &&
       other.width == width &&
       other.centered == centered &&
+      other.fitContent == fitContent &&
       other.borderRadius == borderRadius &&
       other.borderTop == borderTop &&
       other.borderRight == borderRight &&
@@ -489,6 +515,7 @@ final class BlockCss {
     maxWidth,
     width,
     centered,
+    fitContent,
     borderRadius,
     borderTop,
     borderRight,
