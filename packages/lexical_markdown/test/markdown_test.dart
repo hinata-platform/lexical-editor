@@ -324,6 +324,19 @@ void main() {
       );
     });
 
+    test('an escaped ampersand does not start a reference', () {
+      final editor = _from(r'\&#38; und \\');
+      expect(editor.read(() => $getRoot().getTextContent()), r'&#38; und \');
+    });
+
+    test('a reference to no character is the replacement character', () {
+      final editor = _from('a &#0; b &#55296; c &#9999999; d');
+      expect(
+        editor.read(() => $getRoot().getTextContent()),
+        'a \ufffd b \ufffd c \ufffd d',
+      );
+    });
+
     test('a named entity stays as written, as upstream leaves it', () {
       final editor = _from('a &amp; b');
       expect(editor.read(() => $getRoot().getTextContent()), 'a &amp; b');

@@ -313,17 +313,26 @@ int _findClose(String text, String tag, int from) {
 ///
 /// Called on each run once its delimiters are matched, so an escaped `\*`
 /// has already been refused as a delimiter by the time it becomes a `*`.
-String unescapeMarkdown(String text) => text
-    .replaceAllMapped(_escaped, (match) => match.group(1)!)
-    .replaceAllMapped(_numericReference, (match) {
-      final codePoint = int.tryParse(match.group(1)!);
-      return codePoint == null || codePoint > 0x10ffff
-          ? match.group(0)!
-          : String.fromCharCode(codePoint);
-    });
+String unescapeMarkdown(String text) {
+  if (!text.contains('\\') && !text.contains('&#')) return text;
+  // One pass, as CommonMark reads it: `\&#38;` is an escaped ampersand and
+  // then `#38;`. Upstream's two passes in a row decode the reference the
+  // escape uncovered.
+  return text.replaceAllMapped(_escapeOrReference, (match) {
+    final escaped = match.group(1);
+    if (escaped != null) return escaped;
+    final codePoint = int.parse(match.group(2)!);
+    // NUL and lone surrogates are not text; CommonMark asks for U+FFFD
+    // in their place.
+    final invalid =
+        codePoint == 0 ||
+        codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff);
+    return invalid ? '\ufffd' : String.fromCharCode(codePoint);
+  });
+}
 
-final RegExp _escaped = RegExp(r'\\([!-/:-@[-`{-~])');
-final RegExp _numericReference = RegExp(r'&#(\d{1,7});');
+final RegExp _escapeOrReference = RegExp(r'\\([!-/:-@[-`{-~])|&#(\d{1,7});');
 
 TextNode _text(String text, int format) {
   // A code span is the characters between the backticks, escapes included —
