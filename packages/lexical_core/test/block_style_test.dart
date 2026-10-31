@@ -65,7 +65,7 @@ void main() {
         css.padding,
         const CssEdges(top: 16, right: 24, bottom: 16, left: 24),
       );
-      expect(css.borderRadius, 8);
+      expect(css.borderRadius, const CssCorners.all(8));
       expect(css.marginTop, 12);
       expect(css.marginBottom, closeTo(5.333, 0.001));
       expect(css.maxWidth, 600);
@@ -153,11 +153,56 @@ void main() {
     });
   });
 
+  group('border-radius', () {
+    test('reads one to four values, in CSS corner order', () {
+      expect(
+        BlockCss.parse('border-radius:8px').borderRadius,
+        const CssCorners.all(8),
+      );
+      expect(
+        BlockCss.parse('border-radius:8px 0').borderRadius,
+        const CssCorners(topLeft: 8, topRight: 0, bottomRight: 8, bottomLeft: 0),
+      );
+      expect(
+        BlockCss.parse('border-radius:1px 2px 3px').borderRadius,
+        const CssCorners(topLeft: 1, topRight: 2, bottomRight: 3, bottomLeft: 2),
+      );
+      expect(
+        BlockCss.parse('border-radius:1px 2px 3px 4px').borderRadius,
+        const CssCorners(topLeft: 1, topRight: 2, bottomRight: 3, bottomLeft: 4),
+      );
+      // The elliptical form keeps its horizontal radii.
+      expect(
+        BlockCss.parse('border-radius:4px / 8px').borderRadius,
+        const CssCorners.all(4),
+      );
+    });
+
+    test('a value that does not parse is no radius', () {
+      expect(BlockCss.parse('border-radius:1px x').borderRadius, isNull);
+      expect(
+        BlockCss.parse('border-radius:1px 2px 3px 4px 5px').borderRadius,
+        isNull,
+      );
+    });
+
+    test('round-trips through toCss', () {
+      for (final source in ['border-radius:4px', 'border-radius:0 8px 0 8px']) {
+        final css = BlockCss.parse(source);
+        expect(BlockCss.parse(css.toCss()), css, reason: source);
+      }
+      expect(BlockCss.parse('border-radius:4px').toCss(), 'border-radius:4px');
+    });
+  });
+
   group('--stack-below', () {
     test('reads a bounded pixel width', () {
       expect(BlockCss.parse('--stack-below:480px').stackBelow, 480);
       expect(BlockCss.parse('--stack-below: 30em').stackBelow, 480);
-      expect(BlockCss.parse('--stack-below:99999px').stackBelow, maxStackBelow);
+      // Past the bound it is dropped, not clamped — as the server does, so
+      // both read the same document the same way.
+      expect(BlockCss.parse('--stack-below:2000px').stackBelow, maxStackBelow);
+      expect(BlockCss.parse('--stack-below:2001px').stackBelow, isNull);
       for (final bad in ['50%', 'auto', '-4px', 'big']) {
         expect(BlockCss.parse('--stack-below:$bad').stackBelow, isNull);
       }

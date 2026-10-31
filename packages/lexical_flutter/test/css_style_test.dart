@@ -192,6 +192,19 @@ void main() {
       expect((decoration.border! as Border).top.width, 1);
     });
 
+    test('a radius per corner', () {
+      final decoration = blockCssDecoration(
+        BlockCss.parse('background-color:red;border-radius:8px 8px 0 0'),
+      )!;
+      expect(
+        decoration.borderRadius,
+        const BorderRadius.only(
+          topLeft: Radius.circular(8),
+          topRight: Radius.circular(8),
+        ),
+      );
+    });
+
     test('no radius on a border whose sides differ', () {
       final decoration = blockCssDecoration(
         BlockCss.parse('border-top:2px solid red;border-radius:8px'),
