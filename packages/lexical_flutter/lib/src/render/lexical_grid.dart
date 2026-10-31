@@ -42,6 +42,12 @@ class GridPlacement {
 
 /// Parent data carrying a child's [GridPlacement].
 class GridParentData extends ContainerBoxParentData<RenderBox> {
+  /// The cell's own height at its width, from when it was last measured.
+  double? naturalHeight;
+
+  /// The constraints the cell was stretched to its row with, if it was.
+  BoxConstraints? stretched;
+
   /// Where this child sits.
   GridPlacement placement = const GridPlacement(row: 0, column: 0);
 }
@@ -210,7 +216,29 @@ class RenderLexicalGrid extends RenderBox
       return total;
     }
 
-    // Pass one: lay every child out at its width, and let each row be as tall
+    // Laid out in a bounded loop: a pass is enough unless a stretched cell
+    // turns out taller than its row (see `_measure`), and then one more
+    // measures it afresh.
+    var totalHeight = 0.0;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final overflowed = _layoutRows(widthFor, lefts, (height) {
+        totalHeight = height;
+      });
+      if (!overflowed) break;
+    }
+    size = constraints.constrain(Size(width, totalHeight));
+  }
+
+  /// Measures, sizes the rows, then stretches and places every cell.
+  ///
+  /// Returns whether a cell came out taller than the band it was given, in
+  /// which case its measurement was stale and has been dropped.
+  bool _layoutRows(
+    double Function(GridPlacement placement) widthFor,
+    List<double> lefts,
+    void Function(double height) reportHeight,
+  ) {
+    // Pass one: every cell's own height at its width, and each row as tall
     // as the cells that *end* in it. A cell spanning rows contributes only to
     // its last row, so it can never make a row it merely passes through
     // taller than that row's own content needs.
@@ -219,13 +247,10 @@ class RenderLexicalGrid extends RenderBox
     while (child != null) {
       final data = child.parentData! as GridParentData;
       final placement = data.placement;
-      child.layout(
-        BoxConstraints.tightFor(width: widthFor(placement)),
-        parentUsesSize: true,
-      );
+      final natural = _measure(child, data, widthFor(placement));
       final lastRow = placement.row + placement.rowSpan - 1;
       if (placement.rowSpan == 1) {
-        rowHeights[lastRow] = _max(rowHeights[lastRow], child.size.height);
+        rowHeights[lastRow] = _max(rowHeights[lastRow], natural);
       }
       child = data.nextSibling;
     }
@@ -242,9 +267,9 @@ class RenderLexicalGrid extends RenderBox
         for (var row = placement.row; row <= lastRow; row++) {
           covered += rowHeights[row] ?? 0;
         }
-        if (child.size.height > covered) {
-          rowHeights[lastRow] =
-              (rowHeights[lastRow] ?? 0) + child.size.height - covered;
+        final natural = data.naturalHeight ?? 0;
+        if (natural > covered) {
+          rowHeights[lastRow] = (rowHeights[lastRow] ?? 0) + natural - covered;
         }
       }
       child = data.nextSibling;
@@ -260,10 +285,12 @@ class RenderLexicalGrid extends RenderBox
       rowTops.add(y);
       y += (rowHeights[row] ?? 0) + spacing;
     }
-    final totalHeight = rowCount == 0 ? 0.0 : y - spacing;
+    reportHeight(rowCount == 0 ? 0.0 : y - spacing);
 
-    // Pass three: place, and stretch every cell to the height of the band it
-    // covers so that borders and backgrounds line up across a row.
+    // Pass three: place, and stretch a cell shorter than the band it covers
+    // to its height, so that borders and backgrounds line up across a row.
+    // A cell that already fills its band is not laid out again.
+    var overflowed = false;
     child = firstChild;
     while (child != null) {
       final data = child.parentData! as GridParentData;
@@ -279,30 +306,62 @@ class RenderLexicalGrid extends RenderBox
       }
       height += spacing * (lastRow - row);
 
-      // Not tight, and with the size used: a child laid out with tight
-      // constraints is a relayout boundary, so a cell whose content grew
-      // later — an image that decoded, a column that got a line longer —
-      // relaid itself and never told the grid. The row kept its old height
-      // and the content ran out of it, over the blocks below. A minimum
-      // height stretches the cell to its row just the same.
       final cellWidth = widthFor(placement);
-      child.layout(
-        BoxConstraints(
+      if ((data.naturalHeight ?? 0) < height) {
+        final stretched = BoxConstraints(
           minWidth: cellWidth,
           maxWidth: cellWidth,
           minHeight: height,
-        ),
-        parentUsesSize: true,
-      );
+        );
+        child.layout(stretched, parentUsesSize: true);
+        data.stretched = stretched;
+        if (child.size.height > height + 0.01) {
+          // Its content grew while it was stretched, which the stretch hid:
+          // measure it again on the next round.
+          data.stretched = null;
+          overflowed = true;
+        }
+      } else if (data.stretched != null) {
+        _measure(child, data..stretched = null, cellWidth);
+      }
       data.offset = Offset(
         lefts[placement.column.clamp(0, columnCount - 1)],
         rowTops.isEmpty ? 0 : rowTops[row],
       );
       child = data.nextSibling;
     }
-
-    size = constraints.constrain(Size(width, totalHeight));
+    return overflowed;
   }
+
+  /// [child]'s own height at [width], laying it out only when that can
+  /// change it.
+  ///
+  /// The size is always used — never a tight constraint, never a relayout
+  /// boundary — because a cell whose content grows later, an image that
+  /// decodes, has to tell the grid, or the row keeps its old height and the
+  /// content runs over the blocks below.
+  ///
+  /// A cell that was stretched to its row last time is *not* laid out again
+  /// at its own height just to be measured: with the stretch laid out right
+  /// after, that is two layouts of the cell per layout of the grid, and in
+  /// grids nested in stretched cells it doubles per level. Its stretched
+  /// constraints are reused — a no-op while it is clean — and its height
+  /// from when it was last measured stands, unless it has grown past the
+  /// stretch since.
+  double _measure(RenderBox child, GridParentData data, double width) {
+    final stretched = data.stretched;
+    if (stretched != null && stretched.minWidth == width) {
+      child.layout(stretched, parentUsesSize: true);
+      if (child.size.height > stretched.minHeight + 0.01) {
+        data.naturalHeight = child.size.height;
+      }
+      return data.naturalHeight ?? child.size.height;
+    }
+    data.stretched = null;
+    child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    return data.naturalHeight = child.size.height;
+  }
+
 
   /// Every child on its own row, full width, in child order.
   void _layoutStacked(double width) {
