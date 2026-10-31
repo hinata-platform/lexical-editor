@@ -265,13 +265,14 @@ void main() {
         _text('Hallo, wir haben gute Nachrichten.'),
         '$canvas;padding:22px 32px',
       )..setFormat(ElementFormat.center);
-      final step = styled(
-        $createLayoutContainerNode('51% 49%'),
-        '$canvas;padding:0px 32px',
-      )..appendAll([
-          $createLayoutItemNode()..append(imageParagraph(293, 0)),
-          $createLayoutItemNode()..append(_text('1. Verbinde Dein Gerät.')),
-        ]);
+      final step =
+          styled(
+            $createLayoutContainerNode('51% 49%'),
+            '$canvas;padding:0px 32px',
+          )..appendAll([
+            $createLayoutItemNode()..append(imageParagraph(293, 0)),
+            $createLayoutItemNode()..append(_text('1. Verbinde Dein Gerät.')),
+          ]);
       final afterBlock = styled(
         _text('Viel Spaß mit Deiner eSIM.'),
         '$canvas;margin-bottom:32px',
@@ -288,18 +289,17 @@ void main() {
         'max-width:640px',
       )..append($createLayoutItemNode()..append(icons));
 
-      final mail = styled(
-        $createLayoutContainerNode('1fr'),
-        'background-color:#ffffff',
-      )..append(
-          $createLayoutItemNode()..appendAll([
-            heroBlock,
-            introBlock,
-            step,
-            afterBlock,
-            footerBlock,
-          ]),
-        );
+      final mail =
+          styled($createLayoutContainerNode('1fr'), 'background-color:#ffffff')
+            ..append(
+              $createLayoutItemNode()..appendAll([
+                heroBlock,
+                introBlock,
+                step,
+                afterBlock,
+                footerBlock,
+              ]),
+            );
       $getRoot()
         ..clear()
         ..append(mail);
