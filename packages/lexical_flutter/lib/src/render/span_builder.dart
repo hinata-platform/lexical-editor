@@ -70,6 +70,13 @@ final class SpanBuilder {
     final blockStyle = theme.blockStyleForNode(block);
     var base = (baseStyle ?? theme.baseTextStyle).merge(blockStyle.textStyle);
     if (color != null) base = base.copyWith(color: color);
+    // An empty block draws one line in the style text typed into it would
+    // get — which is also how a block keeps a font with nothing in it, such
+    // as a one-pixel divider line.
+    final pending = block.getTextStyle();
+    if (pending.isNotEmpty && block.isEmpty) {
+      base = theme.resolveTextStyle(base: base, format: 0, style: pending);
+    }
 
     void visit(ElementNode parent, TextStyle inherited) {
       var index = 0;
