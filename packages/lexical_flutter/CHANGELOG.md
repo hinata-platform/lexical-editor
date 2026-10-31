@@ -7,8 +7,10 @@ Requires `lexical_core` 1.11.0.
 **A block draws its own box.** Any element with a block style gets its fill,
 border, corner radius and padding, its `width` or `max-width` (never wider
 than the space it is given), centring through `auto` margins, and its top and
-bottom margins, which replace the theme's spacing. Its `color` becomes the
-default text colour for everything inside it, nested blocks included. The
+bottom margins, which replace the theme's spacing. A `width:fit-content` block
+is as wide as its content — a mail's button — and is centred by `auto`
+margins or by a `center` format, its own or its parent's. Its `color` becomes
+the default text colour for everything inside it, nested blocks included. The
 mapping is `blockCssDecoration` and `blockCssPadding`.
 
 **The text properties mails use.** `defaultCssStyleResolver` adds

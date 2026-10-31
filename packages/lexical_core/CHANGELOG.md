@@ -7,9 +7,9 @@
 wire format rather than a private extension. `$getBlockStyle` and
 `$setBlockStyle` read and write it; `BlockCss.parse` reads the subset a block
 box understands — background, colour, padding, top and bottom margins,
-centring through `auto` margins, `max-width`, `width`, `border-radius` and
-borders — into plain Dart values, and `BlockCss.toCss` writes it back in one
-spelling. The parser is bounded (512 characters), ignores what it does not
+centring through `auto` margins, `max-width`, `width` (pixels, percent or
+`fit-content`), `border-radius` and borders — into plain Dart values, and
+`BlockCss.toCss` writes it back in one spelling. The parser is bounded (512 characters), ignores what it does not
 know and never throws.
 
 `parseCssColorValue` (hex, `rgb()`/`rgba()`, `transparent`, the CSS named

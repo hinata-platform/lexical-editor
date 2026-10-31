@@ -9,7 +9,10 @@ table row of two or more cells becomes a `layout-container` whose columns come
 from the cells' widths, a run of MJML `mj-column-per-NN` columns becomes one
 too, and a styled table, cell or `div` becomes a block style on the block it
 holds, or on a one-column layout around several. `bgcolor`, `align`, `width`,
-`cellpadding`, `<center>` and `<font>` are read like their CSS. Inline CSS on
+`cellpadding`, `<center>` and `<font>` are read like their CSS. A table
+without a width and a `display:inline-block` element become
+`width:fit-content`, and a table of one cell merges into that cell, so a
+mail's button arrives as one centred paragraph as wide as its label. Inline CSS on
 text becomes the text's `style`, inherited the way CSS inherits; only the
 properties a renderer draws are kept. Hidden elements, collapsed preheaders,
 mobile-only variants and tracking pixels are dropped. Data tables stay text.
