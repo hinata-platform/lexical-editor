@@ -246,9 +246,10 @@ class RenderLexicalGrid extends RenderBox
       return total;
     }
 
-    // Laid out in a bounded loop: a pass is enough unless a stretched cell
-    // turns out taller than its row (see `_measure`), and then one more
-    // measures it afresh.
+    // Laid out in a bounded loop: a pass is enough unless a stretched cell's
+    // stored height turns out stale — it grew past its row, or shrank while
+    // the stretch hid it (see `_measure`) — and then one more round sizes the
+    // rows from what was measured afresh.
     var totalHeight = 0.0;
     for (var attempt = 0; attempt < 3; attempt++) {
       final overflowed = _layoutRows(widthFor, lefts, (height) {
@@ -261,8 +262,9 @@ class RenderLexicalGrid extends RenderBox
 
   /// Measures, sizes the rows, then stretches and places every cell.
   ///
-  /// Returns whether a cell came out taller than the band it was given, in
-  /// which case its measurement was stale and has been dropped.
+  /// Returns whether a stored measurement turned out stale — a cell taller
+  /// than the band it was given, or shorter than the height its row was
+  /// sized from — in which case another round is needed.
   bool _layoutRows(
     double Function(GridPlacement placement) widthFor,
     List<double> lefts,
@@ -352,7 +354,14 @@ class RenderLexicalGrid extends RenderBox
           overflowed = true;
         }
       } else if (data.stretched != null) {
-        _measure(child, data..stretched = null, cellWidth);
+        // Stretched last time, and its stored height says it now fills the
+        // row on its own — but that height is from before the stretch, and a
+        // stretch hides a shrink. Measured afresh, a cell that came out
+        // shorter means the row was sized from a stale height: another
+        // round sizes it from the real one.
+        final stored = data.naturalHeight;
+        final measured = _measure(child, data..stretched = null, cellWidth);
+        if (stored != null && measured < stored - 0.01) overflowed = true;
       }
       data.offset = Offset(
         lefts[placement.column.clamp(0, columnCount - 1)],
