@@ -8,7 +8,7 @@ import 'package:flutter/widgets.dart';
 /// A block deep in a layout knows only its own width. Some decisions are
 /// about the screen instead — a mail's media query stacks its columns on a
 /// phone, however narrow the column holding them already is — and this is
-/// where such a block reads it. [LexicalDocument] provides it.
+/// where such a block reads it. `LexicalDocument` provides it.
 class LexicalViewport extends InheritedWidget {
   /// Publishes [width] to [child].
   const LexicalViewport({required this.width, required super.child, super.key});
