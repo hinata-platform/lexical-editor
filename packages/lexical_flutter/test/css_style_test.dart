@@ -135,8 +135,10 @@ void main() {
 
     test('letter-spacing in em follows the font size', () {
       expect(
-        defaultCssStyleResolver('font-size:20px;letter-spacing:0.1em', base)
-            .letterSpacing,
+        defaultCssStyleResolver(
+          'font-size:20px;letter-spacing:0.1em',
+          base,
+        ).letterSpacing,
         closeTo(2, 0.001),
       );
     });
@@ -147,8 +149,10 @@ void main() {
         'Times New Roman',
         'Noto Serif',
       ]);
-      expect(resolveCssFontFamily("'Courier New', monospace").last,
-          'Roboto Mono');
+      expect(
+        resolveCssFontFamily("'Courier New', monospace").last,
+        'Roboto Mono',
+      );
       expect(resolveCssFontFamily('Arial, Helvetica, sans-serif'), [
         'Arial',
         'Helvetica',

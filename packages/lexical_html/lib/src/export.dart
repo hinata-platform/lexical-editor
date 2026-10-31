@@ -154,10 +154,7 @@ final class HtmlExport {
   /// `;` or `:`, so it can never start a declaration of its own.
   static final RegExp _safeTemplate = RegExp(r'^[0-9a-z.%(), \-]{1,256}$');
 
-  String _blockAttributes(
-    ElementNode node, {
-    List<String> leading = const [],
-  }) {
+  String _blockAttributes(ElementNode node, {List<String> leading = const []}) {
     final parts = <String>[...leading];
     final format = node.getFormat();
     if (format != ElementFormat.none) {

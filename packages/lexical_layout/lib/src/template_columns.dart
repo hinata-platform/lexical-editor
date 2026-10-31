@@ -26,7 +26,10 @@ final class LayoutTrack {
   const LayoutTrack(this.kind, this.value);
 
   /// A `1fr` track, which every unknown track falls back to.
-  static const LayoutTrack oneFraction = LayoutTrack(LayoutTrackKind.fraction, 1);
+  static const LayoutTrack oneFraction = LayoutTrack(
+    LayoutTrackKind.fraction,
+    1,
+  );
 
   /// How the track is sized.
   final LayoutTrackKind kind;
@@ -91,9 +94,7 @@ List<LayoutTrack> parseTemplateColumns(String template) {
   }
   if (current.isNotEmpty) tokens.add(current.toString());
 
-  return [
-    for (final token in tokens.take(maxLayoutTracks)) _track(token),
-  ];
+  return [for (final token in tokens.take(maxLayoutTracks)) _track(token)];
 }
 
 LayoutTrack _track(String token) {
@@ -115,9 +116,13 @@ LayoutTrack _track(String token) {
   final amount = double.tryParse(match.group(1)!);
   if (amount == null || !amount.isFinite) return LayoutTrack.oneFraction;
   return switch (match.group(2)) {
-    'fr' => amount <= 0
-        ? LayoutTrack.oneFraction
-        : LayoutTrack(LayoutTrackKind.fraction, amount.clamp(0, 1000).toDouble()),
+    'fr' =>
+      amount <= 0
+          ? LayoutTrack.oneFraction
+          : LayoutTrack(
+              LayoutTrackKind.fraction,
+              amount.clamp(0, 1000).toDouble(),
+            ),
     'px' => LayoutTrack(
       LayoutTrackKind.pixels,
       amount.clamp(0, _maxTrackPixels).toDouble(),

@@ -35,8 +35,7 @@ Future<void> _pump(WidgetTester tester, LexicalEditor editor) =>
     );
 
 Finder _block(String text) => find.byWidgetPredicate(
-  (widget) =>
-      widget is LexicalInlineBlock && widget.span.toPlainText() == text,
+  (widget) => widget is LexicalInlineBlock && widget.span.toPlainText() == text,
 );
 
 /// The decorated box drawn for the block holding [text].
@@ -65,7 +64,8 @@ void main() {
     expect(decoration.borderRadius, BorderRadius.circular(6));
 
     final box = tester.getRect(
-      find.ancestor(of: _block('Knopf'), matching: find.byType(DecoratedBox))
+      find
+          .ancestor(of: _block('Knopf'), matching: find.byType(DecoratedBox))
           .first,
     );
     final text = tester.getRect(_block('Knopf'));
@@ -82,7 +82,8 @@ void main() {
     await _pump(tester, editor);
 
     Rect boxOf(String text) => tester.getRect(
-      find.ancestor(of: _block(text), matching: find.byType(DecoratedBox))
+      find
+          .ancestor(of: _block(text), matching: find.byType(DecoratedBox))
           .first,
     );
     expect(boxOf('Mitte').left, 100);
@@ -92,16 +93,17 @@ void main() {
     expect(boxOf('Halb').width, 400);
   });
 
-  testWidgets('a width never pushes past the space available', (
-    tester,
-  ) async {
+  testWidgets('a width never pushes past the space available', (tester) async {
     final editor = _blocks([('Breit', 'width:2000px;background-color:#fff')]);
     await _pump(tester, editor);
     expect(
       tester
           .getRect(
             find
-                .ancestor(of: _block('Breit'), matching: find.byType(DecoratedBox))
+                .ancestor(
+                  of: _block('Breit'),
+                  matching: find.byType(DecoratedBox),
+                )
                 .first,
           )
           .width,
@@ -154,10 +156,7 @@ void main() {
 
   testWidgets('junk in a block style draws a plain block', (tester) async {
     final editor = _blocks([
-      (
-        'Text',
-        'padding:-5px;width:auto;border-radius:nope;background:url(x)',
-      ),
+      ('Text', 'padding:-5px;width:auto;border-radius:nope;background:url(x)'),
     ]);
     await _pump(tester, editor);
     expect(tester.takeException(), isNull);
@@ -202,7 +201,8 @@ void main() {
     await _pump(tester, editor);
 
     Rect boxOf(String text) => tester.getRect(
-      find.ancestor(of: _block(text), matching: find.byType(DecoratedBox))
+      find
+          .ancestor(of: _block(text), matching: find.byType(DecoratedBox))
           .first,
     );
     for (final text in ['Knopf', 'Mitte']) {
@@ -225,7 +225,11 @@ void main() {
     await _pump(tester, editor);
     expect(tester.takeException(), isNull);
     final box = tester.getRect(
-      find.ancestor(of: find.byType(LexicalInlineBlock), matching: find.byType(DecoratedBox))
+      find
+          .ancestor(
+            of: find.byType(LexicalInlineBlock),
+            matching: find.byType(DecoratedBox),
+          )
           .first,
     );
     expect(box.width, 800);
