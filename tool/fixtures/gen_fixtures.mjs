@@ -513,6 +513,16 @@ async function buildCorpus(mods) {
     root.append(header, button, container);
   }, [rt, pg]);
 
+  add('block-style-fit-content', (root) => {
+    const button = styled(
+      para('Jetzt ansehen'),
+      'background-color:#e60000;padding:10px 25px;width:fit-content;'
+        + 'margin-left:auto;margin-right:auto',
+    );
+    button.setFormat('center');
+    root.append(button);
+  });
+
   add('text-style-mail', (root) => {
     const p = L.$createParagraphNode();
     const a = L.$createTextNode('Hallo ');

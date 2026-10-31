@@ -1,0 +1,34 @@
+{
+  "root": {
+    "children": [
+      {
+        "children": [
+          {
+            "detail": 0,
+            "format": 0,
+            "mode": "normal",
+            "style": "",
+            "text": "Jetzt ansehen",
+            "type": "text",
+            "version": 1
+          }
+        ],
+        "direction": null,
+        "format": "center",
+        "indent": 0,
+        "type": "paragraph",
+        "version": 1,
+        "$": {
+          "style": "background-color:#e60000;padding:10px 25px;width:fit-content;margin-left:auto;margin-right:auto"
+        },
+        "textFormat": 0,
+        "textStyle": ""
+      }
+    ],
+    "direction": null,
+    "format": "",
+    "indent": 0,
+    "type": "root",
+    "version": 1
+  }
+}
