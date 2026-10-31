@@ -279,8 +279,20 @@ class RenderLexicalGrid extends RenderBox
       }
       height += spacing * (lastRow - row);
 
+      // Not tight, and with the size used: a child laid out with tight
+      // constraints is a relayout boundary, so a cell whose content grew
+      // later — an image that decoded, a column that got a line longer —
+      // relaid itself and never told the grid. The row kept its old height
+      // and the content ran out of it, over the blocks below. A minimum
+      // height stretches the cell to its row just the same.
+      final cellWidth = widthFor(placement);
       child.layout(
-        BoxConstraints.tightFor(width: widthFor(placement), height: height),
+        BoxConstraints(
+          minWidth: cellWidth,
+          maxWidth: cellWidth,
+          minHeight: height,
+        ),
+        parentUsesSize: true,
       );
       data.offset = Offset(
         lefts[placement.column.clamp(0, columnCount - 1)],

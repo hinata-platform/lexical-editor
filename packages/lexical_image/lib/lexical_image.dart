@@ -56,4 +56,5 @@ export 'src/image_view.dart'
         ImageResolver,
         LexicalImageStyle,
         LexicalImageView,
-        defaultImageResolver;
+        defaultImageResolver,
+        placeholderAspectRatio;

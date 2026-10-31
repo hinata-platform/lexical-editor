@@ -25,6 +25,13 @@ style string longer than 2048 characters is ignored.
 the space available, or `null` to stack the children one per row, which is
 how a layout too narrow for its fixed columns reflows.
 
+**A grid row grows when a cell does.** Cells were laid out with tight
+constraints, which made each one a relayout boundary: an image that decoded
+after the first layout, or any content that grew later, relaid its cell alone,
+the row kept its old height, and the content ran out of the cell over the
+blocks below — and off the end of the document. Cells now report their size
+to the grid. Tables had the same fault.
+
 **An empty block is one line of its caret style**, so an empty paragraph
 whose text style says `font-size:1px` is a one-pixel line.
 

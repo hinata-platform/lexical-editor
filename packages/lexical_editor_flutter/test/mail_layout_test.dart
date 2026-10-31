@@ -226,6 +226,135 @@ void main() {
     expect(image.height, closeTo(87.5, 0.01));
   });
 
+  testWidgets('a forwarded MJML mail: centred canvas, step rows, footer', (
+    tester,
+  ) async {
+    // The shape a real newsletter arrives in: one white full-width layout
+    // whose item holds every block, each one a 640 px canvas centred by its
+    // own auto margins; step rows of an image with only its width stored
+    // beside text; a dark footer of four icon columns at the very end.
+    final editor = createLexicalEditor();
+    const canvas =
+        'background-color:#ffffff;margin-left:auto;margin-right:auto;'
+        'max-width:640px';
+    late NodeKey hero;
+    late NodeKey intro;
+    late NodeKey stepRow;
+    late NodeKey after;
+    late NodeKey footer;
+    editor.update(() {
+      ElementNode styled(ElementNode node, String css) {
+        $setBlockStyle(node, css);
+        return node;
+      }
+
+      ParagraphNode imageParagraph(double width, double height) =>
+          $createParagraphNode()
+            ..setFormat(ElementFormat.center)
+            ..append(
+              $createImageNode(
+                src: 'https://mail.example/${width.round()}.png',
+                width: width,
+                height: height,
+                maxWidth: width,
+              ),
+            );
+
+      final heroBlock = styled(imageParagraph(640, 0), canvas);
+      final introBlock = styled(
+        _text('Hallo, wir haben gute Nachrichten.'),
+        '$canvas;padding:22px 32px',
+      )..setFormat(ElementFormat.center);
+      final step = styled(
+        $createLayoutContainerNode('51% 49%'),
+        '$canvas;padding:0px 32px',
+      )..appendAll([
+          $createLayoutItemNode()..append(imageParagraph(293, 0)),
+          $createLayoutItemNode()..append(_text('1. Verbinde Dein Gerät.')),
+        ]);
+      final afterBlock = styled(
+        _text('Viel Spaß mit Deiner eSIM.'),
+        '$canvas;margin-bottom:32px',
+      );
+      final icons = $createLayoutContainerNode('25% 25% 25% 25%')
+        ..appendAll([
+          for (var i = 0; i < 4; i++)
+            $createLayoutItemNode()..append(imageParagraph(32, 32)),
+        ]);
+      $setBlockStyle(icons, 'max-width:50%;margin-left:auto;margin-right:auto');
+      final footerBlock = styled(
+        $createLayoutContainerNode('1fr'),
+        'background-color:#333333;margin-left:auto;margin-right:auto;'
+        'max-width:640px',
+      )..append($createLayoutItemNode()..append(icons));
+
+      final mail = styled(
+        $createLayoutContainerNode('1fr'),
+        'background-color:#ffffff',
+      )..append(
+          $createLayoutItemNode()..appendAll([
+            heroBlock,
+            introBlock,
+            step,
+            afterBlock,
+            footerBlock,
+          ]),
+        );
+      $getRoot()
+        ..clear()
+        ..append(mail);
+      hero = heroBlock.key;
+      intro = introBlock.key;
+      stepRow = step.key;
+      after = afterBlock.key;
+      footer = footerBlock.key;
+    }, discrete: true);
+
+    await _pumpDocument(tester, editor, width: 1000);
+
+    // Inside the item, each block is still the 640 px canvas, centred.
+    final introBox = tester.getRect(_box(intro));
+    expect(introBox.width, 640);
+    expect(introBox.left, 180);
+    expect(tester.getRect(_box(stepRow)).width, 640);
+
+    // Blocked images keep a box: the hero its stored width, the step image
+    // its column-bounded width, both with a stand-in height.
+    final placeholders = find
+        .descendant(
+          of: find.byType(LexicalImageView),
+          matching: find.byType(ColoredBox),
+        )
+        .evaluate()
+        .map((element) {
+          final box = element.renderObject! as RenderBox;
+          return box.localToGlobal(Offset.zero) & box.size;
+        })
+        .toList();
+    final heroImage = placeholders.firstWhere((r) => r.width == 640);
+    expect(heroImage.height, 640 / placeholderAspectRatio);
+    expect(tester.getRect(_node(hero)).height, greaterThan(300));
+    final stepImage = placeholders.firstWhere(
+      (r) => (r.width - 293).abs() < 0.01,
+    );
+    expect(stepImage.height, closeTo(293 / placeholderAspectRatio, 0.01));
+
+    // Nothing is drawn over the step image, and the footer is there, at the
+    // end, with its four icons.
+    final afterBox = tester.getRect(_box(after));
+    expect(afterBox.top, greaterThanOrEqualTo(stepImage.bottom));
+    final footerBox = tester.getRect(_box(footer));
+    expect(footerBox.top, greaterThanOrEqualTo(afterBox.bottom));
+    expect(footerBox.width, 640);
+    expect(footerBox.height, greaterThanOrEqualTo(32));
+    final icons = placeholders.where((r) => r.width == 32).toList();
+    expect(icons, hasLength(4));
+    for (final icon in icons) {
+      expect(icon.height, 32);
+      expect(footerBox.contains(icon.center), isTrue);
+    }
+  });
+
   group('editing in columns', () {
     final key = GlobalKey<LexicalEditableState>();
 

@@ -148,6 +148,10 @@ class LexicalImageStyle {
 /// The handles appear on hover with a mouse and on tap with a finger, and a
 /// drag only writes to the document when it **ends** — resizing has to be one
 /// undo step, not one per pointer move.
+/// The shape an image with only one stored side is given until it loads,
+/// as width over height: twice as wide as high, a common banner shape.
+const double placeholderAspectRatio = 2;
+
 class LexicalImageView extends StatefulWidget {
   /// Draws the image of [nodeKey] in [editor].
   const LexicalImageView({
@@ -276,11 +280,12 @@ class _LexicalImageViewState extends State<LexicalImageView> {
     // Before the first frame decodes there is still nothing, which is what the
     // outline-only branch upstream draws.
     if (width == null && height == null) return _intrinsic;
-    final ratio = _aspectRatio;
-    return Size(
-      width ?? (height != null && ratio != null ? height * ratio : 0),
-      height ?? (width != null && ratio != null ? width / ratio : 0),
-    );
+    // One side stored and no shape known yet — a mail's `<img width>`
+    // before it loads, or for good when remote images are blocked. A box
+    // with no height is a strip the content below runs over; a stand-in
+    // shape reserves room until the picture says what it really is.
+    final ratio = _aspectRatio ?? placeholderAspectRatio;
+    return Size(width ?? height! * ratio, height ?? width! / ratio);
   }
 
   double? get _aspectRatio {
