@@ -37,4 +37,10 @@ library;
 export 'src/export.dart'
     show HtmlExport, HtmlNodeExport, escapeHtml, $generateHtmlFromNodes;
 export 'src/import.dart'
-    show HtmlImport, HtmlImportLimits, HtmlNodeImport, $generateNodesFromHtml;
+    show
+        HtmlImage,
+        HtmlImageFactory,
+        HtmlImport,
+        HtmlImportLimits,
+        HtmlNodeImport,
+        $generateNodesFromHtml;

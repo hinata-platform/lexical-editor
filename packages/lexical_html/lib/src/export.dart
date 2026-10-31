@@ -3,6 +3,7 @@ library;
 
 import 'package:lexical_code/lexical_code.dart';
 import 'package:lexical_core/lexical_core.dart';
+import 'package:lexical_layout/lexical_layout.dart';
 import 'package:lexical_link/lexical_link.dart';
 import 'package:lexical_list/lexical_list.dart';
 import 'package:lexical_rich_text/lexical_rich_text.dart';
@@ -104,6 +105,18 @@ final class HtmlExport {
         }
         return '<p${_blockAttributes(paragraph)}>'
             '${renderChildren(paragraph)}</p>';
+      case final LayoutContainerNode layout:
+        // The playground's own markup, which its importer reads back.
+        final template = layout.templateColumns;
+        final columns = _safeTemplate.hasMatch(template)
+            ? 'display: grid; grid-template-columns: $template'
+            : 'display: grid';
+        return '<div data-lexical-layout-container="true"'
+            '${_blockAttributes(layout, leading: [columns])}>'
+            '${renderChildren(layout)}</div>';
+      case final LayoutItemNode item:
+        return '<div data-lexical-layout-item="true"${_blockAttributes(item)}>'
+            '${renderChildren(item)}</div>';
       case final ElementNode element when element.isInline:
         return '<span>${renderChildren(element)}</span>';
       case final ElementNode element:
@@ -137,14 +150,25 @@ final class HtmlExport {
     return html;
   }
 
-  String _blockAttributes(ElementNode node) {
-    final parts = <String>[];
+  /// A grid template written only in the characters tracks are made of: no
+  /// `;` or `:`, so it can never start a declaration of its own.
+  static final RegExp _safeTemplate = RegExp(r'^[0-9a-z.%(), \-]{1,256}$');
+
+  String _blockAttributes(
+    ElementNode node, {
+    List<String> leading = const [],
+  }) {
+    final parts = <String>[...leading];
     final format = node.getFormat();
     if (format != ElementFormat.none) {
       parts.add('text-align: ${format.wire}');
     }
     final indent = node.getIndent();
     if (indent > 0) parts.add('padding-inline-start: ${indent * 40}px');
+    // Re-written from the parsed style rather than copied: only what a block
+    // box means leaves the document, in one spelling.
+    final blockCss = BlockCss.parse($getBlockStyle(node)).toCss();
+    if (blockCss.isNotEmpty) parts.add(blockCss);
     final direction = node.getDirection();
     final dir = direction == null ? '' : ' dir="${direction.wire}"';
     if (parts.isEmpty) return dir;

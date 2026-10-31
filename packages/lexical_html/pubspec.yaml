@@ -2,7 +2,7 @@ name: lexical_html
 description: >-
   HTML import and export for lexical_core: render a document to HTML, and
   parse pasted HTML back into nodes. Pure Dart.
-version: 1.7.4
+version: 1.11.0
 repository: https://github.com/hinata-platform/lexical-editor
 issue_tracker: https://github.com/hinata-platform/lexical-editor/issues
 
@@ -14,12 +14,16 @@ resolution: workspace
 dependencies:
   html: ^0.15.4
   lexical_code: ^1.7.4
-  lexical_core: ^1.7.4
+  lexical_core: ^1.11.0
+  lexical_layout: ^1.11.0
   lexical_link: ^1.7.4
   lexical_list: ^1.7.4
   lexical_rich_text: ^1.7.4
   meta: ^1.15.0
 
 dev_dependencies:
+  # Tests only, through its Flutter-free `image_node.dart`: a mail's images
+  # need a node to become, and this package does not define one.
+  lexical_image: ^1.11.0
   lints: ^6.0.0
   test: ^1.25.0
