@@ -21,6 +21,15 @@
 /// ```
 library;
 
+export 'src/block_style.dart'
+    show
+        BlockCss,
+        CssBorderSide,
+        CssEdges,
+        blockStyleStateKey,
+        maxBlockStyleLength,
+        $getBlockStyle,
+        $setBlockStyle;
 export 'src/commands.dart'
     show
         CommandHandler,
@@ -49,6 +58,13 @@ export 'src/commands.dart'
         selectionChangeCommand,
         undoCommand;
 export 'src/css.dart' show getCssFromStyleObject, getStyleObjectFromCss;
+export 'src/css_values.dart'
+    show
+        CssLength,
+        CssLengthUnit,
+        maxCssLength,
+        parseCssColorValue,
+        parseCssPixels;
 export 'src/editing.dart' show maxIndent, registerPlainText, registerRichText;
 export 'src/editor.dart'
     show DirtyType, EditorConfig, LexicalEditor, UnknownNodePolicy, coreNodes;
