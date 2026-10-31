@@ -90,6 +90,7 @@ void main() {
       'layout-two-columns',
       'layout-three-columns',
       'layout-nested',
+      'layout-stack-below',
     ]) {
       test('$name is a fixed point', () {
         final json = _fixture(name);

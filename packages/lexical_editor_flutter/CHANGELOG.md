@@ -13,6 +13,10 @@ columns stacked when the width is below the sum of their fixed `px` tracks.
 Enter, backspace, typing and the arrow keys work inside a column as they do in
 a table cell.
 
+A container whose block style carries `--stack-below:<N>px` also stacks
+below `N` pixels; without it a row of percentage or fraction columns never
+stacks, so a row of icons stays a row on a phone.
+
 Together with the block and text styles of `lexical_flutter`, a mail rebuilt
 as a document — a centred 600-pixel canvas, a coloured header, image and text
 columns, a button — is drawn at its original geometry and stays editable.

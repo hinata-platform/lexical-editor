@@ -12,6 +12,10 @@ centring through `auto` margins, `max-width`, `width` (pixels, percent or
 `BlockCss.toCss` writes it back in one spelling. The parser is bounded (512 characters), ignores what it does not
 know and never throws.
 
+`--stack-below:<N>px`, a CSS custom property, is part of the subset too: on
+a layout container it is the width below which its columns stack — a mail's
+media query kept as data (`BlockCss.stackBelow`, bounded to 2000 px).
+
 `parseCssColorValue` (hex, `rgb()`/`rgba()`, `transparent`, the CSS named
 colours) and `parseCssPixels` (`px`, `pt`, `em`, bounded) are the shared
 readings the renderer and the HTML importer use.

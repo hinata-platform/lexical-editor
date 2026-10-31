@@ -153,6 +153,23 @@ void main() {
     });
   });
 
+  group('--stack-below', () {
+    test('reads a bounded pixel width', () {
+      expect(BlockCss.parse('--stack-below:480px').stackBelow, 480);
+      expect(BlockCss.parse('--stack-below: 30em').stackBelow, 480);
+      expect(BlockCss.parse('--stack-below:99999px').stackBelow, maxStackBelow);
+      for (final bad in ['50%', 'auto', '-4px', 'big']) {
+        expect(BlockCss.parse('--stack-below:$bad').stackBelow, isNull);
+      }
+    });
+
+    test('round-trips through toCss', () {
+      final css = BlockCss.parse('--stack-below:480px;padding:4px');
+      expect(css.toCss(), contains('--stack-below:480px'));
+      expect(BlockCss.parse(css.toCss()), css);
+    });
+  });
+
   group('BlockCss.toCss', () {
     test('writes the allowed subset in one spelling', () {
       final css = BlockCss.parse(

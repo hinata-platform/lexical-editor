@@ -355,6 +355,58 @@ void main() {
     }
   });
 
+  group('--stack-below', () {
+    Future<List<Rect>> columns(
+      WidgetTester tester, {
+      required double width,
+      required String css,
+    }) async {
+      final editor = createLexicalEditor();
+      late List<NodeKey> keys;
+      editor.update(() {
+        final left = $createLayoutItemNode()..append(_text('Bild'));
+        final right = $createLayoutItemNode()..append(_text('Text'));
+        final row = $createLayoutContainerNode('50% 50%')
+          ..appendAll([left, right]);
+        if (css.isNotEmpty) $setBlockStyle(row, css);
+        $getRoot()
+          ..clear()
+          ..append(row);
+        keys = [left.key, right.key];
+      }, discrete: true);
+      await _pumpDocument(tester, editor, width: width);
+      return [for (final key in keys) tester.getRect(_node(key))];
+    }
+
+    testWidgets('stacks below its width', (tester) async {
+      final rects = await columns(
+        tester,
+        width: 390,
+        css: '--stack-below:480px',
+      );
+      expect(rects[0].width, 390);
+      expect(rects[1].width, 390);
+      expect(rects[1].top, greaterThanOrEqualTo(rects[0].bottom));
+    });
+
+    testWidgets('stays side by side above it', (tester) async {
+      final rects = await columns(
+        tester,
+        width: 800,
+        css: '--stack-below:480px',
+      );
+      expect(rects[0].width, 400);
+      expect(rects[1].left, 400);
+      expect(rects[1].top, rects[0].top);
+    });
+
+    testWidgets('without it a percentage row never stacks', (tester) async {
+      final rects = await columns(tester, width: 390, css: '');
+      expect(rects[0].width, 195);
+      expect(rects[1].top, rects[0].top);
+    });
+  });
+
   group('editing in columns', () {
     final key = GlobalKey<LexicalEditableState>();
 

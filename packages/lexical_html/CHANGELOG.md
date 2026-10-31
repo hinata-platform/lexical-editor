@@ -18,6 +18,9 @@ properties a renderer draws are kept. Hidden elements, collapsed preheaders,
 mobile-only variants and tracking pixels are dropped. Data tables stay text.
 Without the layout nodes registered the import is what it was.
 
+MJML columns get `--stack-below:480px`, MJML's own breakpoint, so they stack
+on a phone as the mail did; the columns of an `mj-group` do not.
+
 **Images.** `HtmlImport.createImage` turns an `<img>` into a node with its
 width and height; without it an image contributes its `alt` text.
 
