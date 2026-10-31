@@ -1,0 +1,196 @@
+import 'package:lexical_core/lexical_core.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('parseCssColorValue', () {
+    test('reads hex, functional and named colours as ARGB', () {
+      expect(parseCssColorValue('#e60000'), 0xFFE60000);
+      expect(parseCssColorValue('#FFF'), 0xFFFFFFFF);
+      expect(parseCssColorValue('#00000080'), 0x80000000);
+      expect(parseCssColorValue('rgb(230, 0, 0)'), 0xFFE60000);
+      expect(parseCssColorValue('rgba(0,0,0,0.5)'), 0x80000000);
+      expect(parseCssColorValue('rgb(100% 0% 0%)'), 0xFFFF0000);
+      expect(parseCssColorValue('White'), 0xFFFFFFFF);
+      expect(parseCssColorValue('rebeccapurple'), 0xFF663399);
+      expect(parseCssColorValue('transparent'), 0x00000000);
+    });
+
+    test('anything else is not a colour, and never throws', () {
+      for (final bad in [
+        '',
+        '#12',
+        '#ggg',
+        'hsl(0, 100%, 50%)',
+        'currentColor',
+        'rgb(1,2)',
+        'rgb(a,b,c)',
+        'x' * 1000,
+        null,
+      ]) {
+        expect(parseCssColorValue(bad), isNull, reason: '$bad');
+      }
+    });
+  });
+
+  group('parseCssPixels', () {
+    test('px, pt, em and bare numbers', () {
+      expect(parseCssPixels('16px'), 16);
+      expect(parseCssPixels('12pt'), 16);
+      expect(parseCssPixels('1.5em'), 24);
+      expect(parseCssPixels('0'), 0);
+      expect(parseCssPixels(' 8PX '), 8);
+    });
+
+    test('percent, auto, negatives and junk answer null', () {
+      for (final bad in ['50%', 'auto', '-4px', '4vw', 'px', '1e9px']) {
+        expect(parseCssPixels(bad), isNull, reason: bad);
+      }
+    });
+
+    test('is bounded', () {
+      expect(parseCssPixels('99999999px'), maxCssLength);
+    });
+  });
+
+  group('BlockCss.parse', () {
+    test('reads the allowed subset', () {
+      final css = BlockCss.parse(
+        'background-color:#e60000;color:#fff;padding:16px 24px;'
+        'border-radius:8px;margin-top:12px;margin-bottom:4pt;'
+        'max-width:600px;width:50%;border:1px solid #cccccc',
+      );
+      expect(css.backgroundColor, 0xFFE60000);
+      expect(css.color, 0xFFFFFFFF);
+      expect(
+        css.padding,
+        const CssEdges(top: 16, right: 24, bottom: 16, left: 24),
+      );
+      expect(css.borderRadius, 8);
+      expect(css.marginTop, 12);
+      expect(css.marginBottom, closeTo(5.333, 0.001));
+      expect(css.maxWidth, 600);
+      expect(css.width, const CssLength(50, CssLengthUnit.percent));
+      expect(css.borderTop, const CssBorderSide(1, 0xFFCCCCCC));
+      expect(css.borderLeft, const CssBorderSide(1, 0xFFCCCCCC));
+      expect(css.centered, isFalse);
+    });
+
+    test('auto horizontal margins centre the block', () {
+      expect(BlockCss.parse('margin:0 auto').centered, isTrue);
+      expect(BlockCss.parse('margin: 10px auto 20px').marginBottom, 20);
+      expect(
+        BlockCss.parse('margin-left:auto;margin-right:auto').centered,
+        isTrue,
+      );
+      expect(BlockCss.parse('margin-left:auto').centered, isFalse);
+      expect(BlockCss.parse('margin:0 auto;margin-left:0').centered, isFalse);
+    });
+
+    test('longhands refine the shorthand, in source order', () {
+      final css = BlockCss.parse('padding:8px;padding-left:20px');
+      expect(css.padding, const CssEdges(top: 8, right: 8, bottom: 8, left: 20));
+      final border = BlockCss.parse(
+        'border:1px solid #000;border-bottom:2px dashed red;border-top:none',
+      );
+      expect(border.borderTop, isNull);
+      expect(border.borderBottom, const CssBorderSide(2, 0xFFFF0000));
+      expect(border.borderLeft, const CssBorderSide(1, 0xFF000000));
+    });
+
+    test('a border without a style draws nothing, as in CSS', () {
+      expect(BlockCss.parse('border:1px #000').hasBorder, isFalse);
+      expect(BlockCss.parse('border:0').hasBorder, isFalse);
+      expect(BlockCss.parse('border:solid').borderTop?.width, 3);
+    });
+
+    test('unknown properties and bad values are ignored', () {
+      final css = BlockCss.parse(
+        'display:flex;position:fixed;background-color:nope;'
+        'padding:1px 2px 3px 4px 5px;'
+        'color:red !important;width:auto',
+      );
+      expect(css.backgroundColor, isNull);
+      expect(css.padding.isEmpty, isTrue);
+      expect(css.color, 0xFFFF0000);
+      expect(css.width, isNull);
+    });
+
+    test('is bounded and never throws', () {
+      expect(BlockCss.parse('color:red;${' ' * maxBlockStyleLength}'), BlockCss.empty);
+      for (final junk in [';;;', ':', '((((', '"unterminated', '/* x', 'a:b:c']) {
+        expect(() => BlockCss.parse(junk), returnsNormally, reason: junk);
+      }
+    });
+  });
+
+  group('block style on a node', () {
+    test('is stored as NodeState and round-trips under "\$"', () {
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode()
+          ..append($createTextNode('Rot'));
+        $setBlockStyle(paragraph, 'background-color:#e60000');
+        $getRoot().append(paragraph);
+      }, discrete: true);
+
+      final json = editor.toJson();
+      final paragraph =
+          ((json['root']! as Map)['children']! as List).first as Map;
+      expect(paragraph[r'$'], {'style': 'background-color:#e60000'});
+
+      final reopened = LexicalEditor()
+        ..setEditorState(editor.parseEditorState(json));
+      expect(
+        reopened.read(() => $getBlockStyle($getRoot().getFirstChild()!)),
+        'background-color:#e60000',
+      );
+      expect(jsonFirstDifference(json, reopened.toJson()), isNull);
+    });
+
+    test('writing does not leak into the committed version', () {
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode();
+        $setBlockStyle(paragraph, 'color:red');
+        $getRoot().append(paragraph);
+      }, discrete: true);
+      final before = editor.editorState;
+
+      editor.update(() {
+        $setBlockStyle($getRoot().getFirstChild()!, 'color:blue');
+      }, discrete: true);
+
+      expect(
+        before.read(() => $getBlockStyle($getRoot().getFirstChild()!)),
+        'color:red',
+      );
+      expect(
+        editor.read(() => $getBlockStyle($getRoot().getFirstChild()!)),
+        'color:blue',
+      );
+    });
+
+    test('an empty style removes the entry and keeps other state', () {
+      final editor = LexicalEditor();
+      editor.update(() {
+        final paragraph = $createParagraphNode();
+        paragraph.nodeState['other'] = 1;
+        $setBlockStyle(paragraph, 'color:red');
+        $setBlockStyle(paragraph, '');
+        $getRoot().append(paragraph);
+      }, discrete: true);
+      final paragraph =
+          ((editor.toJson()['root']! as Map)['children']! as List).first
+              as Map;
+      expect(paragraph[r'$'], {'other': 1});
+    });
+
+    test('a node without one answers the empty string', () {
+      final editor = LexicalEditor();
+      editor.update(() {
+        $getRoot().append($createParagraphNode());
+      }, discrete: true);
+      expect(editor.read(() => $getBlockStyle($getRoot().getFirstChild()!)), '');
+    });
+  });
+}

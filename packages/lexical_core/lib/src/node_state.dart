@@ -51,6 +51,11 @@ final class NodeState {
     (_nested ??= <String, Object?>{})[key] = value;
   }
 
+  /// Removes a nested state value.
+  void remove(String key) {
+    _nested?.remove(key);
+  }
+
   /// Writes a flat state value, serialized as a top-level JSON key.
   void setFlat(String key, Object? value) {
     assert(
