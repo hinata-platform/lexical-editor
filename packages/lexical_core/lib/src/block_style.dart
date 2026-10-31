@@ -327,6 +327,66 @@ final class BlockCss {
   /// Whether the block draws a box: a fill, a border or padding.
   bool get hasBox => backgroundColor != null || hasBorder || !padding.isEmpty;
 
+  /// The style as canonical CSS, holding only the allowed properties.
+  ///
+  /// What an importer stores: whatever the source wrote — shorthands,
+  /// legacy attributes, properties nobody draws — comes out as the subset a
+  /// renderer reads, in one spelling. `BlockCss.parse(css.toCss()) == css`.
+  String toCss() {
+    final parts = <String>[];
+    final background = backgroundColor;
+    if (background != null) parts.add('background-color:${_color(background)}');
+    final text = color;
+    if (text != null) parts.add('color:${_color(text)}');
+    if (!padding.isEmpty) {
+      parts.add(
+        'padding:${_px(padding.top ?? 0)} ${_px(padding.right ?? 0)} '
+        '${_px(padding.bottom ?? 0)} ${_px(padding.left ?? 0)}',
+      );
+    }
+    if (marginTop != null) parts.add('margin-top:${_px(marginTop!)}');
+    if (marginBottom != null) parts.add('margin-bottom:${_px(marginBottom!)}');
+    if (centered) parts.add('margin-left:auto;margin-right:auto');
+    if (maxWidth != null) parts.add('max-width:${_px(maxWidth!)}');
+    final w = width;
+    if (w != null) {
+      parts.add(
+        w.unit == CssLengthUnit.px
+            ? 'width:${_px(w.value)}'
+            : 'width:${_number(w.value)}%',
+      );
+    }
+    if (borderRadius != null) parts.add('border-radius:${_px(borderRadius!)}');
+    for (final (name, side) in [
+      ('top', borderTop),
+      ('right', borderRight),
+      ('bottom', borderBottom),
+      ('left', borderLeft),
+    ]) {
+      if (side != null) {
+        parts.add('border-$name:${_px(side.width)} solid ${_color(side.color)}');
+      }
+    }
+    return parts.join(';');
+  }
+
+  static String _number(double value) {
+    final rounded = (value * 100).round() / 100;
+    return rounded == rounded.roundToDouble()
+        ? rounded.round().toString()
+        : rounded.toString();
+  }
+
+  static String _px(double value) => '${_number(value)}px';
+
+  static String _color(int argb) {
+    final alpha = (argb >> 24) & 0xFF;
+    final rgb = argb & 0xFFFFFF;
+    if (alpha == 0xFF) return '#${rgb.toRadixString(16).padLeft(6, '0')}';
+    return 'rgba(${(rgb >> 16) & 0xFF},${(rgb >> 8) & 0xFF},${rgb & 0xFF},'
+        '${_number(alpha / 255)})';
+  }
+
   static List<String> _split(String value) =>
       value.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
 

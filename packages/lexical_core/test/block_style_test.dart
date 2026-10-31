@@ -123,6 +123,35 @@ void main() {
     });
   });
 
+  group('BlockCss.toCss', () {
+    test('writes the allowed subset in one spelling', () {
+      final css = BlockCss.parse(
+        'background:#E60000;padding:10px 25px;margin:0 auto;display:flex;'
+        'border:1px solid red;border-radius:4px;width:50%;color:rgba(0,0,0,.5)',
+      );
+      expect(
+        css.toCss(),
+        'background-color:#e60000;color:rgba(0,0,0,0.5);'
+        'padding:10px 25px 10px 25px;margin-top:0px;margin-bottom:0px;'
+        'margin-left:auto;margin-right:auto;width:50%;border-radius:4px;'
+        'border-top:1px solid #ff0000;border-right:1px solid #ff0000;'
+        'border-bottom:1px solid #ff0000;border-left:1px solid #ff0000',
+      );
+    });
+
+    test('reads back as the same style', () {
+      for (final source in [
+        'padding:8px;max-width:600px;margin:0 auto',
+        'border-bottom:2px dashed #ccc;margin-bottom:12pt',
+        'width:320px;background-color:transparent',
+        '',
+      ]) {
+        final css = BlockCss.parse(source);
+        expect(BlockCss.parse(css.toCss()), css, reason: source);
+      }
+    });
+  });
+
   group('block style on a node', () {
     test('is stored as NodeState and round-trips under "\$"', () {
       final editor = LexicalEditor();
