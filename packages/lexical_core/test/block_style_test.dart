@@ -88,7 +88,10 @@ void main() {
 
     test('longhands refine the shorthand, in source order', () {
       final css = BlockCss.parse('padding:8px;padding-left:20px');
-      expect(css.padding, const CssEdges(top: 8, right: 8, bottom: 8, left: 20));
+      expect(
+        css.padding,
+        const CssEdges(top: 8, right: 8, bottom: 8, left: 20),
+      );
       final border = BlockCss.parse(
         'border:1px solid #000;border-bottom:2px dashed red;border-top:none',
       );
@@ -116,8 +119,18 @@ void main() {
     });
 
     test('is bounded and never throws', () {
-      expect(BlockCss.parse('color:red;${' ' * maxBlockStyleLength}'), BlockCss.empty);
-      for (final junk in [';;;', ':', '((((', '"unterminated', '/* x', 'a:b:c']) {
+      expect(
+        BlockCss.parse('color:red;${' ' * maxBlockStyleLength}'),
+        BlockCss.empty,
+      );
+      for (final junk in [
+        ';;;',
+        ':',
+        '((((',
+        '"unterminated',
+        '/* x',
+        'a:b:c',
+      ]) {
         expect(() => BlockCss.parse(junk), returnsNormally, reason: junk);
       }
     });
@@ -226,8 +239,7 @@ void main() {
         $getRoot().append(paragraph);
       }, discrete: true);
       final paragraph =
-          ((editor.toJson()['root']! as Map)['children']! as List).first
-              as Map;
+          ((editor.toJson()['root']! as Map)['children']! as List).first as Map;
       expect(paragraph[r'$'], {'other': 1});
     });
 
@@ -236,7 +248,10 @@ void main() {
       editor.update(() {
         $getRoot().append($createParagraphNode());
       }, discrete: true);
-      expect(editor.read(() => $getBlockStyle($getRoot().getFirstChild()!)), '');
+      expect(
+        editor.read(() => $getBlockStyle($getRoot().getFirstChild()!)),
+        '',
+      );
     });
   });
 }

@@ -274,13 +274,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
               inheritedColor: color,
             ),
           )
-        : _buildContent(
-            context,
-            element,
-            children,
-            depth: depth,
-            color: color,
-          );
+        : _buildContent(context, element, children, depth: depth, color: color);
 
     var block = content;
 
@@ -371,10 +365,7 @@ class LexicalDocumentState extends State<LexicalDocument> {
       block = DecoratedBox(decoration: decoration, child: block);
       if (decoration.borderRadius != null) {
         // The fill is rounded; content painting over its corners is not.
-        block = ClipRRect(
-          borderRadius: decoration.borderRadius!,
-          child: block,
-        );
+        block = ClipRRect(borderRadius: decoration.borderRadius!, child: block);
       }
     }
     final width = css.width;

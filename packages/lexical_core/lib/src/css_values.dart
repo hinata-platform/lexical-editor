@@ -152,8 +152,7 @@ final class CssLength {
   int get hashCode => Object.hash(value, unit);
 
   @override
-  String toString() =>
-      unit == CssLengthUnit.px ? '${value}px' : '$value%';
+  String toString() => unit == CssLengthUnit.px ? '${value}px' : '$value%';
 }
 
 const Map<String, int> _namedColors = {

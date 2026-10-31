@@ -39,7 +39,7 @@ final class LayoutUpdate {
 /// * A `layout-container` holding anything but items is unwrapped: the shape
 ///   is wrong, and its content is worth more than its columns.
 ///
-/// The editor must have [layoutNodes] registered.
+/// The editor must have `layoutNodes` registered.
 Unsubscribe registerLayout(LexicalEditor editor) {
   final unsubscribes = <Unsubscribe>[
     editor.registerCommand<String>(

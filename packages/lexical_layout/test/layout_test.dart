@@ -74,12 +74,14 @@ List<String> _columns(LexicalEditor editor) => editor.read(
 String? _caretColumnText(LexicalEditor editor) => editor.read(() {
   final selection = $getSelection();
   if (selection is! RangeSelection) return null;
-  LexicalNode? node = selection.focus.getNode();
-  while (node != null && node is! LayoutItemNode) {
-    node = node.getParent();
+  for (
+    var node = selection.focus.getNode()?.getParent();
+    node != null;
+    node = node.getParent()
+  ) {
+    if (node is LayoutItemNode) return node.getTextContent();
   }
-  if (node == null) return null;
-  return node.getTextContent();
+  return null;
 });
 
 void main() {
@@ -160,10 +162,10 @@ void main() {
     test('fractions share what fixed tracks leave', () {
       final tracks = parseTemplateColumns('200px 1fr 3fr');
       expect(resolveTemplateColumns(tracks, 600), [200, 100, 300]);
-      expect(
-        resolveTemplateColumns(parseTemplateColumns('25% 1fr'), 400),
-        [100, 300],
-      );
+      expect(resolveTemplateColumns(parseTemplateColumns('25% 1fr'), 400), [
+        100,
+        300,
+      ]);
       expect(
         resolveTemplateColumns(parseTemplateColumns('1fr 1fr'), 410, gap: 10),
         [200, 200],
@@ -229,25 +231,27 @@ void main() {
       expect(_columns(editor), ['', '']);
     });
 
-    test('backspace in the empty first column of an empty layout removes it',
-        () {
-      final editor = _editor();
-      _seed(editor, ['', ''], before: 'vor', after: 'nach');
-      _caretIn(editor, 0);
-      editor.dispatchCommand(deleteCharacterCommand, true);
-      expect(
-        editor.read(() => $getRoot().children.map((n) => n.type).toList()),
-        ['paragraph', 'paragraph'],
-      );
-      // The caret survives the removal on a block that still exists.
-      expect(
-        editor.read(() {
-          final selection = $getSelection()! as RangeSelection;
-          return selection.focus.getNode()?.getTextContent();
-        }),
-        'vor',
-      );
-    });
+    test(
+      'backspace in the empty first column of an empty layout removes it',
+      () {
+        final editor = _editor();
+        _seed(editor, ['', ''], before: 'vor', after: 'nach');
+        _caretIn(editor, 0);
+        editor.dispatchCommand(deleteCharacterCommand, true);
+        expect(
+          editor.read(() => $getRoot().children.map((n) => n.type).toList()),
+          ['paragraph', 'paragraph'],
+        );
+        // The caret survives the removal on a block that still exists.
+        expect(
+          editor.read(() {
+            final selection = $getSelection()! as RangeSelection;
+            return selection.focus.getNode()?.getTextContent();
+          }),
+          'vor',
+        );
+      },
+    );
 
     test('backspace in the empty first column keeps a non-empty layout', () {
       final editor = _editor();
@@ -382,7 +386,10 @@ void main() {
         );
       }, discrete: true);
       expect(_columns(editor), ['a', 'b', '', '']);
-      expect(editor.read(() => _container().templateColumns), '1fr 1fr 1fr 1fr');
+      expect(
+        editor.read(() => _container().templateColumns),
+        '1fr 1fr 1fr 1fr',
+      );
     });
   });
 }

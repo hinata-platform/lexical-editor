@@ -67,8 +67,7 @@ _Mail _seedMail(LexicalEditor editor) {
           'width:fit-content;margin:0 auto',
     )..setFormat(ElementFormat.center);
 
-    final item = $createLayoutItemNode()
-      ..appendAll([header, stepRow, button]);
+    final item = $createLayoutItemNode()..appendAll([header, stepRow, button]);
     final canvas = $createLayoutContainerNode('1fr')..append(item);
     $setBlockStyle(
       canvas,

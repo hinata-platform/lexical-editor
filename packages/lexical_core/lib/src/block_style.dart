@@ -5,7 +5,8 @@
 /// A block's CSS travels there under the key `style`:
 ///
 /// ```json
-/// {"type": "paragraph", …, "$": {"style": "background-color:#e60000;padding:16px"}}
+/// {"type": "paragraph", …,
+///  "$": {"style": "background-color:#e60000;padding:16px"}}
 /// ```
 ///
 /// Lexical web preserves the entry on every element it round-trips, which is
@@ -92,7 +93,8 @@ final class CssEdges {
   final double? left;
 
   /// Whether no edge is set.
-  bool get isEmpty => top == null && right == null && bottom == null && left == null;
+  bool get isEmpty =>
+      top == null && right == null && bottom == null && left == null;
 
   CssEdges _with({double? top, double? right, double? bottom, double? left}) =>
       CssEdges(
@@ -389,7 +391,9 @@ final class BlockCss {
       ('left', borderLeft),
     ]) {
       if (side != null) {
-        parts.add('border-$name:${_px(side.width)} solid ${_color(side.color)}');
+        parts.add(
+          'border-$name:${_px(side.width)} solid ${_color(side.color)}',
+        );
       }
     }
     return parts.join(';');

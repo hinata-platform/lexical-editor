@@ -41,7 +41,8 @@ class LayoutContainerNode extends ElementNode {
   /// The CSS grid template, verbatim — `"1fr 1fr"`, `"200px 1fr"`.
   ///
   /// Read it with `parseTemplateColumns` to lay it out.
-  String get templateColumns => getLatest<LayoutContainerNode>()._templateColumns;
+  String get templateColumns =>
+      getLatest<LayoutContainerNode>()._templateColumns;
 
   /// Replaces the grid template.
   LayoutContainerNode setTemplateColumns(String value) =>

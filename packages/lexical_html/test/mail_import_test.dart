@@ -84,7 +84,10 @@ void main() {
     test('keeps its shape', () {
       final outline = _outline(_import(mail));
       // The outer 100 % table is a grey band around a centred 600 px canvas.
-      expect(outline, startsWith('layout-container(1fr)[background-color:#eeeeee]'));
+      expect(
+        outline,
+        startsWith('layout-container(1fr)[background-color:#eeeeee]'),
+      );
       expect(
         outline,
         contains(
@@ -139,9 +142,11 @@ void main() {
       expect(styles['Wir'], contains('color: #333333'));
       expect(
         editor.read(
-          () => $getRoot().getAllTextNodes().whereType<TextNode>().firstWhere(
-            (node) => node.getTextContent() == 'Deine Bestellung',
-          ).hasFormat(TextFormat.bold),
+          () => $getRoot()
+              .getAllTextNodes()
+              .whereType<TextNode>()
+              .firstWhere((node) => node.getTextContent() == 'Deine Bestellung')
+              .hasFormat(TextFormat.bold),
         ),
         isTrue,
       );
@@ -283,8 +288,7 @@ void main() {
   });
 
   test('deeply nested tables are bounded, not fatal', () {
-    final html =
-        '${'<table><tr><td>' * 400}tief${'</td></tr></table>' * 400}';
+    final html = '${'<table><tr><td>' * 400}tief${'</td></tr></table>' * 400}';
     expect(() => _import(html), returnsNormally);
   });
 

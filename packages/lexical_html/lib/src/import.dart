@@ -17,12 +17,7 @@ typedef HtmlNodeImport =
 /// An `<img>` as the importer read it.
 final class HtmlImage {
   /// Creates an image description.
-  const HtmlImage({
-    required this.src,
-    this.alt = '',
-    this.width,
-    this.height,
-  });
+  const HtmlImage({required this.src, this.alt = '', this.width, this.height});
 
   /// The `src` attribute, verbatim.
   final String src;
@@ -477,20 +472,19 @@ final class HtmlImport {
   }
 
   /// Whether [element] starts a line of its own even without a style.
-  static bool _definesBlock(dom.Element element) => switch (element
-      .localName
-      ?.toLowerCase()) {
-    'div' ||
-    'section' ||
-    'article' ||
-    'main' ||
-    'center' ||
-    'header' ||
-    'footer' ||
-    'td' ||
-    'th' => true,
-    _ => false,
-  };
+  static bool _definesBlock(dom.Element element) =>
+      switch (element.localName?.toLowerCase()) {
+        'div' ||
+        'section' ||
+        'article' ||
+        'main' ||
+        'center' ||
+        'header' ||
+        'footer' ||
+        'td' ||
+        'th' => true,
+        _ => false,
+      };
 
   /// Puts [css] on [blocks]: on the block itself when there is exactly one
   /// paragraph or heading without a style of its own, otherwise on a
@@ -558,7 +552,9 @@ final class HtmlImport {
       if (first is! TextNode || first.isToken) break;
       final text = first.getTextContent().trimLeft();
       if (text.isNotEmpty) {
-        if (text.length != first.getTextContentSize()) first.setTextContent(text);
+        if (text.length != first.getTextContentSize()) {
+          first.setTextContent(text);
+        }
         break;
       }
       result.removeAt(0);
@@ -687,12 +683,7 @@ final class HtmlImport {
             isOneCell ? tableCss : '',
             _blockCss(row, rowDeclarations, withWidth: false),
           ),
-          _blockCss(
-            cell,
-            cellDeclarations,
-            withWidth: true,
-            padding: padding,
-          ),
+          _blockCss(cell, cellDeclarations, withWidth: true, padding: padding),
         );
         blocks.addAll(_box(content, css));
       }
@@ -904,10 +895,7 @@ final class HtmlImport {
     }
     // Responsive mails carry a mobile and a desktop variant; the desktop one
     // is kept, because the layout reflows to a phone on its own.
-    final names = [
-      ...element.classes,
-      if (element.id.isNotEmpty) element.id,
-    ];
+    final names = [...element.classes, if (element.id.isNotEmpty) element.id];
     return names.any(
       (name) => RegExp(
         r'^(mob|mobile)([-_]?(only|show|version|view))?$|'
@@ -953,15 +941,19 @@ final class HtmlImport {
     Map<String, String> declarations,
   ) {
     if (element.localName == 'center') return ElementFormat.center;
-    final value = (declarations['text-align'] ??
-            // On a table `align` positions the table, not its text.
-            (element.localName == 'table' ? null : element.attributes['align']))
-        ?.trim()
-        .toLowerCase();
+    final value =
+        (declarations['text-align'] ??
+                // On a table `align` positions the table, not its text.
+                (element.localName == 'table'
+                    ? null
+                    : element.attributes['align']))
+            ?.trim()
+            .toLowerCase();
     return switch (value) {
-      'left' || 'center' || 'right' || 'justify' => ElementFormat.fromWire(
-        value,
-      ),
+      'left' ||
+      'center' ||
+      'right' ||
+      'justify' => ElementFormat.fromWire(value),
       'middle' => ElementFormat.center,
       _ => ElementFormat.none,
     };
@@ -1013,9 +1005,7 @@ final class HtmlImport {
     final source = [...legacy, ...declared].join(';');
     if (source.isEmpty || source.length > 4096) return '';
     var css = BlockCss.parse(
-      source.length > maxBlockStyleLength
-          ? _trimDeclarations(source)
-          : source,
+      source.length > maxBlockStyleLength ? _trimDeclarations(source) : source,
     );
     // A width in pixels on a centred table is its max-width: it shrinks on a
     // phone the way a mail's media query makes it.
