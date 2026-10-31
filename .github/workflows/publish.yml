@@ -108,7 +108,7 @@ jobs:
       # A release does not have to be the whole set. Lockstep is the default —
       # the packages are one library split up, so a change in the core ships
       # everywhere — but a fix that touches one package would otherwise cost
-      # nineteen of pub.dev's two hundred daily uploads to deliver one.
+      # twenty of pub.dev's two hundred daily uploads to deliver one.
       #
       # So the tag names the version and each pubspec answers for itself: a
       # package whose version equals the tag is part of this release, and one
@@ -189,7 +189,7 @@ jobs:
           for package in $RELEASE_SCOPE; do
             # Resumable, because a release can stop halfway through for
             # reasons that have nothing to do with this repository — pub.dev
-            # rate-limits publishing per day, and nineteen packages is a
+            # rate-limits publishing per day, and twenty packages is a
             # meaningful part of that budget. Re-running then has to continue
             # the set rather than fail on the first package that is already
             # up, since the alternative is publishing the rest by hand.

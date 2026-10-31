@@ -483,6 +483,15 @@ extension RangeSelectionEditing on RangeSelection {
       if (backwards) _collapseBlockAtStart(focus);
       return;
     }
+    if (backwards && _leavesShadowRoot(focus, moved)) {
+      // The step left the shadow root the caret is in — a column, a cell —
+      // for a block outside it. Nothing may be deleted across that edge, so
+      // this is the start of a root as far as backspace is concerned, and
+      // the block gets to collapse: an empty layout column removes its
+      // layout, exactly as it would at the top of the document.
+      _collapseBlockAtStart(focus);
+      return;
+    }
     _deleteTowards(moved, backwards: backwards);
   }
 
@@ -716,6 +725,16 @@ ElementNode _blockOf(LexicalNode node) {
     current = current.getParent();
   }
   return $getRoot();
+}
+
+/// Whether moving from [from] to [to] leaves the shadow root [from] is in.
+bool _leavesShadowRoot(Point from, Point to) {
+  final fromNode = from.getNode();
+  final toNode = to.getNode();
+  if (fromNode == null || toNode == null) return false;
+  final root = _shadowRootOf(fromNode);
+  if (root is RootNode) return false;
+  return !root.isParentOf(toNode);
 }
 
 /// The nearest shadow root containing [node], or the document root.

@@ -40,6 +40,7 @@ native scrolling and native performance to keep code no user ever sees.
 | [`lexical_link`](packages/lexical_link) | Link and auto-link, with URL scheme validation at the point of use |
 | [`lexical_code`](packages/lexical_code) | Code blocks, syntax highlighting for 15 languages, code-shaped Enter and Tab |
 | [`lexical_table`](packages/lexical_table) | Table, row, cell; the grid, spans, cell-range selection and the structural commands |
+| [`lexical_layout`](packages/lexical_layout) | Column layouts: the playground's layout container and item, grid templates resolved to column widths |
 | [`lexical_mark`](packages/lexical_mark) | Annotation and comment ranges |
 | [`lexical_hashtag`](packages/lexical_hashtag) | Hashtags |
 | [`lexical_mention`](packages/lexical_mention) | Typed `@mentions`: atomic nodes, bounded trigger matching, debounced search |
