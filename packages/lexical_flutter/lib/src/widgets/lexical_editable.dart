@@ -375,6 +375,9 @@ class LexicalEditableState extends State<LexicalEditable> {
     if (oldWidget.focusNode != widget.focusNode) {
       oldWidget.focusNode?.removeListener(_onFocusChanged);
       _focusNode.addListener(_onFocusChanged);
+      // The new node has not reported anything yet; what the old one said
+      // about primary focus no longer applies.
+      _hadPrimaryFocus = _focusNode.hasPrimaryFocus;
     }
     if (!identical(oldWidget.editor, widget.editor) ||
         oldWidget.readOnly != widget.readOnly ||
@@ -548,9 +551,13 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   AppLifecycleListener? _parkedLifecycle;
 
+  /// Counts arms, so a disarm scheduled for one arm cannot end a later one.
+  int _armGeneration = 0;
+
   void _arm() {
     if (_armedForParkedKeys) return;
     _armedForParkedKeys = true;
+    _armGeneration++;
     HardwareKeyboard.instance.addHandler(_onKeyWhileParked);
     FocusManager.instance.addListener(_onPrimaryFocusWhileParked);
     _parkedLifecycle = AppLifecycleListener(onResume: _onResumedWhileParked);
@@ -581,8 +588,11 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// for focus meanwhile — and the editor has no claim left.
   void _onResumedWhileParked() {
     final binding = WidgetsBinding.instance;
+    final generation = _armGeneration;
     binding.addPostFrameCallback((_) {
-      if (mounted) _disarm();
+      // The app may have gone inactive again before this frame, parking focus
+      // and arming anew; that claim is not this resume's to end.
+      if (mounted && generation == _armGeneration) _disarm();
     }, debugLabel: 'LexicalEditable.parkedKeys');
     binding.ensureVisualUpdate();
   }
