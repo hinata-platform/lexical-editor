@@ -298,9 +298,12 @@ void main() {
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump();
-    expect(_key.currentState!.debugTakesParkedKeys, isTrue);
+    final state = _key.currentState!;
+    expect(state.debugTakesParkedKeys, isTrue);
 
     await tester.pumpWidget(const SizedBox());
+    expect(state.mounted, isFalse);
+    expect(state.debugTakesParkedKeys, isFalse, reason: 'released on dispose');
     await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
@@ -495,6 +498,34 @@ void main() {
     ]);
     await tester.pump();
     expect(_text(editor), 'ab$_emoji');
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('on the web a pasteCommand handler still runs first', (
+    tester,
+  ) async {
+    // Leaving ⌘V to the browser must not bypass a host's own paste.
+    debugBrowserPastesNativelyOverride = true;
+    addTearDown(() => debugBrowserPastesNativelyOverride = null);
+    final reads = _clipboard(tester, _emoji);
+    final editor = _editor('ab');
+    var pastes = 0;
+    final unregister = editor.registerCommand(pasteCommand, (_) {
+      pastes++;
+      return true;
+    }, CommandPriority.editor);
+    addTearDown(unregister);
+    await _pump(tester, editor);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    final handled = await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+
+    expect(pastes, 1);
+    expect(handled, isTrue, reason: 'the handler took it, not the browser');
+    expect(reads(), 0);
+    expect(_text(editor), 'ab');
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a block lays its text out again when new fonts arrive', (
