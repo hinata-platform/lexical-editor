@@ -1337,6 +1337,11 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// half that has the gap, so it is asked only here and only on macOS.
   bool get _commandFlagOnEvent {
     if (defaultTargetPlatform != TargetPlatform.macOS) return false;
+    // TODO(rebar): Remove once the macOS engine turns a side-less
+    // NSEventModifierFlagCommand into a Meta key for HardwareKeyboard, or
+    // RawKeyboard goes away — whichever comes first. The upstream report is
+    // still a draft: "[macOS] ⌘V posted by another app (Raycast, Alfred,
+    // clipboard managers) never pastes into a TextField".
     // ignore: deprecated_member_use
     final pressed = RawKeyboard.instance.keysPressed;
     return pressed.contains(LogicalKeyboardKey.metaLeft) ||
