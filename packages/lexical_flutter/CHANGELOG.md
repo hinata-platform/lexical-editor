@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.11.2
+
+**Keys typed outside the editor stay outside it.** 1.11.1 took a key that
+arrived while focus was parked on the root scope, whatever had parked it. On
+the web the view loses focus whenever DOM focus moves to an element outside it —
+an input in the host page, a password manager — and the engine still hears every
+key typed there. The first one, Backspace and Enter included, went to the
+editor, which then took focus, so the keys after it landed in the document.
+Parked keys are now only taken when the application went inactive, and never on
+the web.
+
+**A caption keeps its own paste.** A field inside the document, such as an image
+caption, no longer has a launcher's paste land in the body: only the editor's
+own primary focus is parked for.
+
+**The claim ends when focus moves on.** Focus landing on any other node while
+the app is inactive, or a resume on which the framework does not hand focus
+back, ends the editor's claim on parked keys; disposing the editor ends it too.
+A parked key now only pulls focus in when the editor takes it — Escape or a bare
+modifier no longer does.
+
+`browserPastesNatively` becomes `debugBrowserPastesNativelyOverride`, honoured
+in debug builds only.
+
 ## 1.11.1
 
 **Emoji from Raycast and other launchers arrive.** A launcher's paste — Raycast's

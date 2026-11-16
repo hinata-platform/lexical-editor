@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.2
+
+Requires `lexical_flutter` 1.11.2, which stops keys typed outside the editor on
+the web from landing in it, keeps a caption's paste in the caption, and ends the
+editor's claim on parked keys as soon as focus moves on. Its changelog has the
+details.
+
 ## 1.11.1
 
 Requires `lexical_flutter` 1.11.1, which makes emoji from Raycast and other
