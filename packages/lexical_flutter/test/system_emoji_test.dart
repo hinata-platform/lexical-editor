@@ -332,6 +332,30 @@ void main() {
     await tester.pump();
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('a resume does not end a claim made after it', (tester) async {
+    // Resume, focus back, inactive again — all before the frame in which the
+    // resume would end its claim. The new claim is not the resume's to end.
+    final editor = _editor('ab');
+    await _pump(tester, editor);
+    final state = _key.currentState!;
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(state.debugTakesParkedKeys, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await Future<void>.value(); // focus comes back, no frame yet
+    expect(state.debugTakesParkedKeys, isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(state.debugTakesParkedKeys, isTrue);
+
+    await tester.pump();
+    expect(state.debugTakesParkedKeys, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('a key is not taken from whatever got focus in the meantime', (
     tester,
   ) async {
