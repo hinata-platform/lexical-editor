@@ -51,8 +51,18 @@ const LexicalCommand<void> pasteCommand = LexicalCommand('PASTE');
 /// A `pasteCommand` handler still gets the first word, on the web as
 /// everywhere. The context menu's paste button is a click, not a key, and
 /// keeps reading the clipboard itself.
-@visibleForTesting
-bool browserPastesNatively = kIsWeb;
+bool get _browserPastesNatively {
+  bool? override;
+  assert(() {
+    override = debugBrowserPastesNativelyOverride;
+    return true;
+  }());
+  return override ?? kIsWeb;
+}
+
+/// Overrides whether ⌘V / Ctrl+V is left to the browser, for tests on a
+/// platform that is not the web. Honoured in debug builds only.
+bool? debugBrowserPastesNativelyOverride;
 
 /// What the Tab key does.
 enum TabBehaviour {
@@ -1393,7 +1403,7 @@ class LexicalEditableState extends State<LexicalEditable> {
           cut();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyV:
-          if (browserPastesNatively) {
+          if (_browserPastesNatively) {
             if (editor.dispatchCommand(pasteCommand, null)) {
               return KeyEventResult.handled;
             }

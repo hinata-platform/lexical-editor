@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_core/lexical_core.dart';
 import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_flutter/src/widgets/lexical_editable.dart'
-    show browserPastesNatively;
+    show debugBrowserPastesNativelyOverride;
 
 const _emoji = '✅😊☀️❤️👨‍👩‍👧';
 
@@ -416,8 +416,8 @@ void main() {
     // and a "Paste" bubble per paste in Safari; a refused prompt pasted
     // nothing at all. The browser's own paste needs neither, so the key is
     // left unconsumed and the text comes back as an insertion delta.
-    browserPastesNatively = true;
-    addTearDown(() => browserPastesNatively = false);
+    debugBrowserPastesNativelyOverride = true;
+    addTearDown(() => debugBrowserPastesNativelyOverride = null);
     var reads = 0;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
