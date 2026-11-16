@@ -35,6 +35,25 @@ const LexicalCommand<void> cutCommand = LexicalCommand('CUT');
 /// Paste the clipboard at the selection.
 const LexicalCommand<void> pasteCommand = LexicalCommand('PASTE');
 
+/// Whether ⌘V / Ctrl+V is left to the browser rather than read from the
+/// clipboard by the editor.
+///
+/// Reading the clipboard from script on the web goes through the async
+/// clipboard API, and every browser guards that: Chrome asks for a permission
+/// the first time and pastes nothing once it is refused, Safari shows its own
+/// "Paste" bubble that has to be clicked on every single paste, Firefox does
+/// the same. A paste sent by a launcher — Raycast's emoji picker, Alfred,
+/// a clipboard manager — ran into exactly that prompt and inserted nothing.
+/// The browser's own paste needs no permission: it fills the input element the
+/// engine keeps behind the editor, and the text reaches the editor as an
+/// insertion delta, which is also how `EditableText` pastes on the web.
+///
+/// A `pasteCommand` handler still gets the first word, on the web as
+/// everywhere. The context menu's paste button is a click, not a key, and
+/// keeps reading the clipboard itself.
+@visibleForTesting
+bool browserPastesNatively = kIsWeb;
+
 /// What the Tab key does.
 enum TabBehaviour {
   /// Indent the selected blocks, and nest list items.
@@ -373,6 +392,7 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   @override
   void dispose() {
+    _unpark();
     _blinkTimer?.cancel();
     _overlay?.dispose();
     _overlay = null;
@@ -448,16 +468,75 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   void _onFocusChanged() {
     if (_focusNode.hasFocus) {
+      _unpark();
       _ensureCaret();
       _input.attach();
       _scheduleGeometryUpdate();
       _restartBlink();
     } else {
+      if (_focusIsParked) _park();
       _input.detach();
       _blinkTimer?.cancel();
       _caretVisible = false;
     }
     _applyPresentation();
+  }
+
+  // -------------------------------------------------------------------
+  // Keys that arrive while focus is parked
+  // -------------------------------------------------------------------
+
+  /// Whether this editor had focus when the framework parked it.
+  ///
+  /// When the application stops being the active one, or its window stops
+  /// being the key window, the framework moves focus to the root scope and
+  /// gives it back once the window is active again. Giving it back is not
+  /// immediate: it waits for the focus manager's next update, and on macOS a
+  /// key event can arrive first.
+  ///
+  /// That is exactly what a launcher's paste looks like. Raycast's emoji
+  /// picker, Alfred and the like write to the pasteboard, hand activation
+  /// back and post ⌘V straight away. The key-down landed while nothing had
+  /// focus, went unhandled, and reached the input method as `noop:`; only
+  /// the key-up found the editor again. Nothing was pasted, every time.
+  bool _focusParked = false;
+
+  /// Whether focus currently sits on the root scope, which is where the
+  /// framework parks it and nowhere a widget ever puts it on purpose: an
+  /// `unfocus` lands on the nearest enclosing scope, a tap elsewhere on
+  /// whatever was tapped.
+  static bool get _focusIsParked {
+    final manager = FocusManager.instance;
+    return manager.primaryFocus == manager.rootScope;
+  }
+
+  void _park() {
+    if (_focusParked) return;
+    _focusParked = true;
+    HardwareKeyboard.instance.addHandler(_onKeyWhileParked);
+  }
+
+  void _unpark() {
+    if (!_focusParked) return;
+    _focusParked = false;
+    HardwareKeyboard.instance.removeHandler(_onKeyWhileParked);
+  }
+
+  /// Takes a key-down that arrived before the framework handed focus back.
+  ///
+  /// The framework is about to give focus to this editor anyway — it is the
+  /// node it parked — so the key is handled as the editor would have handled
+  /// it a few milliseconds later, and focus is asked for now rather than
+  /// then. Anything that took focus in the meantime has a claim of its own,
+  /// and the key is left alone.
+  bool _onKeyWhileParked(KeyEvent event) {
+    if (!mounted || !_focusIsParked) {
+      _unpark();
+      return false;
+    }
+    if (event is! KeyDownEvent) return false;
+    _focusNode.requestFocus();
+    return _onKeyEvent(_focusNode, event) == KeyEventResult.handled;
   }
 
   /// Focuses the editor and shows the software keyboard.
@@ -1171,6 +1250,27 @@ class LexicalEditableState extends State<LexicalEditable> {
       defaultTargetPlatform == TargetPlatform.macOS ||
       defaultTargetPlatform == TargetPlatform.iOS;
 
+  /// Whether the key event being handled carries the ⌘ flag, read off the
+  /// event itself rather than off the keys known to be held.
+  ///
+  /// [HardwareKeyboard] hears about ⌘ only through the modifier events the
+  /// macOS engine synthesizes, and the engine synthesizes them from the
+  /// left- and right-hand flag bits alone. An event another process posts
+  /// with just the side-less command flag — what Raycast, Alfred and every
+  /// `CGEventPost` with `kCGEventFlagMaskCommand` send — never produces one,
+  /// so ⌘V arrived here as a plain V and the paste was dropped. AppKit reads
+  /// the flag off the event, and so does the raw keyboard, which reads the
+  /// modifiers of each event as it arrives and already accepts the side-less
+  /// flag. It is deprecated in favour of [HardwareKeyboard], which is the
+  /// half that has the gap, so it is asked only here and only on macOS.
+  bool get _commandFlagOnEvent {
+    if (defaultTargetPlatform != TargetPlatform.macOS) return false;
+    // ignore: deprecated_member_use
+    final pressed = RawKeyboard.instance.keysPressed;
+    return pressed.contains(LogicalKeyboardKey.metaLeft) ||
+        pressed.contains(LogicalKeyboardKey.metaRight);
+  }
+
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     if (widget.editor.dispatchCommand(keyDownCommand, event)) {
@@ -1181,7 +1281,7 @@ class LexicalEditableState extends State<LexicalEditable> {
     final shift = keys.isShiftPressed;
     final alt = keys.isAltPressed;
     final primary = _usesMetaShortcuts
-        ? keys.isMetaPressed
+        ? keys.isMetaPressed || _commandFlagOnEvent
         : keys.isControlPressed;
     final key = event.logicalKey;
     final editor = widget.editor;
@@ -1231,6 +1331,15 @@ class LexicalEditableState extends State<LexicalEditable> {
           cut();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyV:
+          if (browserPastesNatively) {
+            if (editor.dispatchCommand(pasteCommand, null)) {
+              return KeyEventResult.handled;
+            }
+            // Stop the key here but leave it unconsumed, so the browser
+            // performs its own paste into the input element and the text
+            // arrives as an ordinary insertion delta.
+            return KeyEventResult.skipRemainingHandlers;
+          }
           paste();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyB:

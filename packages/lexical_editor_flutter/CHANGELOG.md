@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.11.1
+
+Requires `lexical_flutter` 1.11.1, which makes emoji from Raycast and other
+launchers, from the browser's paste and from the web's fallback font arrive in
+the editor. Its changelog has the details.
+
 ## 1.11.0
 
 Requires `lexical_core`, `lexical_flutter`, `lexical_image` and

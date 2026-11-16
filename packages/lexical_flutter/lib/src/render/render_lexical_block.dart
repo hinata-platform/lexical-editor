@@ -91,7 +91,8 @@ class ForeignSelection {
 class RenderLexicalBlock extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, TextParentData>,
-        RenderInlineChildrenContainerDefaults {
+        RenderInlineChildrenContainerDefaults,
+        RelayoutWhenSystemFontsChangeMixin {
   /// Creates a block render object.
   RenderLexicalBlock({
     required InlineSpan text,
@@ -117,6 +118,21 @@ class RenderLexicalBlock extends RenderBox
 
   final TextPainter _textPainter;
   List<ui.TextBox>? _placeholderBoxes;
+
+  /// Shapes the text again once the platform has new fonts.
+  ///
+  /// On the web no font on the page covers emoji. The engine fetches a
+  /// fallback font the first time a glyph needs one and announces it when it
+  /// arrives; until then the glyph is laid out as a missing-glyph box. A
+  /// painter that never hears the announcement keeps that layout, so an emoji
+  /// pasted or typed into the editor stayed a row of boxes until something
+  /// else about the block changed — `RenderParagraph` listens for exactly
+  /// this, and so does this block now.
+  @override
+  void systemFontsDidChange() {
+    super.systemFontsDidChange();
+    _textPainter.markNeedsLayout();
+  }
 
   /// The span tree being laid out.
   InlineSpan get text => _textPainter.text!;
