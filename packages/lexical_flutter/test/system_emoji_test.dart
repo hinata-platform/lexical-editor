@@ -95,6 +95,41 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  testWidgets(
+    'keys typed while the view itself lost focus stay out of the document',
+    (tester) async {
+      // On the web the view loses focus whenever DOM focus moves to an element
+      // outside it — an input in the host page, a password manager — and the
+      // framework parks focus on the root scope just as for an inactive app.
+      // The engine still hears every key typed there. None of them, not even
+      // the first, may reach the editor or pull focus back into it.
+      final editor = _editor('ab');
+      _clipboard(tester, _emoji);
+      await _pump(tester, editor);
+
+      tester.binding.handleViewFocusChanged(
+        ui.ViewFocusEvent(
+          viewId: tester.view.viewId,
+          state: ui.ViewFocusState.unfocused,
+          direction: ui.ViewFocusDirection.undefined,
+        ),
+      );
+      await tester.pump();
+      final manager = FocusManager.instance;
+      expect(manager.primaryFocus, manager.rootScope, reason: 'parked');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(_text(editor), 'ab');
+      expect(manager.primaryFocus, manager.rootScope);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   testWidgets('a key is not taken from whatever got focus in the meantime', (
     tester,
   ) async {

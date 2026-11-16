@@ -474,7 +474,7 @@ class LexicalEditableState extends State<LexicalEditable> {
       _scheduleGeometryUpdate();
       _restartBlink();
     } else {
-      if (_focusIsParked) _park();
+      if (_parkedForLifecycle) _park();
       _input.detach();
       _blinkTimer?.cancel();
       _caretVisible = false;
@@ -488,11 +488,10 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   /// Whether this editor had focus when the framework parked it.
   ///
-  /// When the application stops being the active one, or its window stops
-  /// being the key window, the framework moves focus to the root scope and
-  /// gives it back once the window is active again. Giving it back is not
-  /// immediate: it waits for the focus manager's next update, and on macOS a
-  /// key event can arrive first.
+  /// When the application stops being the active one, the framework moves
+  /// focus to the root scope and gives it back once the application is
+  /// resumed. Giving it back is not immediate: it waits for the focus
+  /// manager's next update, and on macOS a key event can arrive first.
   ///
   /// That is exactly what a launcher's paste looks like. Raycast's emoji
   /// picker, Alfred and the like write to the pasteboard, hand activation
@@ -501,13 +500,29 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// the key-up found the editor again. Nothing was pasted, every time.
   bool _focusParked = false;
 
-  /// Whether focus currently sits on the root scope, which is where the
-  /// framework parks it and nowhere a widget ever puts it on purpose: an
-  /// `unfocus` lands on the nearest enclosing scope, a tap elsewhere on
-  /// whatever was tapped.
+  /// Whether focus currently sits on the root scope.
+  ///
+  /// That alone does not say why. The framework puts it there when the
+  /// application goes inactive, and also when the view itself loses focus —
+  /// on the web, whenever DOM focus moves to an element outside the view.
   static bool get _focusIsParked {
     final manager = FocusManager.instance;
     return manager.primaryFocus == manager.rootScope;
+  }
+
+  /// Whether focus was just parked because the application went inactive,
+  /// which is the one case keys are taken for.
+  ///
+  /// Never on the web. There the view loses focus whenever DOM focus moves to
+  /// an element outside it — an input in the host page, a password manager's
+  /// field — and the engine still hears every key typed there. Taking those
+  /// would pull the first one, and then focus, into the document while the
+  /// user is typing somewhere else, a password included. A browser does not
+  /// post a launcher's ⌘V into a page that is not focused anyway.
+  static bool get _parkedForLifecycle {
+    if (kIsWeb || !_focusIsParked) return false;
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state != null && state != AppLifecycleState.resumed;
   }
 
   void _park() {
