@@ -51,8 +51,18 @@ const LexicalCommand<void> pasteCommand = LexicalCommand('PASTE');
 /// A `pasteCommand` handler still gets the first word, on the web as
 /// everywhere. The context menu's paste button is a click, not a key, and
 /// keeps reading the clipboard itself.
-@visibleForTesting
-bool browserPastesNatively = kIsWeb;
+bool get _browserPastesNatively {
+  bool? override;
+  assert(() {
+    override = debugBrowserPastesNativelyOverride;
+    return true;
+  }());
+  return override ?? kIsWeb;
+}
+
+/// Overrides whether ⌘V / Ctrl+V is left to the browser, for tests on a
+/// platform that is not the web. Honoured in debug builds only.
+bool? debugBrowserPastesNativelyOverride;
 
 /// What the Tab key does.
 enum TabBehaviour {
@@ -392,7 +402,7 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   @override
   void dispose() {
-    _unpark();
+    _disarm();
     _blinkTimer?.cancel();
     _overlay?.dispose();
     _overlay = null;
@@ -468,13 +478,15 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   void _onFocusChanged() {
     if (_focusNode.hasFocus) {
-      _unpark();
+      _disarm();
+      _hadPrimaryFocus = _focusNode.hasPrimaryFocus;
       _ensureCaret();
       _input.attach();
       _scheduleGeometryUpdate();
       _restartBlink();
     } else {
-      if (_focusIsParked) _park();
+      if (_hadPrimaryFocus && _parkedForLifecycle) _arm();
+      _hadPrimaryFocus = false;
       _input.detach();
       _blinkTimer?.cancel();
       _caretVisible = false;
@@ -486,57 +498,117 @@ class LexicalEditableState extends State<LexicalEditable> {
   // Keys that arrive while focus is parked
   // -------------------------------------------------------------------
 
-  /// Whether this editor had focus when the framework parked it.
+  /// Whether this editor had primary focus when the framework parked it.
   ///
-  /// When the application stops being the active one, or its window stops
-  /// being the key window, the framework moves focus to the root scope and
-  /// gives it back once the window is active again. Giving it back is not
-  /// immediate: it waits for the focus manager's next update, and on macOS a
-  /// key event can arrive first.
+  /// When the application stops being the active one, the framework moves
+  /// focus to the root scope and gives it back once the application is
+  /// resumed. Giving it back is not immediate: it waits for the focus
+  /// manager's next update, and on macOS a key event can arrive first.
   ///
   /// That is exactly what a launcher's paste looks like. Raycast's emoji
   /// picker, Alfred and the like write to the pasteboard, hand activation
   /// back and post ⌘V straight away. The key-down landed while nothing had
   /// focus, went unhandled, and reached the input method as `noop:`; only
   /// the key-up found the editor again. Nothing was pasted, every time.
-  bool _focusParked = false;
+  bool _armedForParkedKeys = false;
 
-  /// Whether focus currently sits on the root scope, which is where the
-  /// framework parks it and nowhere a widget ever puts it on purpose: an
-  /// `unfocus` lands on the nearest enclosing scope, a tap elsewhere on
-  /// whatever was tapped.
-  static bool get _focusIsParked {
+  /// Whether the editor itself, not something inside it, had focus last.
+  ///
+  /// The editor's node also reports focus while a widget inside the document
+  /// has it — an image caption is a text field of its own. A key meant for
+  /// that field must not land in the body, so only the editor's own focus is
+  /// parked for. Its node hears about every change of primary focus beneath
+  /// it, so this stays current.
+  bool _hadPrimaryFocus = false;
+
+  /// Whether focus currently sits on the root scope.
+  ///
+  /// That alone does not say why. The framework puts it there when the
+  /// application goes inactive, and also when the view itself loses focus —
+  /// on the web, whenever DOM focus moves to an element outside the view.
+  static bool get _primaryFocusIsRootScope {
     final manager = FocusManager.instance;
     return manager.primaryFocus == manager.rootScope;
   }
 
-  void _park() {
-    if (_focusParked) return;
-    _focusParked = true;
-    HardwareKeyboard.instance.addHandler(_onKeyWhileParked);
+  /// Whether focus was just parked because the application went inactive,
+  /// which is the one case keys are taken for.
+  ///
+  /// Never on the web. There the view loses focus whenever DOM focus moves to
+  /// an element outside it — an input in the host page, a password manager's
+  /// field — and the engine still hears every key typed there. Taking those
+  /// would pull the first one, and then focus, into the document while the
+  /// user is typing somewhere else, a password included. A browser does not
+  /// post a launcher's ⌘V into a page that is not focused anyway.
+  static bool get _parkedForLifecycle {
+    if (kIsWeb || !_primaryFocusIsRootScope) return false;
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state != null && state != AppLifecycleState.resumed;
   }
 
-  void _unpark() {
-    if (!_focusParked) return;
-    _focusParked = false;
-    HardwareKeyboard.instance.removeHandler(_onKeyWhileParked);
+  AppLifecycleListener? _parkedLifecycle;
+
+  void _arm() {
+    if (_armedForParkedKeys) return;
+    _armedForParkedKeys = true;
+    HardwareKeyboard.instance.addHandler(_onKeyWhileParked);
+    FocusManager.instance.addListener(_onPrimaryFocusWhileParked);
+    _parkedLifecycle = AppLifecycleListener(onResume: _onResumedWhileParked);
   }
+
+  void _disarm() {
+    if (!_armedForParkedKeys) return;
+    _armedForParkedKeys = false;
+    HardwareKeyboard.instance.removeHandler(_onKeyWhileParked);
+    FocusManager.instance.removeListener(_onPrimaryFocusWhileParked);
+    _parkedLifecycle?.dispose();
+    _parkedLifecycle = null;
+  }
+
+  /// Gives up the moment focus lands anywhere but the root scope: on this
+  /// editor, which is the normal end, or on anything else, which then owns
+  /// the keys.
+  void _onPrimaryFocusWhileParked() {
+    if (!_primaryFocusIsRootScope) _disarm();
+  }
+
+  /// Gives up once resuming has had its chance to hand focus back.
+  ///
+  /// The framework asks for focus on resume and applies it at its next
+  /// update; a key arriving in between is the one this exists for, so the
+  /// keys stay taken until the frame after. If focus is still parked by
+  /// then, the framework declined to restore it — something else had asked
+  /// for focus meanwhile — and the editor has no claim left.
+  void _onResumedWhileParked() {
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      if (mounted) _disarm();
+    }, debugLabel: 'LexicalEditable.parkedKeys');
+    binding.ensureVisualUpdate();
+  }
+
+  /// Whether keys that arrive while focus is parked are taken right now.
+  @visibleForTesting
+  bool get debugTakesParkedKeys => _armedForParkedKeys;
 
   /// Takes a key-down that arrived before the framework handed focus back.
   ///
-  /// The framework is about to give focus to this editor anyway — it is the
-  /// node it parked — so the key is handled as the editor would have handled
-  /// it a few milliseconds later, and focus is asked for now rather than
-  /// then. Anything that took focus in the meantime has a claim of its own,
-  /// and the key is left alone.
+  /// The framework is about to give focus back to this editor — its node is
+  /// the one that had primary focus — so the key is handled as the editor
+  /// would have handled it a few milliseconds later. If the editor takes it,
+  /// focus is asked for now rather than then. Anything that took focus in the
+  /// meantime has a claim of its own, and the key is left alone.
   bool _onKeyWhileParked(KeyEvent event) {
-    if (!mounted || !_focusIsParked) {
-      _unpark();
+    if (!mounted || !_primaryFocusIsRootScope) {
+      _disarm();
       return false;
     }
     if (event is! KeyDownEvent) return false;
-    _focusNode.requestFocus();
-    return _onKeyEvent(_focusNode, event) == KeyEventResult.handled;
+    // Focus follows only a key the editor actually took. Escape, a global
+    // shortcut or a bare modifier is not a reason to pull focus in early.
+    final handled = _onKeyEvent(_focusNode, event) == KeyEventResult.handled;
+    if (handled) _focusNode.requestFocus();
+    return handled;
   }
 
   /// Focuses the editor and shows the software keyboard.
@@ -1265,6 +1337,11 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// half that has the gap, so it is asked only here and only on macOS.
   bool get _commandFlagOnEvent {
     if (defaultTargetPlatform != TargetPlatform.macOS) return false;
+    // TODO(rebar): Remove once the macOS engine turns a side-less
+    // NSEventModifierFlagCommand into a Meta key for HardwareKeyboard, or
+    // RawKeyboard goes away — whichever comes first. The upstream report is
+    // still a draft: "[macOS] ⌘V posted by another app (Raycast, Alfred,
+    // clipboard managers) never pastes into a TextField".
     // ignore: deprecated_member_use
     final pressed = RawKeyboard.instance.keysPressed;
     return pressed.contains(LogicalKeyboardKey.metaLeft) ||
@@ -1331,7 +1408,7 @@ class LexicalEditableState extends State<LexicalEditable> {
           cut();
           return KeyEventResult.handled;
         case LogicalKeyboardKey.keyV:
-          if (browserPastesNatively) {
+          if (_browserPastesNatively) {
             if (editor.dispatchCommand(pasteCommand, null)) {
               return KeyEventResult.handled;
             }

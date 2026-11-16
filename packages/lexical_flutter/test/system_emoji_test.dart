@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_core/lexical_core.dart';
 import 'package:lexical_flutter/lexical_flutter.dart';
 import 'package:lexical_flutter/src/widgets/lexical_editable.dart'
-    show browserPastesNatively;
+    show debugBrowserPastesNativelyOverride;
 
 const _emoji = '✅😊☀️❤️👨‍👩‍👧';
 
@@ -36,10 +36,48 @@ String _text(LexicalEditor editor) =>
     editor.read(() => $getRoot().getTextContent());
 
 /// Serves [text] to `Clipboard.getData` for the rest of the test.
-void _clipboard(WidgetTester tester, String text) {
+/// Serves [text] to `Clipboard.getData` and returns how often it was read.
+int Function() _clipboard(WidgetTester tester, String text) {
+  var reads = 0;
   tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
     SystemChannels.platform,
-    (call) async => call.method == 'Clipboard.getData' ? {'text': text} : null,
+    (call) async {
+      if (call.method != 'Clipboard.getData') return null;
+      reads++;
+      return {'text': text};
+    },
+  );
+  return () => reads;
+}
+
+/// Sends one V event exactly as the macOS engine hands it over — key data,
+/// then the raw message carrying the event's [modifiers] — without yielding,
+/// so nothing scheduled before it gets to run first.
+void _sendV(WidgetTester tester, {required int modifiers, bool down = true}) {
+  // The engine's own entry point. Deprecated for apps, and the only way to
+  // hand the framework exactly the pair the engine hands it.
+  // ignore: deprecated_member_use
+  tester.binding.keyEventManager.handleKeyData(
+    ui.KeyData(
+      timeStamp: Duration.zero,
+      type: down ? ui.KeyEventType.down : ui.KeyEventType.up,
+      physical: PhysicalKeyboardKey.keyV.usbHidUsage,
+      logical: LogicalKeyboardKey.keyV.keyId,
+      character: down ? 'v' : null,
+      synthesized: false,
+    ),
+  );
+  tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+    SystemChannels.keyEvent.name,
+    SystemChannels.keyEvent.codec.encodeMessage(<String, Object?>{
+      'type': down ? 'keydown' : 'keyup',
+      'keymap': 'macos',
+      'keyCode': 9,
+      'characters': 'v',
+      'charactersIgnoringModifiers': 'v',
+      'modifiers': modifiers,
+    }),
+    (_) {},
   );
 }
 
@@ -73,27 +111,226 @@ void main() {
       // dispatched first. The key-down found nothing focused and went to the
       // input method as `noop:`; only the key-up reached the editor.
       final editor = _editor('ab');
-      _clipboard(tester, _emoji);
+      final reads = _clipboard(tester, _emoji);
       await _pump(tester, editor);
+      final state = _key.currentState!;
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await tester.pump();
       final manager = FocusManager.instance;
       expect(manager.primaryFocus, manager.rootScope, reason: 'parked');
+      expect(state.debugTakesParkedKeys, isTrue);
 
+      // Resume and the key in one turn, as they arrive from the engine: the
+      // framework has asked for focus back but not applied it yet. The event
+      // carries the side-less command flag only, as Raycast sends it.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(manager.primaryFocus, manager.rootScope, reason: 'still parked');
+      _sendV(tester, modifiers: 0x100000);
+      _sendV(tester, modifiers: 0x100000, down: false);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_text(editor), 'ab$_emoji');
+      expect(reads(), 1);
+      expect(manager.primaryFocus, isNot(manager.rootScope));
+      expect(
+        manager.primaryFocus?.context
+            ?.findAncestorStateOfType<LexicalEditableState>(),
+        same(state),
+      );
+      expect(state.debugTakesParkedKeys, isFalse);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'keys typed while the view itself lost focus stay out of the document',
+    (tester) async {
+      // On the web the view loses focus whenever DOM focus moves to an element
+      // outside it — an input in the host page, a password manager — and the
+      // framework parks focus on the root scope just as for an inactive app.
+      // The engine still hears every key typed there. None of them, not even
+      // the first, may reach the editor or pull focus back into it.
+      final editor = _editor('ab');
+      _clipboard(tester, _emoji);
+      await _pump(tester, editor);
+
+      tester.binding.handleViewFocusChanged(
+        ui.ViewFocusEvent(
+          viewId: tester.view.viewId,
+          state: ui.ViewFocusState.unfocused,
+          direction: ui.ViewFocusDirection.undefined,
+        ),
+      );
+      await tester.pump();
+      final manager = FocusManager.instance;
+      expect(manager.primaryFocus, manager.rootScope, reason: 'parked');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(_text(editor), 'ab');
+      expect(manager.primaryFocus, manager.rootScope);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'a key for a field inside the document does not land in the body',
+    (tester) async {
+      // An image caption is a text field of its own, inside the editor. The
+      // editor's node reports focus while the caption has it, and a paste
+      // meant for the caption must not go into the body.
+      final editor = _editor('ab');
+      _clipboard(tester, _emoji);
+      final editorFocus = FocusNode();
+      final caption = FocusNode();
+      addTearDown(editorFocus.dispose);
+      addTearDown(caption.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LexicalEditable(
+              key: _key,
+              editor: editor,
+              focusNode: editorFocus,
+              autofocus: true,
+              scrollable: false,
+              cursorBlinkInterval: Duration.zero,
+              theme: const LexicalTheme(
+                baseTextStyle: TextStyle(fontSize: 14, height: 1.4),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final attachment = caption.attach(_key.currentContext);
+      addTearDown(attachment.detach);
+      attachment.reparent(parent: editorFocus);
+      caption.requestFocus();
+      await tester.pump();
+      expect(editorFocus.hasFocus, isTrue);
+      expect(editorFocus.hasPrimaryFocus, isFalse);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
       await tester.pump();
-      expect(_text(editor), 'ab$_emoji');
+
+      expect(_text(editor), 'ab');
+      expect(editorFocus.hasPrimaryFocus, isFalse);
 
       await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
-      expect(_key.currentState!.mounted, isTrue);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+
+  testWidgets(
+    'focus that lands elsewhere while the app is inactive ends the claim',
+    (tester) async {
+      // Focus moved on while the app was inactive; when it is parked again
+      // later, the editor has no claim on what is typed.
+      final editor = _editor('ab');
+      _clipboard(tester, _emoji);
+      final other = FocusNode();
+      addTearDown(other.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Focus(focusNode: other, child: const SizedBox(height: 10)),
+                LexicalEditable(
+                  key: _key,
+                  editor: editor,
+                  autofocus: true,
+                  scrollable: false,
+                  cursorBlinkInterval: Duration.zero,
+                  theme: const LexicalTheme(
+                    baseTextStyle: TextStyle(fontSize: 14, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final state = _key.currentState!;
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(state.debugTakesParkedKeys, isTrue);
+
+      other.requestFocus();
+      await tester.pump();
+      expect(state.debugTakesParkedKeys, isFalse);
+
+      FocusManager.instance.rootScope.requestScopeFocus();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(_text(editor), 'ab');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('an editor disposed while parked lets go of the keyboard', (
+    tester,
+  ) async {
+    final editor = _editor('ab');
+    _clipboard(tester, _emoji);
+    await _pump(tester, editor);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(_key.currentState!.debugTakesParkedKeys, isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(_text(editor), 'ab');
+    expect(tester.takeException(), isNull);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a key the editor does not take does not pull focus in', (
+    tester,
+  ) async {
+    final editor = _editor('ab');
+    await _pump(tester, editor);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+
+    final manager = FocusManager.instance;
+    expect(manager.primaryFocus, manager.rootScope);
+    expect(_key.currentState!.debugTakesParkedKeys, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a key is not taken from whatever got focus in the meantime', (
     tester,
@@ -154,41 +391,11 @@ void main() {
     _clipboard(tester, _emoji);
     await _pump(tester, editor);
 
-    // The engine's own entry point. Deprecated for apps, and the only way
-    // to hand the framework exactly the pair the engine hands it.
-    // ignore: deprecated_member_use
-    final manager = tester.binding.keyEventManager;
-    Future<void> send(ui.KeyEventType type, String rawType) async {
-      // ignore: deprecated_member_use
-      manager.handleKeyData(
-        ui.KeyData(
-          timeStamp: Duration.zero,
-          type: type,
-          physical: PhysicalKeyboardKey.keyV.usbHidUsage,
-          logical: LogicalKeyboardKey.keyV.keyId,
-          character: type == ui.KeyEventType.down ? 'v' : null,
-          synthesized: false,
-        ),
-      );
-      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-        SystemChannels.keyEvent.name,
-        SystemChannels.keyEvent.codec.encodeMessage(<String, Object?>{
-          'type': rawType,
-          'keymap': 'macos',
-          'keyCode': 9,
-          'characters': 'v',
-          'charactersIgnoringModifiers': 'v',
-          'modifiers': 0x100000,
-        }),
-        (_) {},
-      );
-    }
-
-    await send(ui.KeyEventType.down, 'keydown');
+    _sendV(tester, modifiers: 0x100000);
     expect(HardwareKeyboard.instance.isMetaPressed, isFalse);
     await tester.pump();
     expect(_text(editor), 'ab$_emoji');
-    await send(ui.KeyEventType.up, 'keyup');
+    _sendV(tester, modifiers: 0x100000, down: false);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
@@ -228,8 +435,8 @@ void main() {
     // and a "Paste" bubble per paste in Safari; a refused prompt pasted
     // nothing at all. The browser's own paste needs neither, so the key is
     // left unconsumed and the text comes back as an insertion delta.
-    browserPastesNatively = true;
-    addTearDown(() => browserPastesNatively = false);
+    debugBrowserPastesNativelyOverride = true;
+    addTearDown(() => debugBrowserPastesNativelyOverride = null);
     var reads = 0;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
