@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.11.1
+
+**Emoji from Raycast and other launchers arrive.** A launcher's paste — Raycast's
+emoji picker, Alfred, a clipboard manager — writes to the pasteboard and posts
+⌘V straight into the front app. On macOS that key-down landed while the
+framework still had focus parked from the launcher's panel, and it carried only
+the side-less command flag, which the engine does not turn into a ⌘ key for
+`HardwareKeyboard`. Either was enough to drop the paste. The editor now takes a
+key that arrives before focus is back, and reads ⌘ off the event itself.
+
+**⌘V on the web is the browser's paste.** Reading the clipboard from script
+needs a permission prompt in Chrome and a "Paste" bubble per paste in Safari,
+and a refused prompt pasted nothing. The key is now left to the browser, whose
+paste needs neither and arrives as an insertion delta. A `pasteCommand` handler
+still runs first; the context menu keeps reading the clipboard.
+
+**Emoji are drawn once their font has loaded.** On the web the engine fetches a
+fallback font for emoji on first use. A block never relaid its text when the
+font arrived, so emoji stayed missing-glyph boxes.
+
+**The input window keeps surrogate pairs whole.** In a block longer than twice
+the window radius an edge of the slice handed to the platform could split an
+emoji, and the platform's deltas were then dropped as stale.
+
 ## 1.11.0
 
 Requires `lexical_core` 1.11.0.
