@@ -577,25 +577,28 @@ class LexicalEditableState extends State<LexicalEditable> {
     binding.ensureVisualUpdate();
   }
 
-  /// Takes a key-down that arrived before the framework handed focus back.
-  ///
-  /// The framework is about to give focus back to this editor — its node is
-  /// the one that had primary focus — so the key is handled as the editor
-  /// would have handled it a few milliseconds later, and focus is asked for
-  /// now rather than then. Anything that took focus in the meantime has a
-  /// claim of its own, and the key is left alone.
   /// Whether keys that arrive while focus is parked are taken right now.
   @visibleForTesting
   bool get debugTakesParkedKeys => _focusParked;
 
+  /// Takes a key-down that arrived before the framework handed focus back.
+  ///
+  /// The framework is about to give focus back to this editor — its node is
+  /// the one that had primary focus — so the key is handled as the editor
+  /// would have handled it a few milliseconds later. If the editor takes it,
+  /// focus is asked for now rather than then. Anything that took focus in the
+  /// meantime has a claim of its own, and the key is left alone.
   bool _onKeyWhileParked(KeyEvent event) {
     if (!mounted || !_focusIsParked) {
       _unpark();
       return false;
     }
     if (event is! KeyDownEvent) return false;
-    _focusNode.requestFocus();
-    return _onKeyEvent(_focusNode, event) == KeyEventResult.handled;
+    // Focus follows only a key the editor actually took. Escape, a global
+    // shortcut or a bare modifier is not a reason to pull focus in early.
+    final handled = _onKeyEvent(_focusNode, event) == KeyEventResult.handled;
+    if (handled) _focusNode.requestFocus();
+    return handled;
   }
 
   /// Focuses the editor and shows the software keyboard.

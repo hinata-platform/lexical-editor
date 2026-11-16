@@ -263,6 +263,26 @@ void main() {
     await tester.pump();
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('a key the editor does not take does not pull focus in', (
+    tester,
+  ) async {
+    final editor = _editor('ab');
+    await _pump(tester, editor);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+
+    final manager = FocusManager.instance;
+    expect(manager.primaryFocus, manager.rootScope);
+    expect(_key.currentState!.debugTakesParkedKeys, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('a key is not taken from whatever got focus in the meantime', (
     tester,
   ) async {
