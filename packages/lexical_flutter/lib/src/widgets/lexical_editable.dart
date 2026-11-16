@@ -469,12 +469,14 @@ class LexicalEditableState extends State<LexicalEditable> {
   void _onFocusChanged() {
     if (_focusNode.hasFocus) {
       _unpark();
+      _hadPrimaryFocus = _focusNode.hasPrimaryFocus;
       _ensureCaret();
       _input.attach();
       _scheduleGeometryUpdate();
       _restartBlink();
     } else {
-      if (_parkedForLifecycle) _park();
+      if (_hadPrimaryFocus && _parkedForLifecycle) _park();
+      _hadPrimaryFocus = false;
       _input.detach();
       _blinkTimer?.cancel();
       _caretVisible = false;
@@ -486,7 +488,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   // Keys that arrive while focus is parked
   // -------------------------------------------------------------------
 
-  /// Whether this editor had focus when the framework parked it.
+  /// Whether this editor had primary focus when the framework parked it.
   ///
   /// When the application stops being the active one, the framework moves
   /// focus to the root scope and gives it back once the application is
@@ -499,6 +501,15 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// focus, went unhandled, and reached the input method as `noop:`; only
   /// the key-up found the editor again. Nothing was pasted, every time.
   bool _focusParked = false;
+
+  /// Whether the editor itself, not something inside it, had focus last.
+  ///
+  /// The editor's node also reports focus while a widget inside the document
+  /// has it — an image caption is a text field of its own. A key meant for
+  /// that field must not land in the body, so only the editor's own focus is
+  /// parked for. Its node hears about every change of primary focus beneath
+  /// it, so this stays current.
+  bool _hadPrimaryFocus = false;
 
   /// Whether focus currently sits on the root scope.
   ///
@@ -539,11 +550,11 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   /// Takes a key-down that arrived before the framework handed focus back.
   ///
-  /// The framework is about to give focus to this editor anyway — it is the
-  /// node it parked — so the key is handled as the editor would have handled
-  /// it a few milliseconds later, and focus is asked for now rather than
-  /// then. Anything that took focus in the meantime has a claim of its own,
-  /// and the key is left alone.
+  /// The framework is about to give focus back to this editor — its node is
+  /// the one that had primary focus — so the key is handled as the editor
+  /// would have handled it a few milliseconds later, and focus is asked for
+  /// now rather than then. Anything that took focus in the meantime has a
+  /// claim of its own, and the key is left alone.
   bool _onKeyWhileParked(KeyEvent event) {
     if (!mounted || !_focusIsParked) {
       _unpark();

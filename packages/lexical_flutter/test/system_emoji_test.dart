@@ -130,6 +130,61 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  testWidgets(
+    'a key for a field inside the document does not land in the body',
+    (tester) async {
+      // An image caption is a text field of its own, inside the editor. The
+      // editor's node reports focus while the caption has it, and a paste
+      // meant for the caption must not go into the body.
+      final editor = _editor('ab');
+      _clipboard(tester, _emoji);
+      final editorFocus = FocusNode();
+      final caption = FocusNode();
+      addTearDown(editorFocus.dispose);
+      addTearDown(caption.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LexicalEditable(
+              key: _key,
+              editor: editor,
+              focusNode: editorFocus,
+              autofocus: true,
+              scrollable: false,
+              cursorBlinkInterval: Duration.zero,
+              theme: const LexicalTheme(
+                baseTextStyle: TextStyle(fontSize: 14, height: 1.4),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final attachment = caption.attach(_key.currentContext);
+      addTearDown(attachment.detach);
+      attachment.reparent(parent: editorFocus);
+      caption.requestFocus();
+      await tester.pump();
+      expect(editorFocus.hasFocus, isTrue);
+      expect(editorFocus.hasPrimaryFocus, isFalse);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.pump();
+
+      expect(_text(editor), 'ab');
+      expect(editorFocus.hasPrimaryFocus, isFalse);
+
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   testWidgets('a key is not taken from whatever got focus in the meantime', (
     tester,
   ) async {
