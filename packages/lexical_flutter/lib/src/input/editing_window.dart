@@ -165,6 +165,16 @@ EditingWindow? $buildEditingWindow({
     }
   }
 
+  // A window edge that falls between the two halves of a surrogate pair
+  // would hand the platform half an emoji. The channel encodes the value as
+  // UTF-8, where a lone surrogate has no encoding and becomes U+FFFD, so the
+  // platform would then hold a text that differs from ours — and every delta
+  // it computes against that text is dropped as stale. Edges move outwards to
+  // keep the pair whole.
+  final flat = offsets.flatText;
+  if (start > 0 && _isLowSurrogate(flat.codeUnitAt(start))) start--;
+  if (end < length && _isLowSurrogate(flat.codeUnitAt(end))) end++;
+
   final hasPrefix = start == 0 && $getPreviousBlock(block) != null;
   final hasSuffix = end == length && $getNextBlock(block) != null;
   final prefixLength = hasPrefix ? 1 : 0;
@@ -206,6 +216,8 @@ EditingWindow? $buildEditingWindow({
     hasSuffix: hasSuffix,
   );
 }
+
+bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
 
 TextRange _clampComposing(TextRange composing, int length) {
   if (!composing.isValid) return TextRange.empty;

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lexical_core/lexical_core.dart';
@@ -102,6 +104,26 @@ void main() {
       expect(input.lastKnownValue.text.length, 1024);
       // The caret still lands where the model says it is, in window terms.
       expect(input.lastKnownValue.selection.baseOffset, 512);
+    });
+
+    test('never cuts an emoji in half at a window edge', () {
+      // Each emoji is two code units. With this caret and radius both edges
+      // of the window fall between the halves of a pair, and the platform
+      // would be handed half an emoji at either end.
+      final editor = _editor();
+      _seed(editor, ['x${'😊' * 3000}']);
+      _caret(editor, 0, 3001);
+      final input = LexicalInput(editor: editor, windowRadius: 511)
+        ..primeForTesting();
+      final text = input.lastKnownValue.text;
+      // The channel carries UTF-8; a lone surrogate would not survive it.
+      expect(utf8.decode(utf8.encode(text)), text);
+      expect(text, '😊' * 512);
+      expect(input.lastKnownValue.selection.baseOffset, 512);
+
+      // An emoji typed at the caret still lands where the model says.
+      input.applyDeltasForTesting([_insert(input, '❤️', 512)]);
+      expect(_blocks(editor).single.substring(2999, 3003), '😊❤️');
     });
   });
 
