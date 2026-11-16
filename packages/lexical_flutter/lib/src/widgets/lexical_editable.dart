@@ -392,7 +392,7 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   @override
   void dispose() {
-    _unpark();
+    _disarm();
     _blinkTimer?.cancel();
     _overlay?.dispose();
     _overlay = null;
@@ -468,14 +468,14 @@ class LexicalEditableState extends State<LexicalEditable> {
 
   void _onFocusChanged() {
     if (_focusNode.hasFocus) {
-      _unpark();
+      _disarm();
       _hadPrimaryFocus = _focusNode.hasPrimaryFocus;
       _ensureCaret();
       _input.attach();
       _scheduleGeometryUpdate();
       _restartBlink();
     } else {
-      if (_hadPrimaryFocus && _parkedForLifecycle) _park();
+      if (_hadPrimaryFocus && _parkedForLifecycle) _arm();
       _hadPrimaryFocus = false;
       _input.detach();
       _blinkTimer?.cancel();
@@ -500,7 +500,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// back and post ⌘V straight away. The key-down landed while nothing had
   /// focus, went unhandled, and reached the input method as `noop:`; only
   /// the key-up found the editor again. Nothing was pasted, every time.
-  bool _focusParked = false;
+  bool _armedForParkedKeys = false;
 
   /// Whether the editor itself, not something inside it, had focus last.
   ///
@@ -516,7 +516,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// That alone does not say why. The framework puts it there when the
   /// application goes inactive, and also when the view itself loses focus —
   /// on the web, whenever DOM focus moves to an element outside the view.
-  static bool get _focusIsParked {
+  static bool get _primaryFocusIsRootScope {
     final manager = FocusManager.instance;
     return manager.primaryFocus == manager.rootScope;
   }
@@ -531,24 +531,24 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// user is typing somewhere else, a password included. A browser does not
   /// post a launcher's ⌘V into a page that is not focused anyway.
   static bool get _parkedForLifecycle {
-    if (kIsWeb || !_focusIsParked) return false;
+    if (kIsWeb || !_primaryFocusIsRootScope) return false;
     final state = WidgetsBinding.instance.lifecycleState;
     return state != null && state != AppLifecycleState.resumed;
   }
 
   AppLifecycleListener? _parkedLifecycle;
 
-  void _park() {
-    if (_focusParked) return;
-    _focusParked = true;
+  void _arm() {
+    if (_armedForParkedKeys) return;
+    _armedForParkedKeys = true;
     HardwareKeyboard.instance.addHandler(_onKeyWhileParked);
     FocusManager.instance.addListener(_onPrimaryFocusWhileParked);
     _parkedLifecycle = AppLifecycleListener(onResume: _onResumedWhileParked);
   }
 
-  void _unpark() {
-    if (!_focusParked) return;
-    _focusParked = false;
+  void _disarm() {
+    if (!_armedForParkedKeys) return;
+    _armedForParkedKeys = false;
     HardwareKeyboard.instance.removeHandler(_onKeyWhileParked);
     FocusManager.instance.removeListener(_onPrimaryFocusWhileParked);
     _parkedLifecycle?.dispose();
@@ -559,7 +559,7 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// editor, which is the normal end, or on anything else, which then owns
   /// the keys.
   void _onPrimaryFocusWhileParked() {
-    if (!_focusIsParked) _unpark();
+    if (!_primaryFocusIsRootScope) _disarm();
   }
 
   /// Gives up once resuming has had its chance to hand focus back.
@@ -572,14 +572,14 @@ class LexicalEditableState extends State<LexicalEditable> {
   void _onResumedWhileParked() {
     final binding = WidgetsBinding.instance;
     binding.addPostFrameCallback((_) {
-      if (mounted) _unpark();
+      if (mounted) _disarm();
     }, debugLabel: 'LexicalEditable.parkedKeys');
     binding.ensureVisualUpdate();
   }
 
   /// Whether keys that arrive while focus is parked are taken right now.
   @visibleForTesting
-  bool get debugTakesParkedKeys => _focusParked;
+  bool get debugTakesParkedKeys => _armedForParkedKeys;
 
   /// Takes a key-down that arrived before the framework handed focus back.
   ///
@@ -589,8 +589,8 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// focus is asked for now rather than then. Anything that took focus in the
   /// meantime has a claim of its own, and the key is left alone.
   bool _onKeyWhileParked(KeyEvent event) {
-    if (!mounted || !_focusIsParked) {
-      _unpark();
+    if (!mounted || !_primaryFocusIsRootScope) {
+      _disarm();
       return false;
     }
     if (event is! KeyDownEvent) return false;
