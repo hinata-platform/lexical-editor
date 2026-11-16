@@ -185,6 +185,84 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  testWidgets(
+    'focus that lands elsewhere while the app is inactive ends the claim',
+    (tester) async {
+      // Focus moved on while the app was inactive; when it is parked again
+      // later, the editor has no claim on what is typed.
+      final editor = _editor('ab');
+      _clipboard(tester, _emoji);
+      final other = FocusNode();
+      addTearDown(other.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Focus(focusNode: other, child: const SizedBox(height: 10)),
+                LexicalEditable(
+                  key: _key,
+                  editor: editor,
+                  autofocus: true,
+                  scrollable: false,
+                  cursorBlinkInterval: Duration.zero,
+                  theme: const LexicalTheme(
+                    baseTextStyle: TextStyle(fontSize: 14, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final state = _key.currentState!;
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(state.debugTakesParkedKeys, isTrue);
+
+      other.requestFocus();
+      await tester.pump();
+      expect(state.debugTakesParkedKeys, isFalse);
+
+      FocusManager.instance.rootScope.requestScopeFocus();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(_text(editor), 'ab');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('an editor disposed while parked lets go of the keyboard', (
+    tester,
+  ) async {
+    final editor = _editor('ab');
+    _clipboard(tester, _emoji);
+    await _pump(tester, editor);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(_key.currentState!.debugTakesParkedKeys, isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(_text(editor), 'ab');
+    expect(tester.takeException(), isNull);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('a key is not taken from whatever got focus in the meantime', (
     tester,
   ) async {

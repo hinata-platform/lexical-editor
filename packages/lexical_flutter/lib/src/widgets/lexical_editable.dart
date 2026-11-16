@@ -536,16 +536,45 @@ class LexicalEditableState extends State<LexicalEditable> {
     return state != null && state != AppLifecycleState.resumed;
   }
 
+  AppLifecycleListener? _parkedLifecycle;
+
   void _park() {
     if (_focusParked) return;
     _focusParked = true;
     HardwareKeyboard.instance.addHandler(_onKeyWhileParked);
+    FocusManager.instance.addListener(_onPrimaryFocusWhileParked);
+    _parkedLifecycle = AppLifecycleListener(onResume: _onResumedWhileParked);
   }
 
   void _unpark() {
     if (!_focusParked) return;
     _focusParked = false;
     HardwareKeyboard.instance.removeHandler(_onKeyWhileParked);
+    FocusManager.instance.removeListener(_onPrimaryFocusWhileParked);
+    _parkedLifecycle?.dispose();
+    _parkedLifecycle = null;
+  }
+
+  /// Gives up the moment focus lands anywhere but the root scope: on this
+  /// editor, which is the normal end, or on anything else, which then owns
+  /// the keys.
+  void _onPrimaryFocusWhileParked() {
+    if (!_focusIsParked) _unpark();
+  }
+
+  /// Gives up once resuming has had its chance to hand focus back.
+  ///
+  /// The framework asks for focus on resume and applies it at its next
+  /// update; a key arriving in between is the one this exists for, so the
+  /// keys stay taken until the frame after. If focus is still parked by
+  /// then, the framework declined to restore it — something else had asked
+  /// for focus meanwhile — and the editor has no claim left.
+  void _onResumedWhileParked() {
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      if (mounted) _unpark();
+    }, debugLabel: 'LexicalEditable.parkedKeys');
+    binding.ensureVisualUpdate();
   }
 
   /// Takes a key-down that arrived before the framework handed focus back.
@@ -555,6 +584,10 @@ class LexicalEditableState extends State<LexicalEditable> {
   /// would have handled it a few milliseconds later, and focus is asked for
   /// now rather than then. Anything that took focus in the meantime has a
   /// claim of its own, and the key is left alone.
+  /// Whether keys that arrive while focus is parked are taken right now.
+  @visibleForTesting
+  bool get debugTakesParkedKeys => _focusParked;
+
   bool _onKeyWhileParked(KeyEvent event) {
     if (!mounted || !_focusIsParked) {
       _unpark();
