@@ -36,10 +36,48 @@ String _text(LexicalEditor editor) =>
     editor.read(() => $getRoot().getTextContent());
 
 /// Serves [text] to `Clipboard.getData` for the rest of the test.
-void _clipboard(WidgetTester tester, String text) {
+/// Serves [text] to `Clipboard.getData` and returns how often it was read.
+int Function() _clipboard(WidgetTester tester, String text) {
+  var reads = 0;
   tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
     SystemChannels.platform,
-    (call) async => call.method == 'Clipboard.getData' ? {'text': text} : null,
+    (call) async {
+      if (call.method != 'Clipboard.getData') return null;
+      reads++;
+      return {'text': text};
+    },
+  );
+  return () => reads;
+}
+
+/// Sends one V event exactly as the macOS engine hands it over — key data,
+/// then the raw message carrying the event's [modifiers] — without yielding,
+/// so nothing scheduled before it gets to run first.
+void _sendV(WidgetTester tester, {required int modifiers, bool down = true}) {
+  // The engine's own entry point. Deprecated for apps, and the only way to
+  // hand the framework exactly the pair the engine hands it.
+  // ignore: deprecated_member_use
+  tester.binding.keyEventManager.handleKeyData(
+    ui.KeyData(
+      timeStamp: Duration.zero,
+      type: down ? ui.KeyEventType.down : ui.KeyEventType.up,
+      physical: PhysicalKeyboardKey.keyV.usbHidUsage,
+      logical: LogicalKeyboardKey.keyV.keyId,
+      character: down ? 'v' : null,
+      synthesized: false,
+    ),
+  );
+  tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+    SystemChannels.keyEvent.name,
+    SystemChannels.keyEvent.codec.encodeMessage(<String, Object?>{
+      'type': down ? 'keydown' : 'keyup',
+      'keymap': 'macos',
+      'keyCode': 9,
+      'characters': 'v',
+      'charactersIgnoringModifiers': 'v',
+      'modifiers': modifiers,
+    }),
+    (_) {},
   );
 }
 
@@ -73,24 +111,35 @@ void main() {
       // dispatched first. The key-down found nothing focused and went to the
       // input method as `noop:`; only the key-up reached the editor.
       final editor = _editor('ab');
-      _clipboard(tester, _emoji);
+      final reads = _clipboard(tester, _emoji);
       await _pump(tester, editor);
+      final state = _key.currentState!;
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await tester.pump();
       final manager = FocusManager.instance;
       expect(manager.primaryFocus, manager.rootScope, reason: 'parked');
+      expect(state.debugTakesParkedKeys, isTrue);
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
-      await tester.pump();
-      expect(_text(editor), 'ab$_emoji');
-
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      // Resume and the key in one turn, as they arrive from the engine: the
+      // framework has asked for focus back but not applied it yet. The event
+      // carries the side-less command flag only, as Raycast sends it.
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(manager.primaryFocus, manager.rootScope, reason: 'still parked');
+      _sendV(tester, modifiers: 0x100000);
+      _sendV(tester, modifiers: 0x100000, down: false);
       await tester.pump();
-      expect(_key.currentState!.mounted, isTrue);
+      await tester.pump();
+
+      expect(_text(editor), 'ab$_emoji');
+      expect(reads(), 1);
+      expect(manager.primaryFocus, isNot(manager.rootScope));
+      expect(
+        manager.primaryFocus?.context
+            ?.findAncestorStateOfType<LexicalEditableState>(),
+        same(state),
+      );
+      expect(state.debugTakesParkedKeys, isFalse);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
@@ -342,41 +391,11 @@ void main() {
     _clipboard(tester, _emoji);
     await _pump(tester, editor);
 
-    // The engine's own entry point. Deprecated for apps, and the only way
-    // to hand the framework exactly the pair the engine hands it.
-    // ignore: deprecated_member_use
-    final manager = tester.binding.keyEventManager;
-    Future<void> send(ui.KeyEventType type, String rawType) async {
-      // ignore: deprecated_member_use
-      manager.handleKeyData(
-        ui.KeyData(
-          timeStamp: Duration.zero,
-          type: type,
-          physical: PhysicalKeyboardKey.keyV.usbHidUsage,
-          logical: LogicalKeyboardKey.keyV.keyId,
-          character: type == ui.KeyEventType.down ? 'v' : null,
-          synthesized: false,
-        ),
-      );
-      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-        SystemChannels.keyEvent.name,
-        SystemChannels.keyEvent.codec.encodeMessage(<String, Object?>{
-          'type': rawType,
-          'keymap': 'macos',
-          'keyCode': 9,
-          'characters': 'v',
-          'charactersIgnoringModifiers': 'v',
-          'modifiers': 0x100000,
-        }),
-        (_) {},
-      );
-    }
-
-    await send(ui.KeyEventType.down, 'keydown');
+    _sendV(tester, modifiers: 0x100000);
     expect(HardwareKeyboard.instance.isMetaPressed, isFalse);
     await tester.pump();
     expect(_text(editor), 'ab$_emoji');
-    await send(ui.KeyEventType.up, 'keyup');
+    _sendV(tester, modifiers: 0x100000, down: false);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
