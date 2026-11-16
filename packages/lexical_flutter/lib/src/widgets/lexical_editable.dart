@@ -375,6 +375,9 @@ class LexicalEditableState extends State<LexicalEditable> {
     if (oldWidget.focusNode != widget.focusNode) {
       oldWidget.focusNode?.removeListener(_onFocusChanged);
       _focusNode.addListener(_onFocusChanged);
+      // The new node has not reported anything yet; what the old one said
+      // about primary focus no longer applies.
+      _hadPrimaryFocus = _focusNode.hasPrimaryFocus;
     }
     if (!identical(oldWidget.editor, widget.editor) ||
         oldWidget.readOnly != widget.readOnly ||
